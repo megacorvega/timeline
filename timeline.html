@@ -1,107 +1,30 @@
 <!DOCTYPE html>
-<html lang="en" class=""> <!-- Add class="dark" to test dark mode manually -->
+<html lang="en" class="">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project Timeline Dashboard</title>
+    <title>Project Progress Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <!-- Flatpickr CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script>
-        // Tailwind CSS Dark Mode configuration
-        tailwind.config = {
-            darkMode: 'class',
-        }
+        tailwind.config = { darkMode: 'class' }
     </script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #fdfaf6; /* Cream color for light mode */
-            transition: background-color 0.3s ease;
+            background-color: #f8fafc; /* Gray-50 */
         }
-        /* Dark mode styles */
         .dark body {
-            background-color: #111827; /* Gray-900 */
-        }
-        .task-card {
-            transition: all 0.3s ease;
-            position: relative;
-        }
-        #dependency-svg-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            overflow: visible;
-            z-index: 5;
-        }
-        .progress-bar-bg {
-            background-color: #e5e7eb; /* Gray-200 */
-        }
-        .dark .progress-bar-bg {
-             background-color: #374151; /* Gray-700 */
-        }
-        .progress-bar-fill {
-            transition: width 0.5s ease-in-out;
-        }
-        /* Custom styles for date picker to make it blend in */
-        .date-input-on-bar {
-            background-color: transparent;
-            border: none;
-            color: inherit;
-            font-family: 'Inter', sans-serif; /* Match the body font */
-            font-weight: 600;
-            padding: 0;
-            cursor: pointer;
-            width: 110px; /* Compacted width */
-        }
-        .date-input-on-bar:focus {
-            outline: none;
-            box-shadow: none;
-            ring: 0;
-        }
-        /* Style for the date picker icon to match text color */
-        .date-input-on-bar.light-text::-webkit-calendar-picker-indicator {
-            filter: brightness(0) invert(1); /* Makes it white */
-        }
-         .date-input-on-bar.dark-text::-webkit-calendar-picker-indicator {
-            filter: none; /* Default color */
-        }
-        .delete-btn {
-            font-size: 1.25rem; /* Compacted size */
-            line-height: 1;
-            font-weight: bold;
-        }
-        /* Custom Tooltip */
-        #custom-tooltip {
-            position: absolute;
-            visibility: hidden;
-            opacity: 0;
-            transition: opacity 0.2s;
-            background-color: #111827;
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            z-index: 10;
-            pointer-events: none;
-        }
-        .dark #custom-tooltip {
-            background-color: #f9fafb;
-            color: #111827;
-        }
-        /* For contenteditable elements */
-        [contenteditable] {
-            cursor: pointer;
+            background-color: #020617; /* Slate-950 */
         }
         [contenteditable]:focus {
-            outline: 2px solid #3b82f6; /* blue-500 */
+            outline: 2px solid #3b82f6;
             border-radius: 2px;
             background-color: rgba(59, 130, 246, 0.1);
-            cursor: text;
         }
-        /* Custom Checkbox */
         .custom-checkbox {
             appearance: none;
             background-color: #fff;
@@ -112,13 +35,14 @@
             cursor: pointer;
             position: relative;
             transition: background-color 0.2s;
+            flex-shrink: 0;
         }
         .dark .custom-checkbox {
             background-color: #374151;
             border-color: #4b5563;
         }
         .custom-checkbox:checked {
-            background-color: #16a34a; /* green-600 */
+            background-color: #16a34a;
             border-color: #16a34a;
         }
         .custom-checkbox:checked::after {
@@ -130,402 +54,374 @@
             transform: translate(-50%, -50%);
             font-size: 12px;
         }
-        /* Dependency Handles */
-        .dep-handle {
-            position: absolute;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            z-index: 6;
+        /* Modal Datepicker Styles */
+        .flatpickr-calendar {
+            z-index: 1000 !important;
+            position: fixed !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
         }
-        .dep-root {
-            left: -6px;
-            bottom: -6px;
-            background-color: #6b7280;
-            cursor: grab;
+        .chart-grid .domain { stroke: #cbd5e1; }
+        .dark .chart-grid .domain { stroke: #475569; }
+        .chart-grid .tick line { stroke: #e2e8f0; }
+        .dark .chart-grid .tick line { stroke: #334155; }
+        .chart-grid .tick text { fill: #64748b; font-size: 10px; }
+        .dark .chart-grid .tick text { fill: #94a3b8; }
+        .planned-line {
+            stroke: #9ca3af;
+            stroke-width: 2;
+            stroke-dasharray: 4, 4;
         }
-         .dep-root:hover {
-            background-color: #3b82f6;
+        .finish-line {
+            stroke: #ef4444; /* Red-500 */
+            stroke-width: 2;
         }
-        .dep-flower {
-            left: -6px;
-            top: -6px;
-            background-color: #cbd5e1;
-            border: 2px solid #6b7280;
+        .actual-line {
+            fill: none;
+            stroke-width: 3;
+            stroke-linecap: round;
         }
-        .task-row.drag-over .dep-flower {
-            background-color: #3b82f6;
-            border-color: #1d4ed8;
+        .projected-line {
+            fill: none;
+            stroke-width: 3;
+            stroke-linecap: round;
+            stroke-dasharray: 5, 5;
+        }
+        .actual-point {
+            r: 4;
+        }
+        .date-input {
+            background-color: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            padding: 2px 6px;
+            width: 100px;
+            cursor: pointer;
+        }
+        .dark .date-input {
+            background-color: #1e293b;
+            border-color: #334155;
+        }
+        /* Custom button for flatpickr */
+        .flatpickr-today-button {
+            background: #e5e7eb;
+            color: #374151;
+            border: none;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-weight: 600;
+            border-radius: 4px;
+        }
+        .dark .flatpickr-today-button {
+            background: #374151;
+            color: #e5e7eb;
+        }
+        .chevron {
+            transition: transform 0.2s;
         }
     </style>
 </head>
-<body class="antialiased text-gray-800 dark:text-gray-200">
-    <div id="custom-tooltip"></div>
+<body class="antialiased text-gray-900 dark:text-white">
+    <div id="datepicker-backdrop" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50"></div>
     <div class="container mx-auto p-4 sm:p-5">
         
         <header class="mb-6 flex justify-between items-start">
             <div>
-                <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Project Timeline Dashboard</h1>
-                <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Your data is saved automatically in this browser.</p>
+                <h1 class="text-2xl font-bold">Project Progress Dashboard</h1>
             </div>
             <div class="flex items-center gap-2">
-                 <!-- Import/Export Buttons -->
-                <button id="import-btn" class="px-3 py-1.5 text-xs font-semibold rounded-md bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600">Import</button>
-                <button id="export-btn" class="px-3 py-1.5 text-xs font-semibold rounded-md bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600">Export</button>
+                <button id="import-btn" class="px-3 py-1.5 text-xs font-semibold rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600">Import</button>
+                <button id="export-btn" class="px-3 py-1.5 text-xs font-semibold rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600">Export</button>
                 <input type="file" id="import-file-input" class="hidden" accept=".json">
-                <!-- Theme Toggle Button -->
-                <button id="theme-toggle" class="p-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+                <button id="theme-toggle" class="p-2 rounded-lg bg-gray-200 dark:bg-gray-700">
                     <svg id="theme-toggle-dark-icon" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
                     <svg id="theme-toggle-light-icon" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zM3 11a1 1 0 100-2H2a1 1 0 100 2h1z" fill-rule="evenodd" clip-rule="evenodd"></path></svg>
                 </button>
             </div>
         </header>
 
-        <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md mb-6">
-            <h2 class="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Add a New Project</h2>
-            <div class="flex flex-col sm:flex-row gap-3">
+        <div class="bg-white dark:bg-slate-900 p-4 rounded-xl shadow-md mb-6 border border-gray-200 dark:border-gray-800">
+            <h2 class="text-lg font-semibold mb-3">Add a New Project</h2>
+            <div class="flex flex-col sm:flex-row gap-3 items-center">
                 <input type="text" id="new-project-name" placeholder="Enter new project name..." class="flex-grow w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
-                <input type="date" id="new-project-start-date" class="w-full sm:w-auto px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" title="Project Start Date (Optional)">
-                <input type="date" id="new-project-date" class="w-full sm:w-auto px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" title="Project End Date (Optional)">
+                <input type="text" id="new-project-start-date" placeholder="Start Date" readonly class="date-input px-3 py-1.5 text-sm">
+                <input type="text" id="new-project-end-date" placeholder="End Date" readonly class="date-input px-3 py-1.5 text-sm">
                 <button id="add-project-btn" class="w-full sm:w-auto bg-blue-600 text-white font-semibold px-4 py-1.5 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-colors text-sm">
                     Add Project
                 </button>
             </div>
         </div>
 
-        <div id="projects-container" class="space-y-4">
+        <div id="projects-container" class="space-y-8">
             <!-- Project cards will be dynamically inserted here -->
         </div>
-
     </div>
-
+    
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
-        // --- STATE MANAGEMENT ---
+        // --- STATE & CONFIG ---
         let projects = [];
-        let draggedTaskId = null;
-        const colorPalette = [
-            'bg-sky-500', 'bg-indigo-500', 'bg-purple-500', 'bg-pink-500', 'bg-teal-500', 'bg-cyan-500', 
-            'bg-green-500', 'bg-lime-500', 'bg-yellow-500', 'bg-orange-500', 'bg-red-500', 'bg-fuchsia-500', 
-            'bg-rose-500', 'bg-blue-500', 'bg-violet-500', 'bg-emerald-500'
-        ];
-        const defaultProjects = [
-            {
-                id: 1, name: 'Website Redesign', startDate: '2025-09-01', endDate: '', completed: false, tasks: [
-                    { 
-                        id: 11, name: 'Design Phase', startDate: '2025-09-01', endDate: '', completed: false, dependencies: [], subtasks: [
-                            { id: 111, name: 'Mockups', startDate: '2025-09-01', endDate: '2025-09-15', completed: false},
-                            { id: 112, name: 'Prototypes', startDate: '2025-09-16', endDate: '2025-09-30', completed: false},
-                        ] 
-                    },
-                    { id: 12, name: 'Development Phase', startDate: '2025-10-01', endDate: '2025-10-20', completed: false, dependencies: [11], subtasks: [] },
-                    { id: 13, name: 'Deployment', startDate: '2025-10-21', endDate: '2025-10-25', completed: false, dependencies: [12], subtasks: [] },
-                ]
-            },
-            { id: 2, name: 'Q4 Marketing Campaign', startDate: '2025-10-01', endDate: '2025-11-01', completed: false, tasks: [] },
-        ];
+        let sharedPicker = null;
+        let currentPickerContext = null;
+        const colorPalette = {
+            'sky': 'stroke-sky-500 fill-sky-500', 'indigo': 'stroke-indigo-500 fill-indigo-500', 'purple': 'stroke-purple-500 fill-purple-500', 
+            'pink': 'stroke-pink-500 fill-pink-500', 'teal': 'stroke-teal-500 fill-teal-500', 'cyan': 'stroke-cyan-500 fill-cyan-500', 
+            'green': 'stroke-green-500 fill-green-500', 'lime': 'stroke-lime-500 fill-lime-500', 'yellow': 'stroke-yellow-500 fill-yellow-500', 
+            'orange': 'stroke-orange-500 fill-orange-500', 'red': 'stroke-red-500 fill-red-500', 'fuchsia': 'stroke-fuchsia-500 fill-fuchsia-500'
+        };
+        const colorNames = Object.keys(colorPalette);
+        const defaultProjects = [];
 
         // --- DOM ELEMENTS ---
         const projectsContainer = document.getElementById('projects-container');
         const addProjectBtn = document.getElementById('add-project-btn');
         const newProjectNameInput = document.getElementById('new-project-name');
-        const newProjectStartDateInput = document.getElementById('new-project-start-date');
-        const newProjectDateInput = document.getElementById('new-project-date');
         const themeToggleBtn = document.getElementById('theme-toggle');
         const darkIcon = document.getElementById('theme-toggle-dark-icon');
         const lightIcon = document.getElementById('theme-toggle-light-icon');
         const importBtn = document.getElementById('import-btn');
         const exportBtn = document.getElementById('export-btn');
         const importFileInput = document.getElementById('import-file-input');
-        const tooltip = document.getElementById('custom-tooltip');
+        const datepickerBackdrop = document.getElementById('datepicker-backdrop');
 
-        // --- DATA PERSISTENCE ---
-        function saveProjects() {
-            localStorage.setItem('projectDashboardData', JSON.stringify(projects));
-        }
-
+        // --- DATA & UTILS ---
+        function saveProjects() { localStorage.setItem('projectDashboardData', JSON.stringify(projects)); }
         function loadProjects() {
             const savedData = localStorage.getItem('projectDashboardData');
-            if (savedData) {
-                projects = JSON.parse(savedData);
-            } else {
-                projects = defaultProjects;
-            }
+            projects = savedData ? JSON.parse(savedData) : defaultProjects;
+        }
+        const parseDate = d3.timeParse("%Y-%m-%d");
+        const formatDate = d3.timeFormat("%b %d, '%y");
+
+        function getBoundaryDate(items, type) {
+            const dates = items.map(item => parseDate(type === 'latest' ? item.endDate : item.startDate)).filter(Boolean);
+            if (dates.length === 0) return null;
+            const boundary = type === 'latest' ? new Date(Math.max.apply(null, dates)) : new Date(Math.min.apply(null, dates));
+            return boundary.toISOString().split('T')[0];
         }
 
-        // --- UTILITY FUNCTIONS ---
-        function getTodayString() {
-            return new Date().toISOString().split('T')[0];
-        }
-
-        function calculateWorkDays(endDateString) {
-            if (!endDateString) return 0;
-            const today = new Date(); today.setHours(0, 0, 0, 0);
-            const endDate = new Date(endDateString + 'T00:00:00');
-            if (endDate < today) return 0;
-            let workDays = 0;
-            let currentDate = new Date(today);
-            while (currentDate <= endDate) {
-                const dayOfWeek = currentDate.getDay();
-                if (dayOfWeek !== 0 && dayOfWeek !== 6) workDays++;
-                currentDate.setDate(currentDate.getDate() + 1);
-            }
-            return workDays;
-        }
-        
-        function getProgress(startDateString, endDateString) {
-            if (!startDateString || !endDateString) return 0;
-            const start = new Date(startDateString + 'T00:00:00');
-            const end = new Date(endDateString + 'T00:00:00');
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
-            if (today >= end) return 100;
-            if (today < start) return 0;
-
-            const totalDuration = end.getTime() - start.getTime();
-            if (totalDuration <= 0) return 100;
-
-            const elapsedDuration = today.getTime() - start.getTime();
-            const progress = (elapsedDuration / totalDuration) * 100;
-            
-            return Math.max(0, Math.min(100, progress));
-        }
-
-        function getBoundaryDate(items, type = 'latest') {
-            let boundaryDate = type === 'latest' ? new Date(0) : new Date(8640000000000000);
-            const check = type === 'latest' ? (a, b) => a > b : (a, b) => a < b;
-            
-            items.forEach(item => {
-                const dateStr = type === 'latest' ? (item.endDate || item.effectiveEndDate) : (item.startDate || item.effectiveStartDate);
-                if (dateStr) {
-                    const itemDate = new Date(dateStr + 'T00:00:00');
-                    if (check(itemDate, boundaryDate)) boundaryDate = itemDate;
-                }
-            });
-
-            const isValidDate = boundaryDate.getTime() !== new Date(0).getTime() && boundaryDate.getTime() !== new Date(8640000000000000).getTime();
-            return isValidDate ? boundaryDate.toISOString().split('T')[0] : '';
-        }
-
-        function getAccentClass(item, endDate) {
-            if (item.completed) {
-                return 'bg-green-100 dark:bg-green-900/50';
-            }
-            if (!endDate) return '';
-
-            const today = getTodayString();
-            if (endDate < today) {
-                return 'bg-red-100 dark:bg-red-900/50';
-            }
-            if (endDate === today) {
-                return 'bg-yellow-100 dark:bg-yellow-900/50';
-            }
-            return '';
-        }
-
-        // --- RENDER FUNCTION ---
-        function renderProjects() {
-            const todayString = getTodayString();
-            projectsContainer.innerHTML = '';
-
-            // Dependency-based date updates
-            updateAllTaskDates();
-
+        function calculateEffectiveDates() {
             projects.forEach(p => {
                 p.tasks.forEach(t => {
-                    t.effectiveStartDate = t.startDate || getBoundaryDate(t.subtasks || [], 'earliest');
-                    t.effectiveEndDate = t.endDate || getBoundaryDate(t.subtasks || [], 'latest');
-                });
-                p.effectiveStartDate = p.startDate || getBoundaryDate(p.tasks, 'earliest');
-                p.effectiveEndDate = p.endDate || getBoundaryDate(p.tasks, 'latest');
-            });
-
-            projects.sort((a, b) => {
-                const dateA = a.effectiveEndDate ? new Date(a.effectiveEndDate) : new Date(0);
-                const dateB = b.effectiveEndDate ? new Date(b.effectiveEndDate) : new Date(0);
-                if (dateA.getTime() === 0) return 1;
-                if (dateB.getTime() === 0) return -1;
-                return dateA - dateB;
-            });
-
-            projects.forEach(project => {
-                const projectCard = document.createElement('div');
-                projectCard.className = 'task-card bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden border border-gray-200 dark:border-gray-700';
-                
-                project.tasks.sort((a, b) => new Date(a.effectiveEndDate) - new Date(b.effectiveEndDate));
-
-                const mainFormattedDate = project.effectiveEndDate ? new Date(project.effectiveEndDate + 'T00:00:00').toLocaleString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'Not set';
-                const projectAccentClass = getAccentClass(project, project.effectiveEndDate);
-
-                // --- PROPORTIONAL TIMELINE LOGIC ---
-                let timelineBarsHtml = '';
-                const taskColorMap = new Map();
-                let colorIndex = 0;
-
-                const tasksForTimeline = project.tasks.filter(t => t.effectiveStartDate && t.effectiveEndDate);
-                
-                tasksForTimeline.forEach(task => {
-                    taskColorMap.set(task.id, colorPalette[colorIndex++ % colorPalette.length]);
-                });
-
-                if (tasksForTimeline.length > 0) {
-                    const itemsWithDuration = tasksForTimeline.map(task => {
-                        const start = new Date(task.effectiveStartDate + 'T00:00:00');
-                        const end = new Date(task.effectiveEndDate + 'T00:00:00');
-                        const duration = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
-                        return { ...task, duration };
-                    });
-
-                    const totalWorkDuration = itemsWithDuration.reduce((sum, item) => sum + item.duration, 0);
-
-                    if (totalWorkDuration > 0) {
-                        timelineBarsHtml = itemsWithDuration.map(item => {
-                            const widthPercent = (item.duration / totalWorkDuration) * 100;
-                            const color = taskColorMap.get(item.id);
-                            const tooltipText = `Task: ${item.name} (${item.duration} ${item.duration > 1 ? 'days' : 'day'})`;
-                            return `<div class="h-full ${color} border-r border-white/20" style="width: ${widthPercent}%;" data-tooltip="${tooltipText}"></div>`;
-                        }).join('');
+                    if (t.subtasks && t.subtasks.length > 0) {
+                        t.effectiveStartDate = getBoundaryDate(t.subtasks, 'earliest');
+                        t.effectiveEndDate = getBoundaryDate(t.subtasks, 'latest');
+                        t.completed = t.subtasks.every(st => st.completed);
+                        if (t.completed) {
+                            const completionDates = t.subtasks.map(st => parseDate(st.completionDate)).filter(Boolean);
+                            t.completionDate = completionDates.length > 0 ? new Date(Math.max.apply(null, completionDates)).toISOString().split('T')[0] : null;
+                        } else {
+                            t.completionDate = null;
+                        }
+                    } else {
+                        t.effectiveStartDate = t.startDate;
+                        t.effectiveEndDate = t.endDate;
                     }
-                }
-                // --- END PROPORTIONAL TIMELINE LOGIC ---
+                });
+            });
+        }
 
-                let tasksHtml = project.tasks.map(task => {
-                    task.subtasks = task.subtasks || [];
-                    task.subtasks.sort((a, b) => new Date(a.endDate) - new Date(b.endDate));
-                    
-                    const taskWorkDays = calculateWorkDays(task.effectiveEndDate);
-                    const taskProgress = getProgress(task.effectiveStartDate, task.effectiveEndDate);
-                    const taskColor = taskColorMap.get(task.id) || colorPalette[task.id % colorPalette.length];
-                    const taskAccentClass = getAccentClass(task, task.effectiveEndDate);
-                    const taskCompletionClass = task.completed ? 'line-through opacity-60' : '';
+        // --- RENDER ---
+        function renderProjects() {
+            calculateEffectiveDates();
+            projectsContainer.innerHTML = '';
+            projects.forEach((project) => {
+                const projectCard = document.createElement('div');
+                projectCard.className = "bg-white dark:bg-slate-900 p-4 rounded-xl shadow-md border border-gray-200 dark:border-gray-800";
 
-                    let subtasksHtml = task.subtasks.map(subtask => {
-                        const subtaskWorkDays = calculateWorkDays(subtask.endDate);
-                        const subtaskProgress = getProgress(subtask.startDate, subtask.endDate);
-                        const subtaskColor = taskColor; // Inherit color from parent task
-                        const subtaskAccentClass = getAccentClass(subtask, subtask.endDate);
-                        const subtaskCompletionClass = subtask.completed ? 'line-through opacity-60' : '';
-                        return `
-                             <div class="flex items-center gap-2 py-1 pl-8 pr-4 ${subtaskAccentClass}">
-                                <div class="w-1/3 font-normal text-gray-600 dark:text-gray-400 text-xs truncate ${subtaskCompletionClass}" contenteditable="true" onblur="updateSubtaskName(${project.id}, ${task.id}, ${subtask.id}, this.innerText)">${subtask.name}</div>
-                                <div class="w-2/3 flex items-center gap-2">
-                                    <div class="progress-bar-bg w-full rounded-full h-4 relative overflow-hidden">
-                                        <div class="progress-bar-fill ${subtaskColor} h-4 rounded-full absolute top-0 left-0" style="width: ${subtaskProgress}%"></div>
-                                        <div class="absolute inset-0 flex items-center justify-between px-2 text-xs font-medium" style="font-size: 0.65rem;">
-                                            <input type="date" value="${subtask.startDate}" onchange="updateSubtaskStartDate(${project.id}, ${task.id}, ${subtask.id}, this.value)" class="date-input-on-bar dark-text text-left">
-                                            <input type="date" value="${subtask.endDate}" min="${subtask.startDate || todayString}" onchange="updateSubtaskDate(${project.id}, ${task.id}, ${subtask.id}, this.value)" class="date-input-on-bar dark-text">
-                                            <div class="absolute inset-0 flex items-center justify-between px-2 text-white" style="clip-path: inset(0 ${100 - subtaskProgress}% 0 0);">
-                                                <input type="date" value="${subtask.startDate}" onchange="updateSubtaskStartDate(${project.id}, ${task.id}, ${subtask.id}, this.value)" class="date-input-on-bar light-text text-left">
-                                                <input type="date" value="${subtask.endDate}" min="${subtask.startDate || todayString}" onchange="updateSubtaskDate(${project.id}, ${task.id}, ${subtask.id}, this.value)" class="date-input-on-bar light-text">
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <input type="checkbox" class="custom-checkbox" onchange="toggleSubtaskComplete(${project.id}, ${task.id}, ${subtask.id})" ${subtask.completed ? 'checked' : ''}>
-                                    <button onclick="deleteSubtask(${project.id}, ${task.id}, ${subtask.id})" class="text-gray-400 hover:text-red-500 transition-colors delete-btn">&times;</button>
-                                </div>
-                            </div>
-                        `;
-                    }).join('');
-
-                    return `
-                        <div class="border-t border-gray-200 dark:border-gray-700/50 ${taskAccentClass}">
-                            <div class="flex items-center gap-4 py-1.5 px-4 relative task-row" data-task-id="${task.id}">
-                                <div class="dep-handle dep-flower"></div>
-                                <div class="w-1/3 font-semibold text-gray-700 dark:text-gray-300 text-sm truncate ${taskCompletionClass}" contenteditable="true" onblur="updateTaskName(${project.id}, ${task.id}, this.innerText)">${task.name}</div>
-                                <div class="w-2/3 flex items-center gap-2">
-                                    <div class="progress-bar-bg w-full rounded-full h-5 relative overflow-hidden">
-                                        <div class="progress-bar-fill ${taskColor} h-5 rounded-full absolute top-0 left-0" style="width: ${taskProgress}%"></div>
-                                        <div class="absolute inset-0 flex items-center justify-between px-2 text-xs font-medium">
-                                            <input type="date" value="${task.effectiveStartDate || ''}" onchange="updateTaskStartDate(${project.id}, ${task.id}, this.value)" class="date-input-on-bar dark-text text-left" title="Set task start date">
-                                            <input type="date" value="${task.effectiveEndDate || ''}" min="${task.effectiveStartDate || todayString}" onchange="updateTaskDate(${project.id}, ${task.id}, this.value)" class="date-input-on-bar dark-text" title="Set task end date">
-                                            <div class="absolute inset-0 flex items-center justify-between px-2 text-white" style="clip-path: inset(0 ${100 - taskProgress}% 0 0);">
-                                                <input type="date" value="${task.effectiveStartDate || ''}" onchange="updateTaskStartDate(${project.id}, ${task.id}, this.value)" class="date-input-on-bar light-text text-left" title="Set task start date">
-                                                <input type="date" value="${task.effectiveEndDate || ''}" min="${task.effectiveStartDate || todayString}" onchange="updateTaskDate(${project.id}, ${task.id}, this.value)" class="date-input-on-bar light-text" title="Set task end date">
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <input type="checkbox" class="custom-checkbox" onchange="toggleTaskComplete(${project.id}, ${task.id})" ${task.completed ? 'checked' : ''}>
-                                    <button onclick="deleteTask(${project.id}, ${task.id})" class="text-gray-400 hover:text-red-500 transition-colors delete-btn">&times;</button>
-                                </div>
-                                <div class="dep-handle dep-root" draggable="true" data-task-id="${task.id}"></div>
-                            </div>
-                            <div class="pb-1">${subtasksHtml}</div>
-                            <div class="px-8 pb-2">
-                                <div class="flex items-center gap-2">
-                                    <input type="text" id="new-subtask-name-${task.id}" placeholder="Add subtask..." class="flex-grow w-full px-2 py-0.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 text-xs">
-                                    <input type="date" id="new-subtask-start-date-${task.id}" class="w-auto px-2 py-0.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 text-xs">
-                                    <input type="date" id="new-subtask-date-${task.id}" min="${todayString}" class="w-auto px-2 py-0.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 text-xs">
-                                    <button onclick="addSubtask(${project.id}, ${task.id})" class="bg-gray-200 text-gray-700 font-semibold px-2 py-0.5 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500 transition-colors text-xs">Add</button>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
+                const totalTasks = project.tasks.length;
+                const completedTasks = project.tasks.filter(t => t.completed).length;
+                const overallProgress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
                 projectCard.innerHTML = `
-                    <div class="p-3 bg-gray-100 dark:bg-gray-900/50 ${projectAccentClass}">
-                        <div class="flex justify-between items-start">
-                             <div class="flex items-center gap-3">
-                                <input type="checkbox" class="custom-checkbox" onchange="toggleProjectComplete(${project.id})" ${project.completed ? 'checked' : ''}>
-                                <div>
-                                    <h3 class="text-base font-bold text-gray-900 dark:text-white ${project.completed ? 'line-through opacity-60' : ''}" contenteditable="true" onblur="updateProjectName(${project.id}, this.innerText)">${project.name}</h3>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">Due: ${mainFormattedDate}</p>
-                                </div>
-                             </div>
-                            <button onclick="deleteProject(${project.id})" class="text-gray-400 hover:text-red-500 transition-colors delete-btn">&times;</button>
+                    <div class="flex justify-between items-center mb-4">
+                        <div class="flex items-center gap-3 flex-grow">
+                             <button onclick="toggleProjectCollapse(${project.id})" class="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800">
+                                <svg id="chevron-${project.id}" class="w-5 h-5 text-gray-500 chevron ${project.collapsed ? 'rotate-180' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+                            </button>
+                            <h3 class="text-xl font-bold" contenteditable="true" onblur="updateProjectName(${project.id}, this.innerText)">${project.name}</h3>
+                            <span class="text-sm font-medium text-gray-500">${Math.round(overallProgress)}% Complete</span>
                         </div>
-                         <div class="mt-2 h-4 w-full bg-gray-200 dark:bg-gray-700 rounded flex overflow-hidden">
-                            ${timelineBarsHtml}
+                        <div class="flex items-center gap-2 text-sm text-gray-500">
+                            <input type="text" value="${project.startDate || ''}" placeholder="Start Date" readonly class="date-input" data-project-id="${project.id}" data-type="project-start">
+                            <input type="text" value="${project.endDate || ''}" placeholder="End Date" readonly class="date-input" data-project-id="${project.id}" data-type="project-end">
                         </div>
+                        <button onclick="deleteProject(${project.id})" class="text-gray-400 hover:text-red-500 transition-colors text-xl font-bold ml-4">&times;</button>
                     </div>
-                    <div id="tasks-for-${project.id}" class="bg-white dark:bg-gray-800">
-                        <svg id="dependency-svg-layer-p${project.id}"></svg>
-                        ${tasksHtml}
-                    </div>
-                    <div class="p-2 bg-gray-50 dark:bg-gray-900/30 border-t border-gray-200 dark:border-gray-700">
-                         <div class="flex items-center gap-2">
-                            <input type="text" id="new-task-name-${project.id}" placeholder="Add a new task..." class="flex-grow w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm">
-                            <input type="date" id="new-task-start-date-${project.id}" class="w-auto px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm" title="Task Start Date (Optional)">
-                            <input type="date" id="new-task-date-${project.id}" min="${todayString}" class="w-auto px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm" title="Task End Date (Optional)">
-                            <button onclick="addTask(${project.id})" class="bg-blue-200 text-blue-800 font-semibold px-3 py-1 rounded-md hover:bg-blue-300 dark:bg-blue-800 dark:text-blue-100 dark:hover:bg-blue-700 transition-colors text-sm">Add</button>
-                        </div>
+                    <div id="project-content-${project.id}" class="${project.collapsed ? 'hidden' : ''}">
+                        <div id="chart-${project.id}" class="w-full h-48 mb-4"></div>
+                        <div id="tasks-${project.id}" class="space-y-2"></div>
                     </div>
                 `;
                 projectsContainer.appendChild(projectCard);
+                renderTaskList(project);
+                if (project.startDate && project.endDate) {
+                    drawChart(project);
+                } else {
+                    document.getElementById(`chart-${project.id}`).innerHTML = `<div class="flex items-center justify-center h-full text-gray-400">Set project start and end dates to see progress chart.</div>`;
+                }
             });
-            addDragDropListeners();
-            setTimeout(drawAllDependencyLines, 0);
+        }
+
+        function renderTaskList(project) {
+            const taskContainer = document.getElementById(`tasks-${project.id}`);
+            let html = '';
+            project.tasks.forEach(task => {
+                const hasSubtasks = task.subtasks && task.subtasks.length > 0;
+                
+                let taskControlHtml;
+                const completedSubtasks = hasSubtasks ? task.subtasks.filter(st => st.completed).length : 0;
+                const totalSubtasks = hasSubtasks ? task.subtasks.length : 0;
+                const subtaskProgress = totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0;
+                
+                if (task.subtasks) { // Treat tasks with a subtask array (even empty) as phases
+                    taskControlHtml = `<div class="text-xs font-bold text-gray-500 dark:text-gray-400 w-10 text-center flex-shrink-0">${subtaskProgress}%</div>`;
+                } else {
+                    taskControlHtml = `<input type="checkbox" class="custom-checkbox" onchange="toggleTaskComplete(${project.id}, ${task.id})" ${task.completed ? 'checked' : ''}>`;
+                }
+
+                let taskDateHtml = `
+                    <div class="flex items-center gap-2 text-sm text-gray-500">
+                        <input type="text" value="${task.effectiveStartDate || ''}" placeholder="Start" readonly class="date-input bg-gray-100 dark:bg-slate-800" disabled>
+                        <input type="text" value="${task.effectiveEndDate || ''}" placeholder="End" readonly class="date-input bg-gray-100 dark:bg-slate-800" disabled>
+                    </div>
+                `;
+
+                html += `
+                    <div class="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-2">
+                        <div class="flex items-center gap-3">
+                            ${taskControlHtml}
+                            <span class="font-semibold flex-grow" contenteditable="true" onblur="updateTaskName(${project.id}, ${task.id}, this.innerText)">${task.name}</span>
+                            ${taskDateHtml}
+                            <button onclick="deleteTask(${project.id}, ${task.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold">&times;</button>
+                        </div>
+                `;
+                if (task.subtasks) {
+                    html += '<div class="ml-12 mt-1 space-y-1 pt-1">';
+                    task.subtasks.forEach(subtask => {
+                        html += `
+                            <div class="flex items-center gap-3">
+                                <input type="checkbox" class="custom-checkbox" onchange="toggleSubtaskComplete(${project.id}, ${task.id}, ${subtask.id})" ${subtask.completed ? 'checked' : ''}>
+                                <span class="text-gray-700 dark:text-gray-300 flex-grow ${subtask.completed ? 'line-through opacity-60' : ''}" contenteditable="true" onblur="updateSubtaskName(${project.id}, ${task.id}, ${subtask.id}, this.innerText)">${subtask.name}</span>
+                                <div class="flex items-center gap-2 text-sm text-gray-500">
+                                    <input type="text" value="${subtask.startDate || ''}" placeholder="Start" readonly class="date-input" data-project-id="${project.id}" data-task-id="${task.id}" data-subtask-id="${subtask.id}" data-type="subtask-start">
+                                    <input type="text" value="${subtask.endDate || ''}" placeholder="End" readonly class="date-input" data-project-id="${project.id}" data-task-id="${task.id}" data-subtask-id="${subtask.id}" data-type="subtask-end">
+                                </div>
+                                <button onclick="deleteSubtask(${project.id}, ${task.id}, ${subtask.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold w-5 text-center flex-shrink-0">&times;</button>
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                }
+                 html += `
+                    <div class="ml-12 mt-2">
+                        <div class="flex items-center gap-2">
+                            <input type="text" id="new-subtask-name-${task.id}" placeholder="Add subtask..." class="flex-grow w-full px-2 py-1 border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-xs">
+                            <input type="text" id="new-subtask-start-date-${task.id}" placeholder="Start" readonly class="date-input px-2 py-1 text-xs">
+                            <input type="text" id="new-subtask-end-date-${task.id}" placeholder="End" readonly class="date-input px-2 py-1 text-xs">
+                            <button onclick="addSubtask(${project.id}, ${task.id})" class="bg-gray-100 dark:bg-gray-700 text-xs font-semibold px-2 py-1 rounded-md">Add</button>
+                        </div>
+                    </div>
+                </div>`;
+            });
+             html += `
+                <div class="mt-4 pl-4">
+                     <div class="flex items-center gap-2">
+                        <input type="text" id="new-task-name-${project.id}" placeholder="Add a new phase..." class="flex-grow w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-sm">
+                        <button onclick="addTask(${project.id})" class="bg-gray-200 dark:bg-gray-700 font-semibold px-3 py-1 rounded-md text-sm">Add Phase</button>
+                    </div>
+                </div>
+            `;
+            taskContainer.innerHTML = html;
+        }
+
+        function drawChart(project) {
+            const container = d3.select(`#chart-${project.id}`);
+            if (container.empty()) return;
+            container.selectAll("*").remove();
+
+            const margin = {top: 10, right: 20, bottom: 20, left: 30};
+            const width = container.node().getBoundingClientRect().width - margin.left - margin.right;
+            const height = container.node().getBoundingClientRect().height - margin.top - margin.bottom;
+
+            const svg = container.append("svg").attr("width", width + margin.left + margin.right).attr("height", height + margin.top + margin.bottom).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+            const x = d3.scaleTime().range([0, width]);
+            const y = d3.scaleLinear().range([height, 0]);
+
+            const startDate = parseDate(project.startDate);
+            const endDate = parseDate(project.endDate);
+
+            x.domain([startDate, endDate]);
+            y.domain([0, 100]);
+
+            svg.append("g").attr("class", "chart-grid").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x).ticks(5).tickFormat(formatDate));
+            svg.append("g").attr("class", "chart-grid").call(d3.axisLeft(y).ticks(5).tickFormat(d => `${d}%`));
+
+            svg.append("line").attr("class", "planned-line").attr("x1", x(startDate)).attr("y1", y(0)).attr("x2", x(endDate)).attr("y2", y(100));
+            svg.append("line").attr("class", "finish-line").attr("x1", x(endDate)).attr("y1", 0).attr("x2", x(endDate)).attr("y2", height);
+
+            const sortedTasks = [...project.tasks]
+                .filter(t => t.effectiveEndDate)
+                .sort((a,b) => parseDate(a.effectiveEndDate) - parseDate(b.effectiveEndDate));
+
+            const progressPerTask = 100 / (project.tasks.length || 1);
+            
+            const fullPathData = [{ date: startDate, progress: 0 }];
+            let pathCumulativeProgress = 0;
+            sortedTasks.forEach(task => {
+                pathCumulativeProgress += progressPerTask;
+                const dateForPoint = parseDate(task.effectiveEndDate);
+                if (dateForPoint) {
+                    fullPathData.push({ date: dateForPoint, progress: pathCumulativeProgress });
+                }
+            });
+
+            const lastCompletedIndex = sortedTasks.map(t => t.completed).lastIndexOf(true);
+            const actualData = fullPathData.slice(0, lastCompletedIndex + 2);
+            const projectedData = fullPathData.slice(lastCompletedIndex + 1);
+
+            const line = d3.line().x(d => x(d.date)).y(d => y(d.progress));
+            
+            if (projectedData.length > 0) {
+                svg.append("path").datum(projectedData).attr("class", `projected-line ${colorPalette[project.color] || 'stroke-gray-500'}`).attr("d", line);
+            }
+            if (actualData.length > 1) {
+                svg.append("path").datum(actualData).attr("class", `actual-line ${colorPalette[project.color] || 'stroke-gray-500'}`).attr("d", line);
+            }
+            
+            svg.selectAll(".actual-point")
+                .data(actualData.slice(1))
+                .enter().append("circle")
+                .attr("class", `actual-point ${colorPalette[project.color].replace('stroke-', 'fill-') || 'fill-gray-500'}`)
+                .attr("cx", d => x(d.date))
+                .attr("cy", d => y(d.progress));
         }
 
         // --- EVENT HANDLERS & LOGIC ---
         function addProject() {
             const name = newProjectNameInput.value.trim();
-            const startDate = newProjectStartDateInput.value;
-            const endDate = newProjectDateInput.value;
             if (!name) return;
-            projects.push({ id: Date.now(), name, startDate, endDate, completed: false, tasks: [] });
+            const startDate = document.getElementById('new-project-start-date').value;
+            const endDate = document.getElementById('new-project-end-date').value;
+            projects.push({ id: Date.now(), name, startDate: startDate || null, endDate: endDate || null, completed: false, collapsed: false, color: colorNames[projects.length % colorNames.length], tasks: [] });
             saveProjects();
-            newProjectNameInput.value = ''; 
-            newProjectStartDateInput.value = '';
-            newProjectDateInput.value = '';
+            newProjectNameInput.value = '';
+            document.getElementById('new-project-start-date').value = '';
+            document.getElementById('new-project-end-date').value = '';
             renderProjects();
         }
 
         function addTask(projectId) {
             const nameInput = document.getElementById(`new-task-name-${projectId}`);
-            const startDateInput = document.getElementById(`new-task-start-date-${projectId}`);
-            const endDateInput = document.getElementById(`new-task-date-${projectId}`);
             const name = nameInput.value.trim();
-            const startDate = startDateInput.value;
-            const endDate = endDateInput.value;
             if (!name) return;
             const project = projects.find(p => p.id === projectId);
             if (project) {
-                project.tasks.push({ id: Date.now(), name, startDate, endDate, completed: false, dependencies: [], subtasks: [] });
+                project.tasks.push({ id: Date.now(), name, startDate: null, endDate: null, completed: false, completionDate: null, subtasks: [] });
                 saveProjects();
-                nameInput.value = ''; 
-                startDateInput.value = '';
-                endDateInput.value = '';
                 renderProjects();
             }
         }
@@ -533,110 +429,64 @@
         function addSubtask(projectId, taskId) {
             const nameInput = document.getElementById(`new-subtask-name-${taskId}`);
             const startDateInput = document.getElementById(`new-subtask-start-date-${taskId}`);
-            const endDateInput = document.getElementById(`new-subtask-date-${taskId}`);
+            const endDateInput = document.getElementById(`new-subtask-end-date-${taskId}`);
             const name = nameInput.value.trim();
-            let startDate = startDateInput.value;
-            const endDate = endDateInput.value;
-            if (!name || !endDate) return;
-            if (!startDate) {
-                startDate = getTodayString();
-            }
-
+            if (!name) return;
             const task = projects.find(p => p.id === projectId)?.tasks.find(t => t.id === taskId);
-            if(task) {
-                if(!task.subtasks) task.subtasks = [];
-                task.subtasks.push({ id: Date.now(), name, startDate, endDate, completed: false });
+            if (task) {
+                if (!task.subtasks) task.subtasks = [];
+                task.subtasks.push({ id: Date.now(), name, startDate: startDateInput.value || null, endDate: endDateInput.value || null, completed: false, completionDate: null });
                 saveProjects();
-                nameInput.value = ''; 
-                startDateInput.value = '';
-                endDateInput.value = '';
                 renderProjects();
             }
         }
 
         function updateProjectName(projectId, newName) {
             const project = projects.find(p => p.id === projectId);
-            if (project && project.name !== newName) {
-                project.name = newName;
-                saveProjects();
-            }
+            if (project && project.name !== newName) { project.name = newName; saveProjects(); }
         }
 
         function updateTaskName(projectId, taskId, newName) {
             const task = projects.find(p => p.id === projectId)?.tasks.find(t => t.id === taskId);
-            if (task && task.name !== newName) {
-                task.name = newName;
-                saveProjects();
-            }
+            if (task && task.name !== newName) { task.name = newName; saveProjects(); }
         }
-
+        
         function updateSubtaskName(projectId, taskId, subtaskId, newName) {
             const subtask = projects.find(p => p.id === projectId)?.tasks.find(t => t.id === taskId)?.subtasks.find(st => st.id === subtaskId);
-            if (subtask && subtask.name !== newName) {
-                subtask.name = newName;
-                saveProjects();
-            }
-        }
-        
-        function updateTaskStartDate(projectId, taskId, newDate) {
-            const task = projects.find(p => p.id === projectId)?.tasks.find(t => t.id === taskId);
-            if(task) {
-                task.startDate = newDate;
-                saveProjects();
-                renderProjects();
-            }
+            if (subtask && subtask.name !== newName) { subtask.name = newName; saveProjects(); }
         }
 
-        function updateTaskDate(projectId, taskId, newDate) {
-            const task = projects.find(p => p.id === projectId)?.tasks.find(t => t.id === taskId);
-            if(task) {
-                task.endDate = newDate;
-                saveProjects();
-                renderProjects();
-            }
-        }
-        
-        function updateSubtaskStartDate(projectId, taskId, subtaskId, newDate) {
-            const subtask = projects.find(p => p.id === projectId)?.tasks.find(t => t.id === taskId)?.subtasks.find(st => st.id === subtaskId);
-            if(subtask) {
-                subtask.startDate = newDate;
-                saveProjects();
-                renderProjects();
-            }
-        }
-
-        function updateSubtaskDate(projectId, taskId, subtaskId, newDate) {
-            const subtask = projects.find(p => p.id === projectId)?.tasks.find(t => t.id === taskId)?.subtasks.find(st => st.id === subtaskId);
-            if(subtask) {
-                subtask.endDate = newDate;
-                saveProjects();
-                renderProjects();
-            }
-        }
-
-        function toggleProjectComplete(projectId) {
+        function updateProjectDate(projectId, type, value) {
             const project = projects.find(p => p.id === projectId);
-            if (project) {
-                project.completed = !project.completed;
-                saveProjects();
-                renderProjects();
-            }
+            if(project) { project[type] = value; saveProjects(); renderProjects(); }
+        }
+
+        function updateTaskDate(projectId, taskId, type, value) {
+            const task = projects.find(p => p.id === projectId)?.tasks.find(t => t.id === taskId);
+            if (task) { task[type] = value; saveProjects(); renderProjects(); }
+        }
+
+        function updateSubtaskDate(projectId, taskId, subtaskId, type, value) {
+            const subtask = projects.find(p => p.id === projectId)?.tasks.find(t => t.id === taskId)?.subtasks.find(st => st.id === subtaskId);
+            if (subtask) { subtask[type] = value; saveProjects(); renderProjects(); }
         }
 
         function toggleTaskComplete(projectId, taskId) {
             const task = projects.find(p => p.id === projectId)?.tasks.find(t => t.id === taskId);
-            if (task) {
+            if (task) { 
                 task.completed = !task.completed;
-                saveProjects();
+                task.completionDate = task.completed ? task.effectiveEndDate : null;
+                saveProjects(); 
                 renderProjects();
             }
         }
 
         function toggleSubtaskComplete(projectId, taskId, subtaskId) {
             const subtask = projects.find(p => p.id === projectId)?.tasks.find(t => t.id === taskId)?.subtasks.find(st => st.id === subtaskId);
-            if (subtask) {
+            if (subtask) { 
                 subtask.completed = !subtask.completed;
-                saveProjects();
+                subtask.completionDate = subtask.completed ? subtask.endDate : null;
+                saveProjects(); 
                 renderProjects();
             }
         }
@@ -655,7 +505,7 @@
                 renderProjects();
             }
         }
-
+        
         function deleteSubtask(projectId, taskId, subtaskId) {
             const task = projects.find(p => p.id === projectId)?.tasks.find(t => t.id === taskId);
             if (task) {
@@ -665,8 +515,18 @@
             }
         }
 
-        // --- THEME TOGGLE LOGIC ---
-        function setupTheme() {
+        function toggleProjectCollapse(projectId) {
+            const project = projects.find(p => p.id === projectId);
+            if (project) {
+                project.collapsed = !project.collapsed;
+                saveProjects();
+                document.getElementById(`project-content-${projectId}`).classList.toggle('hidden');
+                document.getElementById(`chevron-${projectId}`).classList.toggle('rotate-180');
+            }
+        }
+
+        // --- THEME & IMPORT/EXPORT ---
+        function applyTheme() {
             if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                 document.documentElement.classList.add('dark');
                 lightIcon.classList.remove('hidden');
@@ -677,32 +537,13 @@
                 lightIcon.classList.add('hidden');
             }
         }
-
-        themeToggleBtn.addEventListener('click', function() {
-            darkIcon.classList.toggle('hidden');
-            lightIcon.classList.toggle('hidden');
-            if (localStorage.getItem('color-theme')) {
-                if (localStorage.getItem('color-theme') === 'light') {
-                    document.documentElement.classList.add('dark');
-                    localStorage.setItem('color-theme', 'dark');
-                } else {
-                    document.documentElement.classList.remove('dark');
-                    localStorage.setItem('color-theme', 'light');
-                }
-            } else {
-                if (document.documentElement.classList.contains('dark')) {
-                    document.documentElement.classList.remove('dark');
-                    localStorage.setItem('color-theme', 'light');
-                } else {
-                    document.documentElement.classList.add('dark');
-                    localStorage.setItem('color-theme', 'dark');
-                }
-            }
+        themeToggleBtn.addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+            localStorage.setItem('color-theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+            applyTheme();
         });
-
-        // --- IMPORT/EXPORT LOGIC ---
         exportBtn.addEventListener('click', () => {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projects, null, 2));
+             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projects, null, 2));
             const downloadAnchorNode = document.createElement('a');
             downloadAnchorNode.setAttribute("href", dataStr);
             downloadAnchorNode.setAttribute("download", "dashboard-projects.json");
@@ -710,15 +551,10 @@
             downloadAnchorNode.click();
             downloadAnchorNode.remove();
         });
-
-        importBtn.addEventListener('click', () => {
-            importFileInput.click();
-        });
-
+        importBtn.addEventListener('click', () => importFileInput.click());
         importFileInput.addEventListener('change', (event) => {
             const file = event.target.files[0];
             if (!file) return;
-
             const reader = new FileReader();
             reader.onload = function(e) {
                 try {
@@ -727,163 +563,84 @@
                         projects = importedProjects;
                         saveProjects();
                         renderProjects();
-                    } else {
-                        console.error("Import failed: JSON file is not a valid project array.");
                     }
-                } catch (error) {
-                    console.error("Error parsing imported JSON file:", error);
-                }
+                } catch (error) { console.error("Error parsing imported JSON file:", error); }
             };
             reader.readAsText(file);
-            event.target.value = null; // Reset file input
+            event.target.value = null;
         });
 
-        // --- TOOLTIP LOGIC ---
-        document.addEventListener('mouseover', function (e) {
-            if (e.target.hasAttribute('data-tooltip')) {
-                tooltip.textContent = e.target.getAttribute('data-tooltip');
-                tooltip.style.visibility = 'visible';
-                tooltip.style.opacity = '1';
-            }
-        });
+        // --- DATE PICKER ---
+        function initializeSharedDatePicker() {
+            const dummyElement = document.createElement('input');
+            document.body.appendChild(dummyElement);
+            dummyElement.style.display = 'none';
 
-        document.addEventListener('mouseout', function (e) {
-            if (e.target.hasAttribute('data-tooltip')) {
-                tooltip.style.visibility = 'hidden';
-                tooltip.style.opacity = '0';
-            }
-        });
-
-        document.addEventListener('mousemove', function (e) {
-            tooltip.style.left = e.pageX + 10 + 'px';
-            tooltip.style.top = e.pageY + 10 + 'px';
-        });
-
-        // --- DEPENDENCY LOGIC ---
-        function findTaskById(taskId) {
-            for (const project of projects) {
-                const found = project.tasks.find(t => t.id === taskId);
-                if (found) return found;
-            }
-            return null;
-        }
-
-        function addDragDropListeners() {
-            document.querySelectorAll('.dep-root').forEach(handle => {
-                handle.addEventListener('dragstart', e => {
-                    draggedTaskId = parseInt(e.target.dataset.taskId);
-                    e.dataTransfer.effectAllowed = 'link';
-                });
-            });
-
-            document.querySelectorAll('.task-row').forEach(row => {
-                row.addEventListener('dragover', e => {
-                    e.preventDefault();
-                    row.classList.add('drag-over');
-                });
-                row.addEventListener('dragleave', e => {
-                    row.classList.remove('drag-over');
-                });
-                row.addEventListener('drop', e => {
-                    e.preventDefault();
-                    row.classList.remove('drag-over');
-                    const targetTaskId = parseInt(e.currentTarget.dataset.taskId);
+            sharedPicker = new flatpickr(dummyElement, {
+                dateFormat: "Y-m-d",
+                onOpen: [function(selectedDates, dateStr, instance) {
+                    datepickerBackdrop.classList.remove('hidden');
+                }],
+                onClose: [function(selectedDates, dateStr, instance) {
+                    datepickerBackdrop.classList.add('hidden');
+                }],
+                onChange: [function(selectedDates, dateStr, instance) {
+                    if (!currentPickerContext) return;
                     
-                    if (draggedTaskId && targetTaskId && draggedTaskId !== targetTaskId) {
-                        const targetTask = findTaskById(targetTaskId);
-                        if (targetTask) {
-                            if (!targetTask.dependencies) targetTask.dependencies = [];
-                            const depIndex = targetTask.dependencies.indexOf(draggedTaskId);
-                            if (depIndex > -1) {
-                                targetTask.dependencies.splice(depIndex, 1);
-                            } else {
-                                targetTask.dependencies.push(draggedTaskId);
-                            }
-                            saveProjects();
-                            renderProjects();
-                        }
-                    }
-                    draggedTaskId = null;
-                });
+                    const newDate = dateStr;
+                    const { type, projectId, taskId, subtaskId, element } = currentPickerContext;
+                    element.value = newDate;
+
+                    if (type === 'project-start') updateProjectDate(projectId, 'startDate', newDate);
+                    else if (type === 'project-end') updateProjectDate(projectId, 'endDate', newDate);
+                    else if (type === 'task-start') updateTaskDate(projectId, taskId, 'startDate', newDate);
+                    else if (type === 'task-end') updateTaskDate(projectId, taskId, 'endDate', newDate);
+                    else if (type === 'subtask-start') updateSubtaskDate(projectId, taskId, subtaskId, 'startDate', newDate);
+                    else if (type === 'subtask-end') updateSubtaskDate(projectId, taskId, subtaskId, 'endDate', newDate);
+                }],
+                onReady: [function(selectedDates, dateStr, instance){
+                    const todayBtn = document.createElement('button');
+                    todayBtn.className = "flatpickr-today-button";
+                    todayBtn.textContent = "Today";
+                    todayBtn.addEventListener("click", (e) => {
+                        instance.setDate(new Date(), true);
+                        instance.close();
+                        e.preventDefault();
+                    });
+                    instance.calendarContainer.appendChild(todayBtn);
+                }],
             });
+            document.body.removeChild(dummyElement);
         }
 
-        function updateAllTaskDates() {
-            const taskMap = new Map();
-            projects.forEach(p => p.tasks.forEach(t => taskMap.set(t.id, t)));
+        function handleDateTrigger(event) {
+            const trigger = event.target.closest('.date-input');
+            if (!trigger) return;
 
-            for (let i = 0; i < taskMap.size; i++) { // Loop to resolve chained dependencies
-                taskMap.forEach(task => {
-                    if (task.dependencies && task.dependencies.length > 0) {
-                        let latestDepEndDate = null;
-                        task.dependencies.forEach(depId => {
-                            const depTask = taskMap.get(depId);
-                            if (depTask && depTask.effectiveEndDate) {
-                                const depEndDate = new Date(depTask.effectiveEndDate + 'T00:00:00');
-                                if (!latestDepEndDate || depEndDate > latestDepEndDate) {
-                                    latestDepEndDate = depEndDate;
-                                }
-                            }
-                        });
+            const type = trigger.dataset.type || trigger.id;
+            const { projectId, taskId, subtaskId } = trigger.dataset;
 
-                        if (latestDepEndDate) {
-                            const newStartDate = new Date(latestDepEndDate);
-                            
-                            const currentDuration = (new Date(task.effectiveEndDate) - new Date(task.effectiveStartDate)) / (1000 * 60 * 60 * 24);
-                            const newEndDate = new Date(newStartDate);
-                            newEndDate.setDate(newEndDate.getDate() + currentDuration);
-
-                            task.startDate = newStartDate.toISOString().split('T')[0];
-                            task.endDate = newEndDate.toISOString().split('T')[0];
-                        }
-                    }
-                });
-            }
+            currentPickerContext = { 
+                type, 
+                projectId: projectId ? parseInt(projectId) : null,
+                taskId: taskId ? parseInt(taskId) : null,
+                subtaskId: subtaskId ? parseInt(subtaskId) : null,
+                element: trigger 
+            };
+            
+            sharedPicker.setDate(trigger.value || null, false);
+            sharedPicker.open();
         }
 
-        function drawAllDependencyLines() {
-            projects.forEach(project => {
-                const svg = document.getElementById(`dependency-svg-layer-p${project.id}`);
-                if (!svg) return;
-                svg.innerHTML = '';
-                const containerRect = svg.parentElement.getBoundingClientRect();
-
-                project.tasks.forEach(task => {
-                    if (task.dependencies && task.dependencies.length > 0) {
-                        task.dependencies.forEach(depId => {
-                            const sourceElem = document.querySelector(`.dep-root[data-task-id='${depId}']`);
-                            const targetElem = document.querySelector(`.dep-flower[data-task-id='${task.id}']`);
-
-                            if (sourceElem && targetElem) {
-                                const sourceRect = sourceElem.getBoundingClientRect();
-                                const targetRect = targetElem.getBoundingClientRect();
-
-                                const x1 = sourceRect.left - containerRect.left + sourceRect.width / 2;
-                                const y1 = sourceRect.top - containerRect.top + sourceRect.height / 2;
-                                const x2 = targetRect.left - containerRect.left + targetRect.width / 2;
-                                const y2 = targetRect.top - containerRect.top + targetRect.height / 2;
-
-                                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                                const d = `M ${x1} ${y1} C ${x1} ${y1 + 50}, ${x2} ${y2 - 50}, ${x2} ${y2}`;
-                                path.setAttribute('d', d);
-                                path.setAttribute('stroke', '#9ca3af');
-                                path.setAttribute('stroke-width', '2');
-                                path.setAttribute('fill', 'none');
-                                svg.appendChild(path);
-                            }
-                        });
-                    }
-                });
-            });
-        }
-        
         // --- INITIALIZATION ---
-        addProjectBtn.addEventListener('click', addProject);
-        // Set min date for the main project date input
-        document.getElementById('new-project-date').min = getTodayString();
-        setupTheme();
-        loadProjects();
-        renderProjects();
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeSharedDatePicker();
+            document.querySelector('.container').addEventListener('click', handleDateTrigger);
+            addProjectBtn.addEventListener('click', addProject);
+            applyTheme();
+            loadProjects();
+            renderProjects();
+        });
     </script>
 </body>
 </html>
