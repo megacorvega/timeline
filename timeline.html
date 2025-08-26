@@ -493,9 +493,18 @@
             for (let i = 0; i < pathData.length - 1; i++) {
                 const segment = [pathData[i], pathData[i+1]];
                 const endPoint = segment[1];
-                const plannedProgress = getPlannedProgress(endPoint.date);
-                const isAhead = endPoint.progress >= plannedProgress;
-                const colorClass = isAhead ? 'stroke-green-500' : 'stroke-red-500';
+                
+                let colorClass;
+                // If the task's end date is past the project's end date, it's always red.
+                if (endPoint.date > endDate) {
+                    colorClass = 'stroke-red-500';
+                } else {
+                    // Otherwise, use the original logic: check if ahead or behind schedule.
+                    const plannedProgress = getPlannedProgress(endPoint.date);
+                    const isAhead = endPoint.progress >= plannedProgress;
+                    colorClass = isAhead ? 'stroke-green-500' : 'stroke-red-500';
+                }
+                
                 const lineClass = endPoint.completed ? 'actual-line' : 'projected-line';
                 
                 svg.append("path").datum(segment).attr("class", `${lineClass} ${colorClass}`).attr("d", line);
@@ -506,8 +515,13 @@
                 .attr("cx", d => x(d.date))
                 .attr("cy", d => y(d.progress))
                 .attr("fill", d => {
+                    // If the point is past the project end date, it's red.
+                    if (d.date > endDate) {
+                        return '#ef4444'; // Red-500
+                    }
+                    // Otherwise, check against planned progress.
                     const plannedProgress = getPlannedProgress(d.date);
-                    return d.progress >= plannedProgress ? '#22c55e' : '#ef4444';
+                    return d.progress >= plannedProgress ? '#22c55e' : '#ef4444'; // Green-500 or Red-500
                 });
         }
 
@@ -767,11 +781,10 @@
                 onOpen: () => datepickerBackdrop.classList.remove('hidden'),
                 onClose: () => {
                     datepickerBackdrop.classList.add('hidden');
-                    if (pendingDateChange) {
-                        const { element, oldDate } = pendingDateChange.context;
-                        element.value = oldDate ? formatDate(parseDate(oldDate)) : '';
-                    }
-                    pendingDateChange = null;
+                    // The logic for reverting the date display on cancel is handled by the
+                    // cancel button's event listener, which calls renderProjects().
+                    // Clearing the pendingDateChange or reverting the element's value here
+                    // was causing the save functionality to fail.
                 },
                 onChange: (selectedDates, dateStr, instance) => {
                     if (!currentPickerContext) return;
