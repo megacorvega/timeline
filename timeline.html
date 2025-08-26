@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project Progress Dashboard</title>
+    <title>timeline</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cascadia+Code&display=swap" rel="stylesheet">
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <!-- Flatpickr CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
@@ -19,6 +20,9 @@
         }
         .dark body {
             background-color: #020617; /* Slate-950 */
+        }
+        .title-font {
+            font-family: 'Cascadia Code', monospace;
         }
         [contenteditable]:focus {
             outline: 2px solid #3b82f6;
@@ -90,7 +94,6 @@
         }
         .actual-point {
             r: 4;
-            fill: currentColor;
         }
         .date-input {
             background-color: #fff;
@@ -130,7 +133,7 @@
         
         <header class="mb-6 flex justify-between items-start">
             <div>
-                <h1 class="text-2xl font-bold">Project Progress Dashboard</h1>
+                <h1 class="text-2xl font-bold title-font">timeline</h1>
             </div>
             <div class="flex items-center gap-2">
                 <button id="import-btn" class="px-3 py-1.5 text-xs font-semibold rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600">Import</button>
@@ -165,6 +168,7 @@
         // --- STATE & CONFIG ---
         let projects = [];
         let sharedPicker = null;
+        let currentPickerContext = null;
         const colorPalette = {
             'sky': { stroke: 'stroke-sky-500', fill: 'fill-sky-500' }, 
             'indigo': { stroke: 'stroke-indigo-500', fill: 'fill-indigo-500' }, 
@@ -203,6 +207,21 @@
         const parseDate = d3.timeParse("%Y-%m-%d");
         const formatDate = d3.timeFormat("%m/%d/%y");
 
+        function sortByEndDate(a, b, dateKey = 'endDate') {
+            const dateA = a[dateKey] ? parseDate(a[dateKey]) : null;
+            const dateB = b[dateKey] ? parseDate(b[dateKey]) : null;
+
+            if (dateA && dateB) {
+                return dateA - dateB;
+            } else if (dateA) {
+                return -1; // a has a date, b doesn't, so a comes first
+            } else if (dateB) {
+                return 1; // b has a date, a doesn't, so b comes first
+            } else {
+                return 0; // neither has a date, keep original order
+            }
+        }
+
         function getBoundaryDate(items, type) {
             const dates = items.map(item => parseDate(type === 'latest' ? item.endDate : item.startDate)).filter(Boolean);
             if (dates.length === 0) return null;
@@ -235,7 +254,10 @@
         function renderProjects() {
             calculateEffectiveDates();
             projectsContainer.innerHTML = '';
-            projects.forEach((project) => {
+            
+            const sortedProjects = [...projects].sort((a, b) => sortByEndDate(a, b, 'endDate'));
+
+            sortedProjects.forEach((project) => {
                 const projectCard = document.createElement('div');
                 projectCard.className = "bg-white dark:bg-slate-900 p-4 rounded-xl shadow-md border border-gray-200 dark:border-gray-800";
 
@@ -258,10 +280,8 @@
                         </div>
                         <button onclick="deleteProject(${project.id})" class="text-gray-400 hover:text-red-500 transition-colors text-xl font-bold ml-4">&times;</button>
                     </div>
-                    <div id="project-content-${project.id}" class="${project.collapsed ? 'hidden' : ''}">
-                        <div id="chart-${project.id}" class="w-full h-48 mb-4"></div>
-                        <div id="tasks-${project.id}" class="space-y-2"></div>
-                    </div>
+                    <div id="chart-${project.id}" class="w-full h-48 mb-4"></div>
+                    <div id="tasks-${project.id}" class="space-y-2 ${project.collapsed ? 'hidden' : ''}"></div>
                 `;
                 projectsContainer.appendChild(projectCard);
                 renderTaskList(project);
@@ -276,7 +296,10 @@
         function renderTaskList(project) {
             const taskContainer = document.getElementById(`tasks-${project.id}`);
             let html = '';
-            project.tasks.forEach(task => {
+
+            const sortedTasks = [...project.tasks].sort((a, b) => sortByEndDate(a, b, 'effectiveEndDate'));
+
+            sortedTasks.forEach(task => {
                 const hasSubtasks = task.subtasks && task.subtasks.length > 0;
                 
                 let taskControlHtml;
@@ -284,7 +307,7 @@
                 const totalSubtasks = hasSubtasks ? task.subtasks.length : 0;
                 const subtaskProgress = totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0;
                 
-                if (task.subtasks) { // Treat tasks with a subtask array (even empty) as phases
+                if (task.subtasks) {
                     taskControlHtml = `<div class="text-xs font-bold text-gray-500 dark:text-gray-400 w-10 text-center flex-shrink-0">${subtaskProgress}%</div>`;
                 } else {
                     taskControlHtml = `<input type="checkbox" class="custom-checkbox" onchange="toggleTaskComplete(${project.id}, ${task.id})" ${task.completed ? 'checked' : ''}>`;
@@ -308,7 +331,8 @@
                 `;
                 if (task.subtasks) {
                     html += '<div class="ml-12 mt-1 space-y-1 pt-1">';
-                    task.subtasks.forEach(subtask => {
+                    const sortedSubtasks = [...task.subtasks].sort((a, b) => sortByEndDate(a, b, 'endDate'));
+                    sortedSubtasks.forEach(subtask => {
                         html += `
                             <div class="flex items-center gap-3">
                                 <input type="checkbox" class="custom-checkbox" onchange="toggleSubtaskComplete(${project.id}, ${task.id}, ${subtask.id})" ${subtask.completed ? 'checked' : ''}>
@@ -393,32 +417,65 @@
 
             const line = d3.line().x(d => x(d.date)).y(d => y(d.progress));
             
-            if (projectedData.length > 1) {
-                svg.append("path").datum(projectedData).attr("class", `projected-line ${colorPalette[project.color]?.stroke || 'stroke-gray-500'}`).attr("d", line);
+            const totalDuration = endDate.getTime() - startDate.getTime();
+            function getPlannedProgress(date) {
+                if (totalDuration <= 0) return 0;
+                const currentDuration = date.getTime() - startDate.getTime();
+                return (currentDuration / totalDuration) * 100;
             }
-            if (actualData.length > 1) {
-                svg.append("path").datum(actualData).attr("class", `actual-line ${colorPalette[project.color]?.stroke || 'stroke-gray-500'}`).attr("d", line);
+
+            // Draw actual line segments
+            for (let i = 0; i < actualData.length - 1; i++) {
+                const segment = [actualData[i], actualData[i+1]];
+                const endPoint = segment[1];
+                const plannedProgress = getPlannedProgress(endPoint.date);
+                const isAhead = endPoint.progress >= plannedProgress;
+                const colorClass = isAhead ? 'stroke-green-500' : 'stroke-red-500';
+                svg.append("path").datum(segment).attr("class", `actual-line ${colorClass}`).attr("d", line);
+            }
+
+            // Draw projected line segments
+            for (let i = 0; i < projectedData.length - 1; i++) {
+                const segment = [projectedData[i], projectedData[i+1]];
+                const endPoint = segment[1];
+                const plannedProgress = getPlannedProgress(endPoint.date);
+                const isAhead = endPoint.progress >= plannedProgress;
+                const colorClass = isAhead ? 'stroke-green-500' : 'stroke-red-500';
+                svg.append("path").datum(segment).attr("class", `projected-line ${colorClass}`).attr("d", line);
             }
             
+            // Draw points
             svg.selectAll(".actual-point")
                 .data(actualData.slice(1))
                 .enter().append("circle")
-                .attr("class", `actual-point ${colorPalette[project.color]?.fill || 'fill-gray-500'}`)
+                .attr("class", "actual-point")
                 .attr("cx", d => x(d.date))
-                .attr("cy", d => y(d.progress));
+                .attr("cy", d => y(d.progress))
+                .attr("fill", d => {
+                    const plannedProgress = getPlannedProgress(d.date);
+                    return d.progress >= plannedProgress ? '#22c55e' : '#ef4444'; // green-500 or red-500
+                });
         }
 
         // --- EVENT HANDLERS & LOGIC ---
         function addProject() {
             const name = newProjectNameInput.value.trim();
             if (!name) return;
-            const startDate = document.getElementById('new-project-start-date').value;
-            const endDate = document.getElementById('new-project-end-date').value;
-            projects.push({ id: Date.now(), name, startDate: startDate || null, endDate: endDate || null, completed: false, collapsed: false, color: colorNames[projects.length % colorNames.length], tasks: [] });
+            const startDateInput = document.getElementById('new-project-start-date');
+            const endDateInput = document.getElementById('new-project-end-date');
+            
+            const startDate = startDateInput.dataset.date || null;
+            const endDate = endDateInput.dataset.date || null;
+
+            projects.push({ id: Date.now(), name, startDate, endDate, completed: false, collapsed: false, color: colorNames[projects.length % colorNames.length], tasks: [] });
             saveProjects();
+            
             newProjectNameInput.value = '';
-            document.getElementById('new-project-start-date').value = '';
-            document.getElementById('new-project-end-date').value = '';
+            startDateInput.value = '';
+            endDateInput.value = '';
+            delete startDateInput.dataset.date;
+            delete endDateInput.dataset.date;
+
             renderProjects();
         }
 
@@ -443,7 +500,9 @@
             const task = projects.find(p => p.id === projectId)?.tasks.find(t => t.id === taskId);
             if (task) {
                 if (!task.subtasks) task.subtasks = [];
-                task.subtasks.push({ id: Date.now(), name, startDate: startDateInput.value || null, endDate: endDateInput.value || null, completed: false, completionDate: null });
+                const startDate = startDateInput.dataset.date || null;
+                const endDate = endDateInput.dataset.date || null;
+                task.subtasks.push({ id: Date.now(), name, startDate, endDate, completed: false, completionDate: null });
                 saveProjects();
                 renderProjects();
             }
@@ -528,7 +587,7 @@
             if (project) {
                 project.collapsed = !project.collapsed;
                 saveProjects();
-                document.getElementById(`project-content-${projectId}`).classList.toggle('hidden');
+                document.getElementById(`tasks-${projectId}`).classList.toggle('hidden');
                 document.getElementById(`chevron-${projectId}`).classList.toggle('-rotate-90');
             }
         }
@@ -598,6 +657,7 @@
                     const newDate = instance.formatDate(selectedDates[0], "Y-m-d");
                     const { type, projectId, taskId, subtaskId, element } = currentPickerContext;
                     element.value = instance.formatDate(selectedDates[0], "m/d/y");
+                    element.dataset.date = newDate; // Store canonical date format
 
                     if (type === 'project-start') updateProjectDate(projectId, 'startDate', newDate);
                     else if (type === 'project-end') updateProjectDate(projectId, 'endDate', newDate);
@@ -636,7 +696,8 @@
                 element: trigger 
             };
             
-            sharedPicker.setDate(trigger.value, false);
+            const dateToParse = trigger.dataset.date || trigger.value;
+            sharedPicker.setDate(dateToParse, false);
             sharedPicker.open();
         }
 
