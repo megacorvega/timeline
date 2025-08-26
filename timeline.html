@@ -90,6 +90,7 @@
         }
         .actual-point {
             r: 4;
+            fill: currentColor;
         }
         .date-input {
             background-color: #fff;
@@ -146,8 +147,8 @@
             <h2 class="text-lg font-semibold mb-3">Add a New Project</h2>
             <div class="flex flex-col sm:flex-row gap-3 items-center">
                 <input type="text" id="new-project-name" placeholder="Enter new project name..." class="flex-grow w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
-                <input type="text" id="new-project-start-date" placeholder="Start Date" readonly class="date-input px-3 py-1.5 text-sm">
-                <input type="text" id="new-project-end-date" placeholder="End Date" readonly class="date-input px-3 py-1.5 text-sm">
+                <input type="text" id="new-project-start-date" placeholder="Start Date" class="date-input px-3 py-1.5 text-sm">
+                <input type="text" id="new-project-end-date" placeholder="End Date" class="date-input px-3 py-1.5 text-sm">
                 <button id="add-project-btn" class="w-full sm:w-auto bg-blue-600 text-white font-semibold px-4 py-1.5 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-colors text-sm">
                     Add Project
                 </button>
@@ -164,12 +165,19 @@
         // --- STATE & CONFIG ---
         let projects = [];
         let sharedPicker = null;
-        let currentPickerContext = null;
         const colorPalette = {
-            'sky': 'stroke-sky-500 fill-sky-500', 'indigo': 'stroke-indigo-500 fill-indigo-500', 'purple': 'stroke-purple-500 fill-purple-500', 
-            'pink': 'stroke-pink-500 fill-pink-500', 'teal': 'stroke-teal-500 fill-teal-500', 'cyan': 'stroke-cyan-500 fill-cyan-500', 
-            'green': 'stroke-green-500 fill-green-500', 'lime': 'stroke-lime-500 fill-lime-500', 'yellow': 'stroke-yellow-500 fill-yellow-500', 
-            'orange': 'stroke-orange-500 fill-orange-500', 'red': 'stroke-red-500 fill-red-500', 'fuchsia': 'stroke-fuchsia-500 fill-fuchsia-500'
+            'sky': { stroke: 'stroke-sky-500', fill: 'fill-sky-500' }, 
+            'indigo': { stroke: 'stroke-indigo-500', fill: 'fill-indigo-500' }, 
+            'purple': { stroke: 'stroke-purple-500', fill: 'fill-purple-500' }, 
+            'pink': { stroke: 'stroke-pink-500', fill: 'fill-pink-500' }, 
+            'teal': { stroke: 'stroke-teal-500', fill: 'fill-teal-500' }, 
+            'cyan': { stroke: 'stroke-cyan-500', fill: 'fill-cyan-500' }, 
+            'green': { stroke: 'stroke-green-500', fill: 'fill-green-500' }, 
+            'lime': { stroke: 'stroke-lime-500', fill: 'fill-lime-500' }, 
+            'yellow': { stroke: 'stroke-yellow-500', fill: 'fill-yellow-500' }, 
+            'orange': { stroke: 'stroke-orange-500', fill: 'fill-orange-500' }, 
+            'red': { stroke: 'stroke-red-500', fill: 'fill-red-500' }, 
+            'fuchsia': { stroke: 'stroke-fuchsia-500', fill: 'fill-fuchsia-500' }
         };
         const colorNames = Object.keys(colorPalette);
         const defaultProjects = [];
@@ -193,7 +201,7 @@
             projects = savedData ? JSON.parse(savedData) : defaultProjects;
         }
         const parseDate = d3.timeParse("%Y-%m-%d");
-        const formatDate = d3.timeFormat("%b %d, '%y");
+        const formatDate = d3.timeFormat("%m/%d/%y");
 
         function getBoundaryDate(items, type) {
             const dates = items.map(item => parseDate(type === 'latest' ? item.endDate : item.startDate)).filter(Boolean);
@@ -239,14 +247,14 @@
                     <div class="flex justify-between items-center mb-4">
                         <div class="flex items-center gap-3 flex-grow">
                              <button onclick="toggleProjectCollapse(${project.id})" class="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800">
-                                <svg id="chevron-${project.id}" class="w-5 h-5 text-gray-500 chevron ${project.collapsed ? 'rotate-180' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+                                <svg id="chevron-${project.id}" class="w-5 h-5 text-gray-500 chevron ${project.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                             </button>
                             <h3 class="text-xl font-bold" contenteditable="true" onblur="updateProjectName(${project.id}, this.innerText)">${project.name}</h3>
                             <span class="text-sm font-medium text-gray-500">${Math.round(overallProgress)}% Complete</span>
                         </div>
                         <div class="flex items-center gap-2 text-sm text-gray-500">
-                            <input type="text" value="${project.startDate || ''}" placeholder="Start Date" readonly class="date-input" data-project-id="${project.id}" data-type="project-start">
-                            <input type="text" value="${project.endDate || ''}" placeholder="End Date" readonly class="date-input" data-project-id="${project.id}" data-type="project-end">
+                            <input type="text" value="${project.startDate ? formatDate(parseDate(project.startDate)) : ''}" placeholder="Start Date" readonly class="date-input" data-project-id="${project.id}" data-type="project-start">
+                            <input type="text" value="${project.endDate ? formatDate(parseDate(project.endDate)) : ''}" placeholder="End Date" readonly class="date-input" data-project-id="${project.id}" data-type="project-end">
                         </div>
                         <button onclick="deleteProject(${project.id})" class="text-gray-400 hover:text-red-500 transition-colors text-xl font-bold ml-4">&times;</button>
                     </div>
@@ -284,8 +292,8 @@
 
                 let taskDateHtml = `
                     <div class="flex items-center gap-2 text-sm text-gray-500">
-                        <input type="text" value="${task.effectiveStartDate || ''}" placeholder="Start" readonly class="date-input bg-gray-100 dark:bg-slate-800" disabled>
-                        <input type="text" value="${task.effectiveEndDate || ''}" placeholder="End" readonly class="date-input bg-gray-100 dark:bg-slate-800" disabled>
+                        <input type="text" value="${task.effectiveStartDate ? formatDate(parseDate(task.effectiveStartDate)) : ''}" placeholder="Start" readonly class="date-input bg-gray-100 dark:bg-slate-800" disabled>
+                        <input type="text" value="${task.effectiveEndDate ? formatDate(parseDate(task.effectiveEndDate)) : ''}" placeholder="End" readonly class="date-input bg-gray-100 dark:bg-slate-800" disabled>
                     </div>
                 `;
 
@@ -306,8 +314,8 @@
                                 <input type="checkbox" class="custom-checkbox" onchange="toggleSubtaskComplete(${project.id}, ${task.id}, ${subtask.id})" ${subtask.completed ? 'checked' : ''}>
                                 <span class="text-gray-700 dark:text-gray-300 flex-grow ${subtask.completed ? 'line-through opacity-60' : ''}" contenteditable="true" onblur="updateSubtaskName(${project.id}, ${task.id}, ${subtask.id}, this.innerText)">${subtask.name}</span>
                                 <div class="flex items-center gap-2 text-sm text-gray-500">
-                                    <input type="text" value="${subtask.startDate || ''}" placeholder="Start" readonly class="date-input" data-project-id="${project.id}" data-task-id="${task.id}" data-subtask-id="${subtask.id}" data-type="subtask-start">
-                                    <input type="text" value="${subtask.endDate || ''}" placeholder="End" readonly class="date-input" data-project-id="${project.id}" data-task-id="${task.id}" data-subtask-id="${subtask.id}" data-type="subtask-end">
+                                    <input type="text" value="${subtask.startDate ? formatDate(parseDate(subtask.startDate)) : ''}" placeholder="Start" readonly class="date-input" data-project-id="${project.id}" data-task-id="${task.id}" data-subtask-id="${subtask.id}" data-type="subtask-start">
+                                    <input type="text" value="${subtask.endDate ? formatDate(parseDate(subtask.endDate)) : ''}" placeholder="End" readonly class="date-input" data-project-id="${project.id}" data-task-id="${task.id}" data-subtask-id="${subtask.id}" data-type="subtask-end">
                                 </div>
                                 <button onclick="deleteSubtask(${project.id}, ${task.id}, ${subtask.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold w-5 text-center flex-shrink-0">&times;</button>
                             </div>
@@ -381,21 +389,21 @@
 
             const lastCompletedIndex = sortedTasks.map(t => t.completed).lastIndexOf(true);
             const actualData = fullPathData.slice(0, lastCompletedIndex + 2);
-            const projectedData = fullPathData.slice(lastCompletedIndex + 1);
+            const projectedData = [actualData[actualData.length - 1], ...fullPathData.slice(lastCompletedIndex + 2)];
 
             const line = d3.line().x(d => x(d.date)).y(d => y(d.progress));
             
-            if (projectedData.length > 0) {
-                svg.append("path").datum(projectedData).attr("class", `projected-line ${colorPalette[project.color] || 'stroke-gray-500'}`).attr("d", line);
+            if (projectedData.length > 1) {
+                svg.append("path").datum(projectedData).attr("class", `projected-line ${colorPalette[project.color]?.stroke || 'stroke-gray-500'}`).attr("d", line);
             }
             if (actualData.length > 1) {
-                svg.append("path").datum(actualData).attr("class", `actual-line ${colorPalette[project.color] || 'stroke-gray-500'}`).attr("d", line);
+                svg.append("path").datum(actualData).attr("class", `actual-line ${colorPalette[project.color]?.stroke || 'stroke-gray-500'}`).attr("d", line);
             }
             
             svg.selectAll(".actual-point")
                 .data(actualData.slice(1))
                 .enter().append("circle")
-                .attr("class", `actual-point ${colorPalette[project.color].replace('stroke-', 'fill-') || 'fill-gray-500'}`)
+                .attr("class", `actual-point ${colorPalette[project.color]?.fill || 'fill-gray-500'}`)
                 .attr("cx", d => x(d.date))
                 .attr("cy", d => y(d.progress));
         }
@@ -521,7 +529,7 @@
                 project.collapsed = !project.collapsed;
                 saveProjects();
                 document.getElementById(`project-content-${projectId}`).classList.toggle('hidden');
-                document.getElementById(`chevron-${projectId}`).classList.toggle('rotate-180');
+                document.getElementById(`chevron-${projectId}`).classList.toggle('-rotate-90');
             }
         }
 
@@ -587,9 +595,9 @@
                 onChange: [function(selectedDates, dateStr, instance) {
                     if (!currentPickerContext) return;
                     
-                    const newDate = dateStr;
+                    const newDate = instance.formatDate(selectedDates[0], "Y-m-d");
                     const { type, projectId, taskId, subtaskId, element } = currentPickerContext;
-                    element.value = newDate;
+                    element.value = instance.formatDate(selectedDates[0], "m/d/y");
 
                     if (type === 'project-start') updateProjectDate(projectId, 'startDate', newDate);
                     else if (type === 'project-end') updateProjectDate(projectId, 'endDate', newDate);
@@ -628,7 +636,7 @@
                 element: trigger 
             };
             
-            sharedPicker.setDate(trigger.value || null, false);
+            sharedPicker.setDate(trigger.value, false);
             sharedPicker.open();
         }
 
