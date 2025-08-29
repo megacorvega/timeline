@@ -80,6 +80,16 @@
             stroke: #ef4444; /* Red-500 */
             stroke-width: 2;
         }
+        .ghost-planned-line {
+            stroke: #cbd5e1; /* Gray-300 */
+            stroke-width: 1.5;
+            stroke-dasharray: 2, 2;
+        }
+        .ghost-finish-line {
+            stroke: #fca5a5; /* Red-300 */
+            stroke-width: 1.5;
+            stroke-dasharray: 2, 2;
+        }
         .actual-line {
             fill: none;
             stroke-width: 3;
@@ -287,6 +297,8 @@
             }
             projects = loadedProjects;
             projects.forEach(project => {
+                if (!project.originalStartDate) project.originalStartDate = project.startDate;
+                if (!project.originalEndDate) project.originalEndDate = project.endDate;
                 if (!project.phases) project.phases = [];
                 project.phases.forEach(phase => { if(phase.collapsed === undefined) phase.collapsed = false; });
                 if (!project.logs) project.logs = [];
@@ -523,6 +535,12 @@
                 x.domain([startDate, endDate]); y.domain([0, 100]);
                 svg.append("g").attr("class", "chart-grid").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x).ticks(5).tickFormat(formatDate));
                 svg.append("g").attr("class", "chart-grid").call(d3.axisLeft(y).ticks(5).tickFormat(d => `${d}%`));
+                // Ghost lines for original dates
+                if (project.originalStartDate && project.originalEndDate && (project.originalStartDate !== project.startDate || project.originalEndDate !== project.endDate)) {
+                    const originalStartDate = parseDate(project.originalStartDate), originalEndDate = parseDate(project.originalEndDate);
+                    svg.append("line").attr("class", "ghost-planned-line").attr("x1", x(originalStartDate)).attr("y1", y(0)).attr("x2", x(originalEndDate)).attr("y2", y(100));
+                    svg.append("line").attr("class", "ghost-finish-line").attr("x1", x(originalEndDate)).attr("y1", 0).attr("x2", x(originalEndDate)).attr("y2", height);
+                }
                 svg.append("line").attr("class", "planned-line").attr("x1", x(startDate)).attr("y1", y(0)).attr("x2", x(endDate)).attr("y2", y(100));
                 svg.append("line").attr("class", "finish-line").attr("x1", x(endDate)).attr("y1", 0).attr("x2", x(endDate)).attr("y2", height);
                 const sortedPhases = [...project.phases].filter(ph => ph.effectiveEndDate).sort((a,b) => parseDate(a.effectiveStartDate) - parseDate(b.effectiveStartDate));
@@ -560,7 +578,8 @@
         function addProject() {
             const name = newProjectNameInput.value.trim(); if (!name) return;
             const startDateInput = document.getElementById('new-project-start-date'), endDateInput = document.getElementById('new-project-end-date');
-            projects.push({ id: Date.now(), name, startDate: startDateInput.dataset.date || null, endDate: endDateInput.dataset.date || null, collapsed: false, phases: [], logs: [] });
+            const startDate = startDateInput.dataset.date || null, endDate = endDateInput.dataset.date || null;
+            projects.push({ id: Date.now(), name, startDate, endDate, originalStartDate: startDate, originalEndDate: endDate, collapsed: false, phases: [], logs: [] });
             saveProjects(); newProjectNameInput.value = ''; startDateInput.value = ''; endDateInput.value = ''; delete startDateInput.dataset.date; delete endDateInput.dataset.date; renderProjects();
         }
 
