@@ -204,12 +204,17 @@
         .dark .dependency-circle {
             background-color: #4b5563; /* gray-600 */
         }
-        .phase-row:hover .dependency-container .dependency-circle,
-        .task-row:hover .dependency-container .dependency-circle,
+        .phase-row > .item-main-row:hover .dependency-container .dependency-circle,
+        .task-row > .item-main-row:hover .dependency-container .dependency-circle,
         .subtask-row:hover .dependency-container .dependency-circle {
             opacity: 1;
         }
-        .is-precedent, .is-dependent {
+        .is-precedent {
+            background-color: #ef4444 !important; /* Red-500 */
+            opacity: 1 !important;
+        }
+        .is-dependent {
+            background-color: #f59e0b !important; /* Amber-500 */
             opacity: 1 !important;
         }
 
@@ -584,7 +589,7 @@
                 const drivenDot = phase.isDriven ? `<div class="driven-by-dot" title="Starts after: ${phase.driverName}"></div>` : '<div class="w-2"></div>';
                 html += `
                     <div class="bg-gray-100 dark:bg-slate-800/50 rounded-lg p-3 phase-row ${depClass} ${selectedClass}" data-id="${phase.id}" data-type="phase" data-project-id="${project.id}">
-                        <div class="flex items-center gap-3">
+                        <div class="flex items-center gap-3 item-main-row">
                             <button onclick="togglePhaseCollapse(${project.id}, ${phase.id})" class="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 flex-shrink-0">
                                 <svg id="phase-chevron-${phase.id}" class="w-4 h-4 text-gray-500 chevron ${phase.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                             </button>
@@ -623,7 +628,7 @@
                 const drivenDot = task.isDriven ? `<div class="driven-by-dot" title="Starts after: ${task.driverName}"></div>` : '<div class="w-2"></div>';
                 html += `
                     <div class="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-2 task-row ${depClass} ${selectedClass}" data-id="${task.id}" data-type="task" data-project-id="${projectId}" data-phase-id="${phaseId}">
-                        <div class="flex items-center gap-3">
+                        <div class="flex items-center gap-3 item-main-row">
                              <button onclick="toggleTaskCollapse(${projectId}, ${phaseId}, ${task.id})" class="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 flex-shrink-0">
                                 <svg id="task-chevron-${task.id}" class="w-4 h-4 text-gray-500 chevron ${task.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                             </button>
