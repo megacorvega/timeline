@@ -152,10 +152,10 @@
         .chevron {
             transition: transform 0.2s;
         }
-        .task-row:hover, .subtask-row:hover {
+        .task-row:hover, .subtask-row:hover, .phase-row:hover {
             background-color: rgba(59, 130, 246, 0.05);
         }
-        .dark .task-row:hover, .dark .subtask-row:hover {
+        .dark .task-row:hover, .dark .subtask-row:hover, .dark .phase-row:hover {
             background-color: rgba(59, 130, 246, 0.1);
         }
         .btn-sm {
@@ -168,11 +168,95 @@
             align-items: center;
         }
 
+        /* Dependency Toggle Switch */
+        .toggle-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 38px;
+            height: 22px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 22px;
+        }
+        .dark .slider {
+             background-color: #4b5563;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #2563eb;
+        }
+        input:checked + .slider:before {
+            transform: translateX(16px);
+        }
+        .dependency-candidate {
+             cursor: pointer;
+             border: 1px dashed #9ca3af;
+        }
+        .dependency-selected {
+            outline: 2px solid #16a34a;
+            background-color: rgba(22, 163, 74, 0.1);
+        }
+       .driven-by-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #3b82f6; /* Blue-500 */
+            flex-shrink: 0;
+            cursor: help;
+        }
+        .dependency-icon {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            font-size: 0.7rem;
+            color: #64748b;
+            background-color: #e2e8f0;
+            padding: 2px 4px;
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+       .dark .dependency-icon {
+            color: #94a3b8;
+            background-color: #334155;
+       }
+
+
         @media print {
             body {
                 background-color: #fff;
             }
-            header, .bg-white.dark\\:bg-slate-900:first-of-type, #import-btn, #export-btn, #pdf-btn, #theme-toggle {
+            header, .bg-white.dark\\:bg-slate-900:first-of-type, #import-btn, #export-btn, #pdf-btn, #theme-toggle, #dependency-btn-container {
                 display: none;
             }
             .project-card {
@@ -211,6 +295,10 @@
             </div>
         </div>
     </div>
+    
+    <div id="dependency-banner" class="hidden sticky top-0 bg-blue-100 dark:bg-blue-900 border-b-2 border-blue-500 text-blue-800 dark:text-blue-200 text-center py-2 z-40">
+        <p><b>Dependency Mode:</b> Click a predecessor item, then click a dependent item to create a link. Click an existing dependency icon to remove it. Press ESC to exit.</p>
+    </div>
 
     <div class="container mx-auto p-4 sm:p-5 max-w-6xl">
 
@@ -220,7 +308,16 @@
                     <span class="text-gray-500 dark:text-gray-400">time</span><span class="text-black dark:text-white">line</span>
                 </h1>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-4">
+                 <div id="dependency-btn-container">
+                    <label for="dependency-toggle" class="toggle-label text-gray-600 dark:text-gray-300">
+                        <span>Dependencies</span>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="dependency-toggle">
+                            <span class="slider"></span>
+                        </div>
+                    </label>
+                </div>
                 <button id="import-btn" class="px-3 py-1.5 text-xs font-semibold rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600">Import</button>
                 <button id="export-btn" class="px-3 py-1.5 text-xs font-semibold rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600">Export</button>
                 <button id="pdf-btn" class="px-3 py-1.5 text-xs font-semibold rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600">Print to PDF</button>
@@ -262,6 +359,8 @@
         let currentPickerContext = null;
         let pendingDateChange = null;
         let pendingDeletion = null;
+        let dependencyMode = false;
+        let firstSelectedItem = null;
         const defaultProjects = [];
 
         // --- DOM ELEMENTS ---
@@ -282,6 +381,8 @@
         const reasonCommentTextarea = document.getElementById('reason-comment');
         const saveReasonBtn = document.getElementById('save-reason-btn');
         const cancelReasonBtn = document.getElementById('cancel-reason-btn');
+        const dependencyToggle = document.getElementById('dependency-toggle');
+        const dependencyBanner = document.getElementById('dependency-banner');
 
 
         // --- DATA & UTILS ---
@@ -302,7 +403,21 @@
                 if (!project.originalStartDate) project.originalStartDate = project.startDate;
                 if (!project.originalEndDate) project.originalEndDate = project.endDate;
                 if (!project.phases) project.phases = [];
-                project.phases.forEach(phase => { if(phase.collapsed === undefined) phase.collapsed = false; });
+                project.phases.forEach(phase => { 
+                    if(phase.collapsed === undefined) phase.collapsed = false; 
+                    if(!phase.dependencies) phase.dependencies = [];
+                    if(!phase.precedents) phase.precedents = [];
+                    phase.tasks.forEach(task => {
+                        if(!task.dependencies) task.dependencies = [];
+                        if(!task.precedents) task.precedents = [];
+                        if(task.subtasks) {
+                            task.subtasks.forEach(subtask => {
+                                if(!subtask.dependencies) subtask.dependencies = [];
+                                if(!subtask.precedents) subtask.precedents = [];
+                            });
+                        }
+                    });
+                });
                 if (!project.logs) project.logs = [];
                 if (project.collapsed === undefined) project.collapsed = false;
                 if (typeof project.startDate !== 'string' || project.startDate.trim() === '') project.startDate = null;
@@ -331,9 +446,9 @@
 
         function calculateRollups() {
             projects.forEach(p => {
-                // 1. First, loop through all phases to calculate their progress based on tasks
                 p.phases.forEach(phase => {
                     phase.tasks.forEach(task => {
+                        task.isDriven = false; // Reset driven flag
                         const hasSubtasks = task.subtasks && task.subtasks.length > 0;
                         if (hasSubtasks) {
                             task.effectiveStartDate = getBoundaryDate(task.subtasks, 'earliest');
@@ -348,7 +463,7 @@
                         }
                     });
                     
-                    // Calculate phase dates and progress from ALL tasks
+                    phase.isDriven = false; // Reset driven flag
                     phase.effectiveStartDate = getBoundaryDate(phase.tasks, 'earliest');
                     phase.effectiveEndDate = getBoundaryDate(phase.tasks, 'latest');
                     const totalProgress = phase.tasks.reduce((sum, t) => sum + (t.progress || 0), 0);
@@ -356,15 +471,68 @@
                     phase.completed = phase.progress === 100;
                 });
 
-                // 2. NOW, after all phase progresses are updated, calculate the overall project progress.
                 p.totalPhaseProgress = p.phases.reduce((sum, ph) => sum + (ph.progress || 0), 0);
                 p.overallProgress = p.phases.length > 0 ? p.totalPhaseProgress / p.phases.length : 0;
             });
         }
 
+        function resolveDependencies() {
+            const allItems = new Map();
+            projects.forEach(p => {
+                p.phases.forEach(ph => {
+                    allItems.set(ph.id, ph);
+                    ph.tasks.forEach(t => {
+                        allItems.set(t.id, t);
+                        if (t.subtasks) {
+                            t.subtasks.forEach(st => allItems.set(st.id, st));
+                        }
+                    });
+                });
+            });
+
+            // Iterate multiple times to ensure all dependencies are resolved in order
+            for (let i = 0; i < allItems.size; i++) {
+                allItems.forEach(item => {
+                    if (item.dependencies && item.dependencies.length > 0) {
+                        let latestDependencyEndDate = null;
+                        let driver = null;
+
+                        item.dependencies.forEach(depId => {
+                            const dependency = allItems.get(depId);
+                            if (dependency && dependency.effectiveEndDate) {
+                                const depEndDate = parseDate(dependency.effectiveEndDate);
+                                if (!latestDependencyEndDate || depEndDate > latestDependencyEndDate) {
+                                    latestDependencyEndDate = depEndDate;
+                                    driver = dependency;
+                                }
+                            }
+                        });
+
+                        if (latestDependencyEndDate) {
+                            const newStartDate = new Date(latestDependencyEndDate);
+                            newStartDate.setDate(newStartDate.getDate() + 1);
+                            const newStartDateStr = newStartDate.toISOString().split('T')[0];
+                            
+                            // Only update if the date is different to avoid unnecessary re-renders
+                            if (item.startDate !== newStartDateStr) {
+                               item.startDate = newStartDateStr;
+                            }
+                            item.effectiveStartDate = newStartDateStr;
+                            item.isDriven = true;
+                            item.driverName = driver.name;
+                        }
+                    }
+                });
+                 // Re-run rollups after each pass to propagate date changes upwards
+                calculateRollups();
+            }
+        }
+
+
         // --- RENDER ---
         function renderProjects() {
             calculateRollups();
+            resolveDependencies(); // This will now automatically handle date updates
             projectsContainer.innerHTML = '';
             const sortedProjects = [...projects].sort((a, b) => {
                 if (a.overallProgress >= 100 && b.overallProgress < 100) return 1;
@@ -420,6 +588,23 @@
                 }
             });
         }
+        
+        function getDependencyIcon(item) {
+            const depCount = item.dependencies?.length || 0;
+            const preCount = item.precedents?.length || 0;
+            if (depCount === 0 && preCount === 0) return '';
+            
+            let tooltip = '';
+            if (depCount > 0) tooltip += `${depCount} dependencies`;
+            if (depCount > 0 && preCount > 0) tooltip += ', ';
+            if (preCount > 0) tooltip += `${preCount} precedents`;
+
+            return `<div class="dependency-icon" title="${tooltip}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                        <span>${depCount}/${preCount}</span>
+                    </div>`;
+        }
+
 
         function renderPhaseList(project) {
             const phaseContainer = document.getElementById(`phases-${project.id}`);
@@ -427,14 +612,19 @@
             const sortedPhases = [...project.phases].sort((a, b) => sortByEndDate(a, b, 'effectiveEndDate'));
 
             sortedPhases.forEach(phase => {
+                const depClass = dependencyMode ? 'dependency-candidate' : '';
+                const selectedClass = firstSelectedItem?.id === phase.id ? 'dependency-selected' : '';
+                const drivenDot = phase.isDriven ? `<div class="driven-by-dot" title="Starts after: ${phase.driverName}"></div>` : '<div class="w-2"></div>';
                 html += `
-                    <div class="bg-gray-100 dark:bg-slate-800/50 rounded-lg p-3">
+                    <div class="bg-gray-100 dark:bg-slate-800/50 rounded-lg p-3 phase-row ${depClass} ${selectedClass}" data-id="${phase.id}" data-type="phase" data-project-id="${project.id}">
                         <div class="flex items-center gap-3">
                             <button onclick="togglePhaseCollapse(${project.id}, ${phase.id})" class="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 flex-shrink-0">
                                 <svg id="phase-chevron-${phase.id}" class="w-4 h-4 text-gray-500 chevron ${phase.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                             </button>
+                             ${drivenDot}
                             <div class="text-xs font-bold text-gray-500 dark:text-gray-400 w-10 text-center flex-shrink-0">${Math.round(phase.progress || 0)}%</div>
                             <span class="font-semibold flex-grow" contenteditable="true" onblur="updatePhaseName(${project.id}, ${phase.id}, this.innerText)">${phase.name}</span>
+                            ${getDependencyIcon(phase)}
                             <div class="flex items-center gap-2 text-sm text-gray-500">
                                 <div class="date-input-container"><input type="text" value="${phase.effectiveStartDate ? formatDate(parseDate(phase.effectiveStartDate)) : ''}" placeholder="Start" readonly class="date-input bg-gray-200 dark:bg-slate-700" disabled></div>
                                 <div class="date-input-container"><input type="text" value="${phase.effectiveEndDate ? formatDate(parseDate(phase.effectiveEndDate)) : ''}" placeholder="End" readonly class="date-input bg-gray-200 dark:bg-slate-700" disabled></div>
@@ -461,12 +651,18 @@
             sortedTasks.forEach(task => {
                 const hasSubtasks = task.subtasks && task.subtasks.length > 0;
                 let taskControlHtml = hasSubtasks ? `<div class="text-xs font-bold text-gray-500 dark:text-gray-400 w-10 text-center flex-shrink-0">${Math.round(task.progress || 0)}%</div>` : `<input type="checkbox" class="custom-checkbox" onchange="toggleTaskComplete(${projectId}, ${phaseId}, ${task.id})" ${task.completed ? 'checked' : ''}>`;
+                const depClass = dependencyMode ? 'dependency-candidate' : '';
+                const selectedClass = firstSelectedItem?.id === task.id ? 'dependency-selected' : '';
+                const drivenDot = task.isDriven ? `<div class="driven-by-dot" title="Starts after: ${task.driverName}"></div>` : '<div class="w-2"></div>';
+
                 html += `
-                    <div class="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-2 task-row group">
+                    <div class="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-2 task-row group ${depClass} ${selectedClass}" data-id="${task.id}" data-type="task" data-project-id="${projectId}" data-phase-id="${phaseId}">
                         <div class="flex items-center gap-3">
+                            ${drivenDot}
                             ${taskControlHtml}
                             <div class="flex-grow flex items-center gap-2">
                                 <span class="font-medium" contenteditable="true" onblur="updateTaskName(${projectId}, ${phaseId}, ${task.id}, this.innerText)">${task.name}</span>
+                                ${getDependencyIcon(task)}
                                 <button onclick="showAddSubtaskInput(${task.id})" class="hidden group-hover:flex items-center gap-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-semibold rounded-md px-2 py-1 flex-shrink-0">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
                                     <span>Subtask</span>
@@ -475,8 +671,8 @@
 
                             <div class="flex items-center gap-2 text-sm text-gray-500">
                                 <div class="date-input-container">
-                                    <input type="text" value="${task.effectiveStartDate ? formatDate(parseDate(task.effectiveStartDate)) : ''}" placeholder="Start" class="date-input ${hasSubtasks ? 'bg-gray-100 dark:bg-slate-800' : ''}" ${hasSubtasks ? 'disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-start" data-date="${task.startDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)">
-                                    ${!hasSubtasks ? iconHtml : ''}
+                                    <input type="text" value="${task.effectiveStartDate ? formatDate(parseDate(task.effectiveStartDate)) : ''}" placeholder="Start" class="date-input ${hasSubtasks || task.isDriven ? 'bg-gray-100 dark:bg-slate-800' : ''}" ${hasSubtasks || task.isDriven ? 'disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-start" data-date="${task.startDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)">
+                                    ${!hasSubtasks && !task.isDriven ? iconHtml : ''}
                                 </div>
                                 <div class="date-input-container">
                                     <input type="text" value="${task.effectiveEndDate ? formatDate(parseDate(task.effectiveEndDate)) : ''}" placeholder="End" class="date-input ${hasSubtasks ? 'bg-gray-100 dark:bg-slate-800' : ''}" ${hasSubtasks ? 'disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-end" data-date="${task.endDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)">
@@ -512,14 +708,19 @@
             const sortedSubtasks = [...subtasks].sort((a,b) => sortByEndDate(a, b, 'endDate'));
             const iconHtml = `<div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>`;
             sortedSubtasks.forEach(subtask => {
+                const depClass = dependencyMode ? 'dependency-candidate' : '';
+                const selectedClass = firstSelectedItem?.id === subtask.id ? 'dependency-selected' : '';
+                const drivenDot = subtask.isDriven ? `<div class="driven-by-dot" title="Starts after: ${subtask.driverName}"></div>` : '<div class="w-2"></div>';
                 html += `
-                    <div class="flex items-center gap-3 subtask-row p-1 rounded">
+                    <div class="flex items-center gap-3 subtask-row p-1 rounded ${depClass} ${selectedClass}" data-id="${subtask.id}" data-type="subtask" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}">
+                        ${drivenDot}
                         <input type="checkbox" class="custom-checkbox" onchange="toggleSubtaskComplete(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" ${subtask.completed ? 'checked' : ''}>
                         <span class="text-sm text-gray-700 dark:text-gray-300 flex-grow ${subtask.completed ? 'line-through opacity-60' : ''}" contenteditable="true" onblur="updateSubtaskName(${projectId}, ${phaseId}, ${taskId}, ${subtask.id}, this.innerText)">${subtask.name}</span>
+                        ${getDependencyIcon(subtask)}
                         <div class="flex items-center gap-2 text-sm text-gray-500">
                              <div class="date-input-container">
-                                <input type="text" value="${subtask.startDate ? formatDate(parseDate(subtask.startDate)) : ''}" placeholder="Start" class="date-input" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}" data-subtask-id="${subtask.id}" data-type="subtask-start" data-date="${subtask.startDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)">
-                                ${iconHtml}
+                                <input type="text" value="${subtask.startDate ? formatDate(parseDate(subtask.startDate)) : ''}" placeholder="Start" class="date-input ${subtask.isDriven ? 'bg-gray-100 dark:bg-slate-800' : ''}" ${subtask.isDriven ? 'disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}" data-subtask-id="${subtask.id}" data-type="subtask-start" data-date="${subtask.startDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)">
+                                 ${!subtask.isDriven ? iconHtml : ''}
                              </div>
                              <div class="date-input-container">
                                 <input type="text" value="${subtask.endDate ? formatDate(parseDate(subtask.endDate)) : ''}" placeholder="End" class="date-input" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}" data-subtask-id="${subtask.id}" data-type="subtask-end" data-date="${subtask.endDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)">
@@ -641,7 +842,7 @@
                 }
             }
         }
-
+        
         function addProject() {
             const name = newProjectNameInput.value.trim(); if (!name) return;
             const startDateInput = document.getElementById('new-project-start-date'), endDateInput = document.getElementById('new-project-end-date');
@@ -652,17 +853,17 @@
 
         function addPhase(projectId) {
             const nameInput = document.getElementById(`new-phase-name-${projectId}`), name = nameInput.value.trim(); if (!name) return;
-            const project = projects.find(p => p.id === projectId); if (project) { project.phases.push({ id: Date.now(), name, collapsed: false, tasks: [] }); saveProjects(); renderProjects(); }
+            const project = projects.find(p => p.id === projectId); if (project) { project.phases.push({ id: Date.now(), name, collapsed: false, tasks: [], dependencies: [], precedents: [] }); saveProjects(); renderProjects(); }
         }
 
         function addTask(projectId, phaseId) {
             const nameInput = document.getElementById(`new-task-name-${phaseId}`), name = nameInput.value.trim(); if (!name) return;
-            const phase = projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId); if (phase) { phase.tasks.push({ id: Date.now(), name, startDate: null, endDate: null, completed: false, subtasks: [] }); saveProjects(); renderProjects(); }
+            const phase = projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId); if (phase) { phase.tasks.push({ id: Date.now(), name, startDate: null, endDate: null, completed: false, subtasks: [], dependencies: [], precedents: [] }); saveProjects(); renderProjects(); }
         }
 
         function addSubtask(projectId, phaseId, taskId) {
             const nameInput = document.getElementById(`new-subtask-name-${taskId}`), name = nameInput.value.trim(); if (!name) return;
-            const task = projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId); if (task) { if (!task.subtasks) task.subtasks = []; task.subtasks.push({ id: Date.now(), name, startDate: null, endDate: null, completed: false }); nameInput.value = ''; saveProjects(); renderProjects(); }
+            const task = projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId); if (task) { if (!task.subtasks) task.subtasks = []; task.subtasks.push({ id: Date.now(), name, startDate: null, endDate: null, completed: false, dependencies: [], precedents: [] }); nameInput.value = ''; saveProjects(); renderProjects(); }
         }
 
         function updateProjectName(projectId, newName) { const p = projects.find(p => p.id === projectId); if (p) { p.name = newName; saveProjects(); } }
@@ -685,9 +886,40 @@
         function toggleTaskComplete(projectId, phaseId, taskId) { const t = projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId); if (t) { t.completed = !t.completed; saveProjects(); renderProjects(); } }
         function toggleSubtaskComplete(projectId, phaseId, taskId, subtaskId) { const s = projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId)?.subtasks.find(st => st.id === subtaskId); if (s) { s.completed = !s.completed; saveProjects(); renderProjects(); } }
         
+        function removeAllDependencies(itemId) {
+            const allItems = new Map();
+             projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
+             
+             const itemToRemove = allItems.get(itemId);
+             if (!itemToRemove) return;
+
+             (itemToRemove.dependencies || []).forEach(depId => {
+                const dep = allItems.get(depId);
+                if (dep && dep.precedents) {
+                    dep.precedents = dep.precedents.filter(pId => pId !== itemId);
+                }
+             });
+             itemToRemove.dependencies = [];
+
+             (itemToRemove.precedents || []).forEach(preId => {
+                const pre = allItems.get(preId);
+                if(pre && pre.dependencies) {
+                    pre.dependencies = pre.dependencies.filter(dId => dId !== itemId);
+                }
+             });
+             itemToRemove.precedents = [];
+        }
+        
         function deleteProject(projectId) {
             const project = projects.find(p => p.id === projectId);
             if (project) {
+                 project.phases.forEach(ph => {
+                    removeAllDependencies(ph.id);
+                    ph.tasks.forEach(t => {
+                        removeAllDependencies(t.id);
+                        if(t.subtasks) t.subtasks.forEach(st => removeAllDependencies(st.id));
+                    });
+                });
                 pendingDeletion = {
                     logContext: { projectId },
                     deleteFn: () => {
@@ -706,6 +938,11 @@
             const project = projects.find(p => p.id === projectId);
             const phase = project?.phases.find(ph => ph.id === phaseId);
             if (phase) {
+                removeAllDependencies(phaseId);
+                phase.tasks.forEach(t => {
+                    removeAllDependencies(t.id);
+                    if(t.subtasks) t.subtasks.forEach(st => removeAllDependencies(st.id));
+                });
                 pendingDeletion = {
                     logContext: { projectId },
                     deleteFn: () => {
@@ -725,6 +962,8 @@
             const phase = project?.phases.find(ph => ph.id === phaseId);
             const task = phase?.tasks.find(t => t.id === taskId);
             if (task) {
+                removeAllDependencies(taskId);
+                 if(task.subtasks) task.subtasks.forEach(st => removeAllDependencies(st.id));
                 pendingDeletion = {
                     logContext: { projectId },
                     deleteFn: () => {
@@ -744,6 +983,7 @@
             const task = project?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId);
             const subtask = task?.subtasks.find(st => st.id === subtaskId);
             if (subtask) {
+                removeAllDependencies(subtaskId);
                 pendingDeletion = {
                     logContext: { projectId },
                     deleteFn: () => {
@@ -875,10 +1115,62 @@
             pendingDeletion = null;
         });
 
+        function toggleDependencyMode() {
+            dependencyMode = !dependencyMode;
+            firstSelectedItem = null;
+            dependencyBanner.classList.toggle('hidden');
+            renderProjects(); // Re-render to apply/remove candidate classes
+        }
+        
+        function handleDependencyClick(target) {
+            const itemId = parseInt(target.dataset.id);
+            const allItems = new Map();
+            projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
+            const clickedItem = allItems.get(itemId);
+
+            if (!firstSelectedItem) {
+                firstSelectedItem = clickedItem;
+            } else {
+                const secondItem = clickedItem;
+                if (firstSelectedItem.id !== secondItem.id && !secondItem.dependencies.includes(firstSelectedItem.id)) {
+                    // Simple cycle check: A cannot depend on B if B already depends on A
+                    if(!firstSelectedItem.dependencies.includes(secondItem.id)) {
+                        secondItem.dependencies.push(firstSelectedItem.id);
+                        firstSelectedItem.precedents.push(secondItem.id);
+                    } else {
+                        alert("Cannot create a circular dependency.");
+                    }
+                }
+                firstSelectedItem = null; // Reset after creating link
+            }
+            saveProjects();
+            renderProjects();
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             initializeSharedDatePicker();
-            document.querySelector('.container').addEventListener('click', (e) => { const icon = e.target.closest('.date-input-icon-wrapper'); if (icon) { const input = icon.parentElement.querySelector('.date-input'); if (input && !input.disabled) handleDateTrigger(input); } });
+            document.querySelector('.container').addEventListener('click', (e) => { 
+                const icon = e.target.closest('.date-input-icon-wrapper'); 
+                if (icon) { 
+                    const input = icon.parentElement.querySelector('.date-input'); 
+                    if (input && !input.disabled) handleDateTrigger(input);
+                    return; // Prevent event from bubbling to dependency handler
+                }
+                if (dependencyMode) {
+                    const candidate = e.target.closest('.dependency-candidate');
+                    if (candidate) {
+                        handleDependencyClick(candidate);
+                    }
+                }
+            });
             addProjectBtn.addEventListener('click', addProject);
+            dependencyToggle.addEventListener('change', toggleDependencyMode);
+            document.addEventListener('keydown', (e) => {
+                if(e.key === 'Escape' && dependencyMode) {
+                    dependencyToggle.checked = false; // Visually turn off toggle
+                    toggleDependencyMode();
+                }
+            });
             applyTheme();
             loadProjects();
             renderProjects();
