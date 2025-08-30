@@ -168,57 +168,6 @@
             align-items: center;
         }
 
-        /* Dependency Toggle Switch */
-        .toggle-label {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            cursor: pointer;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-        .toggle-switch {
-            position: relative;
-            display: inline-block;
-            width: 38px;
-            height: 22px;
-        }
-        .toggle-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 22px;
-        }
-        .dark .slider {
-             background-color: #4b5563;
-        }
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 16px;
-            width: 16px;
-            left: 3px;
-            bottom: 3px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-        input:checked + .slider {
-            background-color: #2563eb;
-        }
-        input:checked + .slider:before {
-            transform: translateX(16px);
-        }
         .dependency-candidate {
              cursor: pointer;
              border: 1px dashed #9ca3af;
@@ -235,21 +184,42 @@
             flex-shrink: 0;
             cursor: help;
         }
-        .dependency-icon {
+        .dependency-container {
             display: flex;
             align-items: center;
-            gap: 2px;
-            font-size: 0.7rem;
-            color: #64748b;
-            background-color: #e2e8f0;
-            padding: 2px 4px;
-            border-radius: 4px;
-            flex-shrink: 0;
+            gap: 6px;
         }
-       .dark .dependency-icon {
-            color: #94a3b8;
-            background-color: #334155;
-       }
+        .dependency-diamond, .dependency-circle {
+            width: 14px;
+            height: 14px;
+            background-color: #d1d5db; /* gray-300 */
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .dependency-diamond {
+            transform: rotate(45deg);
+        }
+        .dependency-circle {
+            border-radius: 50%;
+        }
+        .phase-row:hover .dependency-diamond, .phase-row:hover .dependency-circle,
+        .task-row:hover .dependency-diamond, .task-row:hover .dependency-circle,
+        .subtask-row:hover .dependency-diamond, .subtask-row:hover .dependency-circle {
+            opacity: 1;
+        }
+        .dark .dependency-diamond, .dark .dependency-circle {
+            background-color: #4b5563; /* gray-600 */
+        }
+        .is-precedent .dependency-diamond, .is-dependent .dependency-circle {
+            opacity: 1;
+        }
+        .is-dependent {
+            background-color: #f3f4f6; /* gray-100 */
+        }
+        .dark .is-dependent {
+            background-color: #1f2937; /* gray-800 */
+        }
 
 
         @media print {
@@ -296,8 +266,19 @@
         </div>
     </div>
     
+    <div id="confirm-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[1001] flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-xl w-full max-w-sm">
+            <h3 id="confirm-modal-title" class="text-lg font-bold mb-4">Confirm Action</h3>
+            <p id="confirm-modal-text" class="text-sm text-gray-600 dark:text-gray-400 mb-6"></p>
+            <div class="flex justify-end gap-2">
+                <button id="cancel-confirm-btn" class="px-4 py-2 rounded-md bg-gray-200 dark:bg-gray-600 font-semibold text-sm">Cancel</button>
+                <button id="confirm-action-btn" class="px-4 py-2 rounded-md bg-red-600 text-white font-semibold text-sm">Confirm</button>
+            </div>
+        </div>
+    </div>
+
     <div id="dependency-banner" class="hidden sticky top-0 bg-blue-100 dark:bg-blue-900 border-b-2 border-blue-500 text-blue-800 dark:text-blue-200 text-center py-2 z-40">
-        <p><b>Dependency Mode:</b> Click a predecessor item, then click a dependent item to create a link. Click an existing dependency icon to remove it. Press ESC to exit.</p>
+        <p><b>Dependency Mode:</b> Click a dependent item to create the link. Press ESC to cancel.</p>
     </div>
 
     <div class="container mx-auto p-4 sm:p-5 max-w-6xl">
@@ -309,15 +290,6 @@
                 </h1>
             </div>
             <div class="flex items-center gap-4">
-                 <div id="dependency-btn-container">
-                    <label for="dependency-toggle" class="toggle-label text-gray-600 dark:text-gray-300">
-                        <span>Dependencies</span>
-                        <div class="toggle-switch">
-                            <input type="checkbox" id="dependency-toggle">
-                            <span class="slider"></span>
-                        </div>
-                    </label>
-                </div>
                 <button id="import-btn" class="px-3 py-1.5 text-xs font-semibold rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600">Import</button>
                 <button id="export-btn" class="px-3 py-1.5 text-xs font-semibold rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600">Export</button>
                 <button id="pdf-btn" class="px-3 py-1.5 text-xs font-semibold rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600">Print to PDF</button>
@@ -361,7 +333,7 @@
         let pendingDeletion = null;
         let dependencyMode = false;
         let firstSelectedItem = null;
-        const defaultProjects = [];
+        let pendingClearDependencies = null;
 
         // --- DOM ELEMENTS ---
         const projectsContainer = document.getElementById('projects-container');
@@ -381,8 +353,12 @@
         const reasonCommentTextarea = document.getElementById('reason-comment');
         const saveReasonBtn = document.getElementById('save-reason-btn');
         const cancelReasonBtn = document.getElementById('cancel-reason-btn');
-        const dependencyToggle = document.getElementById('dependency-toggle');
         const dependencyBanner = document.getElementById('dependency-banner');
+        const confirmModal = document.getElementById('confirm-modal');
+        const confirmModalTitle = document.getElementById('confirm-modal-title');
+        const confirmModalText = document.getElementById('confirm-modal-text');
+        const cancelConfirmBtn = document.getElementById('cancel-confirm-btn');
+        const confirmActionBtn = document.getElementById('confirm-action-btn');
 
 
         // --- DATA & UTILS ---
@@ -408,6 +384,7 @@
                     if(!phase.dependencies) phase.dependencies = [];
                     if(!phase.precedents) phase.precedents = [];
                     phase.tasks.forEach(task => {
+                        if(task.collapsed === undefined) task.collapsed = false;
                         if(!task.dependencies) task.dependencies = [];
                         if(!task.precedents) task.precedents = [];
                         if(task.subtasks) {
@@ -510,7 +487,6 @@
 
                         if (latestDependencyEndDate) {
                             const newStartDate = new Date(latestDependencyEndDate);
-                            newStartDate.setDate(newStartDate.getDate() + 1);
                             const newStartDateStr = newStartDate.toISOString().split('T')[0];
                             
                             // Only update if the date is different to avoid unnecessary re-renders
@@ -552,7 +528,7 @@
                             <button onclick="toggleProjectCollapse(${project.id})" class="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 flex-shrink-0">
                                 <svg id="chevron-${project.id}" class="w-5 h-5 text-gray-500 chevron ${project.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                             </button>
-                            <h3 class="text-xl font-bold truncate" contenteditable="true" onblur="updateProjectName(${project.id}, this.innerText)">${project.name}</h3>
+                            <h3 class="text-xl font-bold truncate" contenteditable="true" onblur="updateProjectName(${project.id}, this.innerText)" onkeydown="handleEnter(event)">${project.name}</h3>
                             <span class="text-sm font-medium text-gray-500 flex-shrink-0">${Math.round(project.overallProgress)}%</span>
                         </div>
                         <div class="flex items-center gap-2 text-sm text-gray-500 flex-shrink-0">
@@ -590,19 +566,17 @@
         }
         
         function getDependencyIcon(item) {
-            const depCount = item.dependencies?.length || 0;
-            const preCount = item.precedents?.length || 0;
-            if (depCount === 0 && preCount === 0) return '';
-            
-            let tooltip = '';
-            if (depCount > 0) tooltip += `${depCount} dependencies`;
-            if (depCount > 0 && preCount > 0) tooltip += ', ';
-            if (preCount > 0) tooltip += `${preCount} precedents`;
+            const isPrecedent = (item.precedents?.length || 0) > 0;
+            const isDependent = (item.dependencies?.length || 0) > 0;
+            let precedentClass = isPrecedent ? 'is-precedent' : '';
+            let dependentClass = isDependent ? 'is-dependent' : '';
 
-            return `<div class="dependency-icon" title="${tooltip}">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
-                        <span>${depCount}/${preCount}</span>
-                    </div>`;
+            return `
+                <div class="dependency-container">
+                    <div class="dependency-diamond ${precedentClass}" onclick="startDependencyMode(${item.id})"></div>
+                    <div class="dependency-circle ${dependentClass}" onclick="handleCircleClick(${item.id})"></div>
+                </div>
+            `;
         }
 
 
@@ -612,18 +586,19 @@
             const sortedPhases = [...project.phases].sort((a, b) => sortByEndDate(a, b, 'effectiveEndDate'));
 
             sortedPhases.forEach(phase => {
-                const depClass = dependencyMode ? 'dependency-candidate' : '';
+                const depClass = dependencyMode && firstSelectedItem?.id !== phase.id ? 'dependency-candidate' : '';
                 const selectedClass = firstSelectedItem?.id === phase.id ? 'dependency-selected' : '';
+                const isDependentClass = phase.dependencies?.length > 0 ? 'is-dependent' : '';
                 const drivenDot = phase.isDriven ? `<div class="driven-by-dot" title="Starts after: ${phase.driverName}"></div>` : '<div class="w-2"></div>';
                 html += `
-                    <div class="bg-gray-100 dark:bg-slate-800/50 rounded-lg p-3 phase-row ${depClass} ${selectedClass}" data-id="${phase.id}" data-type="phase" data-project-id="${project.id}">
+                    <div class="bg-gray-100 dark:bg-slate-800/50 rounded-lg p-3 phase-row ${depClass} ${selectedClass} ${isDependentClass}" data-id="${phase.id}" data-type="phase" data-project-id="${project.id}">
                         <div class="flex items-center gap-3">
                             <button onclick="togglePhaseCollapse(${project.id}, ${phase.id})" class="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 flex-shrink-0">
                                 <svg id="phase-chevron-${phase.id}" class="w-4 h-4 text-gray-500 chevron ${phase.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                             </button>
                              ${drivenDot}
                             <div class="text-xs font-bold text-gray-500 dark:text-gray-400 w-10 text-center flex-shrink-0">${Math.round(phase.progress || 0)}%</div>
-                            <span class="font-semibold flex-grow" contenteditable="true" onblur="updatePhaseName(${project.id}, ${phase.id}, this.innerText)">${phase.name}</span>
+                            <span class="font-semibold flex-grow" contenteditable="true" onblur="updatePhaseName(${project.id}, ${phase.id}, this.innerText)" onkeydown="handleEnter(event)">${phase.name}</span>
                             ${getDependencyIcon(phase)}
                             <div class="flex items-center gap-2 text-sm text-gray-500">
                                 <div class="date-input-container"><input type="text" value="${phase.effectiveStartDate ? formatDate(parseDate(phase.effectiveStartDate)) : ''}" placeholder="Start" readonly class="date-input bg-gray-200 dark:bg-slate-700" disabled></div>
@@ -651,24 +626,23 @@
             sortedTasks.forEach(task => {
                 const hasSubtasks = task.subtasks && task.subtasks.length > 0;
                 let taskControlHtml = hasSubtasks ? `<div class="text-xs font-bold text-gray-500 dark:text-gray-400 w-10 text-center flex-shrink-0">${Math.round(task.progress || 0)}%</div>` : `<input type="checkbox" class="custom-checkbox" onchange="toggleTaskComplete(${projectId}, ${phaseId}, ${task.id})" ${task.completed ? 'checked' : ''}>`;
-                const depClass = dependencyMode ? 'dependency-candidate' : '';
+                const depClass = dependencyMode && firstSelectedItem?.id !== task.id ? 'dependency-candidate' : '';
                 const selectedClass = firstSelectedItem?.id === task.id ? 'dependency-selected' : '';
+                const isDependentClass = task.dependencies?.length > 0 ? 'is-dependent' : '';
                 const drivenDot = task.isDriven ? `<div class="driven-by-dot" title="Starts after: ${task.driverName}"></div>` : '<div class="w-2"></div>';
-
                 html += `
-                    <div class="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-2 task-row group ${depClass} ${selectedClass}" data-id="${task.id}" data-type="task" data-project-id="${projectId}" data-phase-id="${phaseId}">
+                    <div class="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-2 task-row group ${depClass} ${selectedClass} ${isDependentClass}" data-id="${task.id}" data-type="task" data-project-id="${projectId}" data-phase-id="${phaseId}">
                         <div class="flex items-center gap-3">
                             ${drivenDot}
                             ${taskControlHtml}
                             <div class="flex-grow flex items-center gap-2">
-                                <span class="font-medium" contenteditable="true" onblur="updateTaskName(${projectId}, ${phaseId}, ${task.id}, this.innerText)">${task.name}</span>
+                                <span class="font-medium" contenteditable="true" onblur="updateTaskName(${projectId}, ${phaseId}, ${task.id}, this.innerText)" onkeydown="handleEnter(event)">${task.name}</span>
                                 ${getDependencyIcon(task)}
                                 <button onclick="showAddSubtaskInput(${task.id})" class="hidden group-hover:flex items-center gap-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-semibold rounded-md px-2 py-1 flex-shrink-0">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
                                     <span>Subtask</span>
                                 </button>
                             </div>
-
                             <div class="flex items-center gap-2 text-sm text-gray-500">
                                 <div class="date-input-container">
                                     <input type="text" value="${task.effectiveStartDate ? formatDate(parseDate(task.effectiveStartDate)) : ''}" placeholder="Start" class="date-input ${hasSubtasks || task.isDriven ? 'bg-gray-100 dark:bg-slate-800' : ''}" ${hasSubtasks || task.isDriven ? 'disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-start" data-date="${task.startDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)">
@@ -681,7 +655,9 @@
                             </div>
                             <button onclick="deleteTask(${projectId}, ${phaseId}, ${task.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold">&times;</button>
                         </div>
-                        ${renderSubtaskList(projectId, phaseId, task.id, task.subtasks || [])}
+                        <div id="subtasks-container-${task.id}" class="pl-12 mt-2 space-y-2 pt-2 border-t border-gray-200 dark:border-slate-700/50 ${task.collapsed ? 'hidden' : ''}">
+                            ${renderSubtaskList(projectId, phaseId, task.id, task.subtasks || [])}
+                        </div>
                         <div id="add-subtask-form-${task.id}" class="hidden ml-12 mt-2">
                              <div class="flex items-center gap-2">
                                 <input type="text" id="new-subtask-name-${task.id}" placeholder="Add subtask..." class="flex-grow w-full px-2 py-1 border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-xs h-[28px]" onkeydown="if(event.key==='Enter') addSubtask(${projectId}, ${phaseId}, ${task.id})">
@@ -708,14 +684,15 @@
             const sortedSubtasks = [...subtasks].sort((a,b) => sortByEndDate(a, b, 'endDate'));
             const iconHtml = `<div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>`;
             sortedSubtasks.forEach(subtask => {
-                const depClass = dependencyMode ? 'dependency-candidate' : '';
+                const depClass = dependencyMode && firstSelectedItem?.id !== subtask.id ? 'dependency-candidate' : '';
                 const selectedClass = firstSelectedItem?.id === subtask.id ? 'dependency-selected' : '';
+                const isDependentClass = subtask.dependencies?.length > 0 ? 'is-dependent' : '';
                 const drivenDot = subtask.isDriven ? `<div class="driven-by-dot" title="Starts after: ${subtask.driverName}"></div>` : '<div class="w-2"></div>';
                 html += `
-                    <div class="flex items-center gap-3 subtask-row p-1 rounded ${depClass} ${selectedClass}" data-id="${subtask.id}" data-type="subtask" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}">
+                    <div class="flex items-center gap-3 subtask-row p-1 rounded ${depClass} ${selectedClass} ${isDependentClass}" data-id="${subtask.id}" data-type="subtask" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}">
                         ${drivenDot}
                         <input type="checkbox" class="custom-checkbox" onchange="toggleSubtaskComplete(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" ${subtask.completed ? 'checked' : ''}>
-                        <span class="text-sm text-gray-700 dark:text-gray-300 flex-grow ${subtask.completed ? 'line-through opacity-60' : ''}" contenteditable="true" onblur="updateSubtaskName(${projectId}, ${phaseId}, ${taskId}, ${subtask.id}, this.innerText)">${subtask.name}</span>
+                        <span class="text-sm text-gray-700 dark:text-gray-300 flex-grow ${subtask.completed ? 'line-through opacity-60' : ''}" contenteditable="true" onblur="updateSubtaskName(${projectId}, ${phaseId}, ${taskId}, ${subtask.id}, this.innerText)" onkeydown="handleEnter(event)">${subtask.name}</span>
                         ${getDependencyIcon(subtask)}
                         <div class="flex items-center gap-2 text-sm text-gray-500">
                              <div class="date-input-container">
@@ -833,6 +810,13 @@
             else if (!oldDate) { updateDate(context, newDate); }
         }
         
+        function handleEnter(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                event.target.blur();
+            }
+        }
+
         function showAddSubtaskInput(taskId) {
             const form = document.getElementById(`add-subtask-form-${taskId}`);
             if (form) {
@@ -1010,6 +994,17 @@
                 }
             }
         }
+
+        function toggleSubtaskCollapse(projectId, phaseId, taskId) {
+            const task = projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId);
+            if (task) {
+                task.collapsed = !task.collapsed;
+                saveProjects();
+                document.getElementById(`subtasks-container-${taskId}`).classList.toggle('hidden');
+                document.getElementById(`task-chevron-${taskId}`).classList.toggle('-rotate-90');
+            }
+        }
+
         function toggleLog(projectId) { document.getElementById(`log-container-${projectId}`).classList.toggle('hidden'); document.getElementById(`log-chevron-${projectId}`).classList.toggle('-rotate-90'); }
         function togglePhaseCollapse(projectId, phaseId) { const phase = projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId); if (phase) { phase.collapsed = !phase.collapsed; saveProjects(); document.getElementById(`tasks-container-${phaseId}`).classList.toggle('hidden'); document.getElementById(`phase-chevron-${phaseId}`).classList.toggle('-rotate-90'); } }
 
@@ -1115,34 +1110,83 @@
             pendingDeletion = null;
         });
 
-        function toggleDependencyMode() {
-            dependencyMode = !dependencyMode;
-            firstSelectedItem = null;
-            dependencyBanner.classList.toggle('hidden');
-            renderProjects(); // Re-render to apply/remove candidate classes
+        function handleCircleClick(itemId) {
+            const allItems = new Map();
+            projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
+            const item = allItems.get(itemId);
+            if (item.dependencies && item.dependencies.length > 0) {
+                pendingClearDependencies = itemId;
+                confirmModalText.textContent = 'Do you want to clear the dependencies for this item?';
+                confirmModal.classList.remove('hidden');
+            }
+        }
+        
+        cancelConfirmBtn.addEventListener('click', () => {
+            confirmModal.classList.add('hidden');
+            pendingClearDependencies = null;
+        });
+        
+        confirmActionBtn.addEventListener('click', () => {
+            if (pendingClearDependencies) {
+                clearDependencies(pendingClearDependencies);
+            }
+            confirmModal.classList.add('hidden');
+            pendingClearDependencies = null;
+        });
+        
+        function clearDependencies(itemId) {
+            const allItems = new Map();
+            projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
+            
+            const itemToClear = allItems.get(itemId);
+            if (!itemToClear || !itemToClear.dependencies) return;
+            
+            itemToClear.dependencies.forEach(depId => {
+                const dependency = allItems.get(depId);
+                if (dependency && dependency.precedents) {
+                    dependency.precedents = dependency.precedents.filter(pId => pId !== itemId);
+                }
+            });
+            
+            itemToClear.dependencies = [];
+            itemToClear.isDriven = false;
+            
+            saveProjects();
+            renderProjects();
+        }
+
+        function startDependencyMode(itemId) {
+            const allItems = new Map();
+            projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
+            firstSelectedItem = allItems.get(itemId);
+            dependencyMode = true;
+            dependencyBanner.classList.remove('hidden');
+            renderProjects();
         }
         
         function handleDependencyClick(target) {
+             if (!dependencyMode || !firstSelectedItem) return;
+
             const itemId = parseInt(target.dataset.id);
+            if (firstSelectedItem.id === itemId) return;
             const allItems = new Map();
             projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
-            const clickedItem = allItems.get(itemId);
+            const secondItem = allItems.get(itemId);
 
-            if (!firstSelectedItem) {
-                firstSelectedItem = clickedItem;
-            } else {
-                const secondItem = clickedItem;
-                if (firstSelectedItem.id !== secondItem.id && !secondItem.dependencies.includes(firstSelectedItem.id)) {
-                    // Simple cycle check: A cannot depend on B if B already depends on A
-                    if(!firstSelectedItem.dependencies.includes(secondItem.id)) {
-                        secondItem.dependencies.push(firstSelectedItem.id);
-                        firstSelectedItem.precedents.push(secondItem.id);
-                    } else {
-                        alert("Cannot create a circular dependency.");
-                    }
+            if (firstSelectedItem.id !== secondItem.id && !secondItem.dependencies.includes(firstSelectedItem.id)) {
+                // Simple cycle check: A cannot depend on B if B already depends on A
+                if(!firstSelectedItem.dependencies.includes(secondItem.id)) {
+                    if (!secondItem.dependencies) secondItem.dependencies = [];
+                    if (!firstSelectedItem.precedents) firstSelectedItem.precedents = [];
+                    secondItem.dependencies.push(firstSelectedItem.id);
+                    firstSelectedItem.precedents.push(secondItem.id);
+                } else {
+                    alert("Cannot create a circular dependency.");
                 }
-                firstSelectedItem = null; // Reset after creating link
             }
+            dependencyMode = false;
+            firstSelectedItem = null;
+            dependencyBanner.classList.add('hidden');
             saveProjects();
             renderProjects();
         }
@@ -1164,11 +1208,12 @@
                 }
             });
             addProjectBtn.addEventListener('click', addProject);
-            dependencyToggle.addEventListener('change', toggleDependencyMode);
             document.addEventListener('keydown', (e) => {
                 if(e.key === 'Escape' && dependencyMode) {
-                    dependencyToggle.checked = false; // Visually turn off toggle
-                    toggleDependencyMode();
+                    dependencyMode = false;
+                    firstSelectedItem = null;
+                    dependencyBanner.classList.add('hidden');
+                    renderProjects();
                 }
             });
             applyTheme();
