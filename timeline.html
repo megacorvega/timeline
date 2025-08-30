@@ -103,6 +103,22 @@
             stroke: #3b82f6; /* Blue-500 */
             stroke-width: 1.5;
         }
+        .phase-marker-circle {
+            r: 10;
+            fill: #3b82f6; /* Blue-500 */
+            stroke: #fff;
+            stroke-width: 2;
+        }
+        .dark .phase-marker-circle {
+            stroke: #020617; /* Slate-950 */
+        }
+        .phase-marker-text {
+            font-size: 10px;
+            font-weight: bold;
+            fill: #fff;
+            text-anchor: middle;
+            dominant-baseline: central;
+        }
         .date-input-container {
             position: relative;
             display: flex;
@@ -316,14 +332,15 @@
             </div>
         </div>
 
-        <div id="projects-container" class="space-y-6">
-            </div>
+        <div id="projects-container" class="space-y-6"></div>
+        <div id="deleted-projects-log-container" class="mt-6"></div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
         // --- STATE & CONFIG ---
         let projects = [];
+        let deletedProjectLogs = [];
         let sharedPicker = null;
         let currentPickerContext = null;
         let pendingDateChange = null;
@@ -359,7 +376,10 @@
 
 
         // --- DATA & UTILS ---
-        function saveProjects() { localStorage.setItem('projectTimelineData', JSON.stringify(projects)); }
+        function saveProjects() {
+            localStorage.setItem('projectTimelineData', JSON.stringify(projects));
+            localStorage.setItem('projectTimelineDeletedLogs', JSON.stringify(deletedProjectLogs));
+        }
         function loadProjects() {
             const savedData = localStorage.getItem('projectTimelineData');
             let loadedProjects = [];
@@ -397,6 +417,16 @@
                 if (typeof project.startDate !== 'string' || project.startDate.trim() === '') project.startDate = null;
                 if (typeof project.endDate !== 'string' || project.endDate.trim() === '') project.endDate = null;
             });
+
+            const savedDeletedLogs = localStorage.getItem('projectTimelineDeletedLogs');
+            if (savedDeletedLogs) {
+                try {
+                    deletedProjectLogs = JSON.parse(savedDeletedLogs);
+                } catch (error) {
+                    console.error("Error parsing deleted project logs from localStorage:", error);
+                    deletedProjectLogs = [];
+                }
+            }
         }
         const parseDate = d3.timeParse("%Y-%m-%d");
         const formatDate = d3.timeFormat("%m/%d/%y");
@@ -421,8 +451,12 @@
         function calculateRollups() {
             projects.forEach(p => {
                 p.phases.forEach(phase => {
+                    phase.isDriven = false; // Reset driven flag
                     phase.tasks.forEach(task => {
                         task.isDriven = false; // Reset driven flag
+                         if (task.subtasks) {
+                            task.subtasks.forEach(st => st.isDriven = false);
+                        }
                         const hasSubtasks = task.subtasks && task.subtasks.length > 0;
                         if (hasSubtasks) {
                             task.effectiveStartDate = getBoundaryDate(task.subtasks, 'earliest');
@@ -437,7 +471,6 @@
                         }
                     });
                     
-                    phase.isDriven = false; // Reset driven flag
                     phase.effectiveStartDate = getBoundaryDate(phase.tasks, 'earliest');
                     phase.effectiveEndDate = getBoundaryDate(phase.tasks, 'latest');
                     const totalProgress = phase.tasks.reduce((sum, t) => sum + (t.progress || 0), 0);
@@ -484,13 +517,24 @@
 
                         if (latestDependencyEndDate) {
                             const newStartDate = new Date(latestDependencyEndDate);
+                            newStartDate.setDate(newStartDate.getDate() + 1); // Dependent starts day after
                             const newStartDateStr = newStartDate.toISOString().split('T')[0];
                             
-                            // Only update if the date is different to avoid unnecessary re-renders
-                            if (item.startDate !== newStartDateStr) {
-                               item.startDate = newStartDateStr;
+                            const oldStartDate = item.startDate ? parseDate(item.startDate) : null;
+                            const oldEndDate = item.endDate ? parseDate(item.endDate) : null;
+                            let duration = null;
+
+                            if (oldStartDate && oldEndDate) {
+                                duration = oldEndDate.getTime() - oldStartDate.getTime();
                             }
-                            item.effectiveStartDate = newStartDateStr;
+
+                            item.startDate = newStartDateStr;
+
+                            if (duration !== null) {
+                                const newEndDate = new Date(newStartDate.getTime() + duration);
+                                item.endDate = newEndDate.toISOString().split('T')[0];
+                            }
+                            
                             item.isDriven = true;
                             item.driverName = driver.name;
                         }
@@ -560,6 +604,7 @@
                     document.getElementById(`chart-${project.id}`).innerHTML = `<div class="flex items-center justify-center h-full text-gray-400">Set project start and end dates to see progress chart.</div>`;
                 }
             });
+            renderDeletedProjectsLog();
         }
         
         function getDependencyIcon(item) {
@@ -584,15 +629,19 @@
             const sortedPhases = [...project.phases].sort((a, b) => sortByEndDate(a, b, 'effectiveEndDate'));
 
             sortedPhases.forEach(phase => {
+                const hasTasks = phase.tasks && phase.tasks.length > 0;
+                const toggleButton = hasTasks ?
+                    `<button onclick="togglePhaseCollapse(${project.id}, ${phase.id})" class="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 flex-shrink-0">
+                        <svg id="phase-chevron-${phase.id}" class="w-4 h-4 text-gray-500 chevron ${phase.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+                    </button>` : `<div class="w-6 h-6 flex-shrink-0"></div>`; // Placeholder
+
                 const depClass = dependencyMode && firstSelectedItem?.id !== phase.id ? 'dependency-candidate' : '';
                 const selectedClass = firstSelectedItem?.id === phase.id ? 'dependency-selected' : '';
                 const drivenDot = phase.isDriven ? `<div class="driven-by-dot" title="Starts after: ${phase.driverName}"></div>` : '<div class="w-2"></div>';
                 html += `
                     <div class="bg-gray-100 dark:bg-slate-800/50 rounded-lg p-3 phase-row ${depClass} ${selectedClass}" data-id="${phase.id}" data-type="phase" data-project-id="${project.id}">
                         <div class="flex items-center gap-3 item-main-row">
-                            <button onclick="togglePhaseCollapse(${project.id}, ${phase.id})" class="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 flex-shrink-0">
-                                <svg id="phase-chevron-${phase.id}" class="w-4 h-4 text-gray-500 chevron ${phase.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
-                            </button>
+                            ${toggleButton}
                              ${drivenDot}
                             <div class="text-xs font-bold text-gray-500 dark:text-gray-400 w-10 text-center flex-shrink-0">${Math.round(phase.progress || 0)}%</div>
                             <span class="font-semibold flex-grow" contenteditable="true" onblur="updatePhaseName(${project.id}, ${phase.id}, this.innerText)" onkeydown="handleEnter(event)">${phase.name}</span>
@@ -623,15 +672,17 @@
             sortedTasks.forEach(task => {
                 const hasSubtasks = task.subtasks && task.subtasks.length > 0;
                 let taskControlHtml = hasSubtasks ? `<div class="text-xs font-bold text-gray-500 dark:text-gray-400 w-10 text-center flex-shrink-0">${Math.round(task.progress || 0)}%</div>` : `<input type="checkbox" class="custom-checkbox" onchange="toggleTaskComplete(${projectId}, ${phaseId}, ${task.id})" ${task.completed ? 'checked' : ''}>`;
+                const toggleButton = hasSubtasks ? 
+                    `<button onclick="toggleTaskCollapse(${projectId}, ${phaseId}, ${task.id})" class="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 flex-shrink-0">
+                        <svg id="task-chevron-${task.id}" class="w-4 h-4 text-gray-500 chevron ${task.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+                    </button>` : `<div class="w-6 h-6 flex-shrink-0"></div>`; // Placeholder
                 const depClass = dependencyMode && firstSelectedItem?.id !== task.id ? 'dependency-candidate' : '';
                 const selectedClass = firstSelectedItem?.id === task.id ? 'dependency-selected' : '';
                 const drivenDot = task.isDriven ? `<div class="driven-by-dot" title="Starts after: ${task.driverName}"></div>` : '<div class="w-2"></div>';
                 html += `
                     <div class="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-2 task-row ${depClass} ${selectedClass}" data-id="${task.id}" data-type="task" data-project-id="${projectId}" data-phase-id="${phaseId}">
                         <div class="flex items-center gap-3 item-main-row">
-                             <button onclick="toggleTaskCollapse(${projectId}, ${phaseId}, ${task.id})" class="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 flex-shrink-0">
-                                <svg id="task-chevron-${task.id}" class="w-4 h-4 text-gray-500 chevron ${task.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
-                            </button>
+                             ${toggleButton}
                             ${drivenDot}
                             ${taskControlHtml}
                             <div class="flex-grow flex items-center gap-2">
@@ -654,7 +705,7 @@
                             </div>
                             <button onclick="deleteTask(${projectId}, ${phaseId}, ${task.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold">&times;</button>
                         </div>
-                        <div id="subtasks-container-${task.id}" class="pl-12 mt-2 space-y-2 pt-2 border-t border-gray-200 dark:border-slate-700/50 ${task.collapsed ? 'hidden' : ''}">
+                        <div id="subtasks-container-${task.id}" class="pl-12 mt-2 space-y-2 pt-2 border-t border-gray-200 dark:border-slate-700/50 ${task.collapsed || !hasSubtasks ? 'hidden' : ''}">
                             ${renderSubtaskList(projectId, phaseId, task.id, task.subtasks || [])}
                         </div>
                         <div id="add-subtask-form-${task.id}" class="hidden ml-12 mt-2">
@@ -723,20 +774,59 @@
             return tableHtml + '</tbody></table>';
         }
 
+        function renderDeletedProjectsLog() {
+            const container = document.getElementById('deleted-projects-log-container');
+            if (!deletedProjectLogs || deletedProjectLogs.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+
+            let tableHtml = `<div class="bg-white dark:bg-slate-900 p-3 rounded-xl shadow-md border border-gray-200 dark:border-gray-800">
+                <h2 class="text-lg font-semibold mb-2">Deleted Projects Log</h2>
+                <table class="w-full text-xs font-mono text-gray-700 dark:text-gray-300">
+                    <thead>
+                        <tr class="border-b border-gray-200 dark:border-slate-700">
+                            <th class="text-left p-1 w-1/4">Timestamp</th>
+                            <th class="text-left p-1 w-1/4">Item</th>
+                            <th class="text-left p-1">Change</th>
+                            <th class="text-left p-1">Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            [...deletedProjectLogs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).forEach(log => {
+                tableHtml += `<tr class="border-b border-gray-100 dark:border-slate-700/50">
+                                <td class="p-1 align-top">${formatLogTimestamp(new Date(log.timestamp))}</td>
+                                <td class="p-1 align-top">${log.item}</td>
+                                <td class="p-1 align-top">Deleted</td>
+                                <td class="p-1 align-top">${log.comment}</td>
+                              </tr>`;
+            });
+
+            tableHtml += '</tbody></table></div>';
+            container.innerHTML = tableHtml;
+        }
+
         function drawChart(project) {
-            const container = d3.select(`#chart-${project.id}`); if (container.empty() || !project.startDate || !project.endDate) return;
+            const container = d3.select(`#chart-${project.id}`);
+            if (container.empty() || !project.startDate || !project.endDate) return;
             setTimeout(() => {
-                const width = container.node().getBoundingClientRect().width; if (width <= 0) return;
+                const width = container.node().getBoundingClientRect().width;
+                if (width <= 0) return;
                 container.selectAll("*").remove();
-                const margin = {top: 10, right: 20, bottom: 20, left: 40}, chartWidth = width - margin.left - margin.right, height = container.node().getBoundingClientRect().height - margin.top - margin.bottom;
+                const margin = { top: 10, right: 20, bottom: 20, left: 40 },
+                    chartWidth = width - margin.left - margin.right,
+                    height = container.node().getBoundingClientRect().height - margin.top - margin.bottom;
                 const svg = container.append("svg").attr("width", chartWidth + margin.left + margin.right).attr("height", height + margin.top + margin.bottom).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
-                const x = d3.scaleTime().range([0, chartWidth]), y = d3.scaleLinear().range([height, 0]);
-                const startDate = parseDate(project.startDate), endDate = parseDate(project.endDate);
-                x.domain([startDate, endDate]); y.domain([0, 100]);
+                const x = d3.scaleTime().range([0, chartWidth]),
+                    y = d3.scaleLinear().range([height, 0]);
+                const startDate = parseDate(project.startDate),
+                    endDate = parseDate(project.endDate);
+                x.domain([startDate, endDate]);
+                y.domain([0, 100]);
                 svg.append("g").attr("class", "chart-grid").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x).ticks(5).tickFormat(formatDate));
                 svg.append("g").attr("class", "chart-grid").call(d3.axisLeft(y).ticks(5).tickFormat(d => `${d}%`));
 
-                // --- Ghost lines for historical end dates ---
                 const endDateChanges = project.logs
                     .filter(log => log.item.includes(`Project '${project.name}' end date`) && log.from)
                     .map(log => log.from);
@@ -747,7 +837,7 @@
 
                 uniquePriorEndDates.forEach(dateStr => {
                     const date = parseDate(dateStr);
-                     if (date) {
+                    if (date) {
                         svg.append("line")
                             .attr("class", "ghost-finish-line")
                             .attr("x1", x(date))
@@ -756,8 +846,7 @@
                             .attr("y2", height);
                     }
                 });
-                
-                // --- Today line ---
+
                 const today = new Date();
                 if (today >= startDate && today <= endDate) {
                     svg.append("line")
@@ -770,11 +859,20 @@
 
                 svg.append("line").attr("class", "planned-line").attr("x1", x(startDate)).attr("y1", y(0)).attr("x2", x(endDate)).attr("y2", y(100));
                 svg.append("line").attr("class", "finish-line").attr("x1", x(endDate)).attr("y1", 0).attr("x2", x(endDate)).attr("y2", height);
-                const sortedPhases = [...project.phases].filter(ph => ph.effectiveEndDate).sort((a,b) => parseDate(a.effectiveStartDate) - parseDate(b.effectiveStartDate));
-                const firstActivityDate = parseDate(getBoundaryDate(sortedPhases, 'earliest')) || startDate;
+
+                const allTasks = project.phases.flatMap(phase => phase.tasks).filter(task => task.effectiveEndDate);
+                const firstActivityDate = parseDate(getBoundaryDate(allTasks, 'earliest')) || startDate;
                 const pathData = [{ date: firstActivityDate, progress: 0 }];
                 let cumulativeProgress = 0;
-                [...sortedPhases].sort((a,b) => parseDate(a.effectiveEndDate) - parseDate(b.effectiveEndDate)).forEach(phase => { const dateForPoint = parseDate(phase.effectiveEndDate); if (dateForPoint) pathData.push({ date: dateForPoint, progress: (cumulativeProgress += 100 / (project.phases.length || 1)), completed: phase.completed }); });
+
+                allTasks.sort((a,b) => parseDate(a.effectiveEndDate) - parseDate(b.effectiveEndDate)).forEach(task => {
+                    const dateForPoint = parseDate(task.effectiveEndDate);
+                    if (dateForPoint) {
+                        cumulativeProgress += 100 / (allTasks.length || 1);
+                        pathData.push({ date: dateForPoint, progress: cumulativeProgress, completed: task.completed });
+                    }
+                });
+
                 const line = d3.line().x(d => x(d.date)).y(d => y(d.progress));
                 const totalDuration = endDate.getTime() - startDate.getTime();
                 const getPlannedProgress = date => totalDuration <= 0 ? 0 : Math.min(100, (date.getTime() - startDate.getTime()) / totalDuration * 100);
@@ -784,8 +882,35 @@
                     svg.append("path").datum(segment).attr("class", `${endPoint.completed ? 'actual-line' : 'projected-line'} ${colorClass}`).attr("d", line);
                 }
                 svg.selectAll(".actual-point").data(pathData.slice(1).filter(d=>d.completed)).enter().append("circle").attr("class", "actual-point").attr("cx", d => x(d.date)).attr("cy", d => y(d.progress)).attr("fill", d => d.date > endDate ? '#ef4444' : (d.progress >= getPlannedProgress(d.date) ? '#22c55e' : '#ef4444'));
+
+                const sortedPhases = [...project.phases]
+                    .filter(p => p.effectiveEndDate)
+                    .sort((a, b) => parseDate(a.effectiveEndDate) - parseDate(b.effectiveEndDate));
+
+                const phaseMarkers = svg.selectAll(".phase-marker")
+                    .data(sortedPhases)
+                    .enter()
+                    .append("g")
+                    .attr("class", "phase-marker")
+                    .attr("transform", (d, i) => {
+                        const phaseEndDate = parseDate(d.effectiveEndDate);
+                        
+                        let tasksInPhaseOrBefore = allTasks.filter(t => parseDate(t.effectiveEndDate) <= phaseEndDate);
+                        let phaseEndProgress = (tasksInPhaseOrBefore.length / (allTasks.length || 1)) * 100;
+
+                        return `translate(${x(phaseEndDate)}, ${y(phaseEndProgress)})`;
+                    });
+
+                phaseMarkers.append("circle")
+                    .attr("class", "phase-marker-circle");
+
+                phaseMarkers.append("text")
+                    .attr("class", "phase-marker-text")
+                    .text((d, i) => `P${i + 1}`);
+
             }, 0);
         }
+
 
         function formatDateInput(event) { let value = event.target.value.replace(/\D/g, ''); if (value.length > 2) value = value.substring(0, 2) + '/' + value.substring(2); if (value.length > 5) value = value.substring(0, 5) + '/' + value.substring(5, 7); event.target.value = value; }
         function handleManualDateInput(event) {
@@ -903,6 +1028,7 @@
                     });
                 });
                 pendingDeletion = {
+                    type: 'project',
                     logContext: { projectId },
                     deleteFn: () => {
                         projects = projects.filter(p => p.id !== projectId);
@@ -926,6 +1052,7 @@
                     if(t.subtasks) t.subtasks.forEach(st => removeAllDependencies(st.id));
                 });
                 pendingDeletion = {
+                    type: 'phase',
                     logContext: { projectId },
                     deleteFn: () => {
                         project.phases = project.phases.filter(ph => ph.id !== phaseId);
@@ -947,6 +1074,7 @@
                 removeAllDependencies(taskId);
                  if(task.subtasks) task.subtasks.forEach(st => removeAllDependencies(st.id));
                 pendingDeletion = {
+                    type: 'task',
                     logContext: { projectId },
                     deleteFn: () => {
                         phase.tasks = phase.tasks.filter(t => t.id !== taskId);
@@ -967,6 +1095,7 @@
             if (subtask) {
                 removeAllDependencies(subtaskId);
                 pendingDeletion = {
+                    type: 'subtask',
                     logContext: { projectId },
                     deleteFn: () => {
                         task.subtasks = task.subtasks.filter(st => st.id !== subtaskId);
@@ -996,7 +1125,7 @@
         function toggleTaskCollapse(projectId, phaseId, taskId) {
             const task = projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId);
             if (task) {
-                task.collapsed = !task.collapsed;
+                task.collapsed = task.collapsed === undefined ? false : !task.collapsed;
                 saveProjects();
                 document.getElementById(`subtasks-container-${taskId}`).classList.toggle('hidden');
                 document.getElementById(`task-chevron-${taskId}`).classList.toggle('-rotate-90');
@@ -1078,17 +1207,28 @@
             if (pendingDateChange) {
                 updateDate(pendingDateChange.context, pendingDateChange.newDate, comment);
             } else if (pendingDeletion) {
-                const { logContext, deleteFn, itemName } = pendingDeletion;
-                const project = projects.find(p => p.id === logContext.projectId);
-                if (project) {
-                    if (!project.logs) project.logs = [];
-                    project.logs.push({
+                const { type, logContext, deleteFn, itemName } = pendingDeletion;
+
+                if (type === 'project') {
+                     deletedProjectLogs.push({
                         timestamp: new Date().toISOString(),
                         item: itemName,
                         type: 'deletion',
                         comment: comment
                     });
+                } else {
+                    const project = projects.find(p => p.id === logContext.projectId);
+                    if (project) {
+                        if (!project.logs) project.logs = [];
+                        project.logs.push({
+                            timestamp: new Date().toISOString(),
+                            item: itemName,
+                            type: 'deletion',
+                            comment: comment
+                        });
+                    }
                 }
+                
                 deleteFn();
                 saveProjects();
                 renderProjects();
