@@ -225,11 +225,11 @@
         .subtask-row:hover .dependency-container .dependency-circle {
             opacity: 1;
         }
-        .is-precedent {
+        .is-dependent-source {
             background-color: #ef4444 !important; /* Red-500 */
             opacity: 1 !important;
         }
-        .is-dependent {
+        .is-parent-source {
             background-color: #f59e0b !important; /* Amber-500 */
             opacity: 1 !important;
         }
@@ -239,8 +239,8 @@
             body {
                 background-color: #fff;
             }
-            header, .bg-white.dark\\:bg-slate-900:first-of-type, #import-btn, #export-btn, #pdf-btn, #theme-toggle, #dependency-btn-container {
-                display: none;
+            header, .bg-white.dark\\:bg-slate-900:first-of-type, #import-btn, #export-btn, #pdf-btn, #theme-toggle, #dependency-btn-container, #dependency-tooltip {
+                display: none !important;
             }
             .project-card {
                 page-break-before: always;
@@ -260,6 +260,75 @@
              .dark .text-white {
                 color: #000 !important;
              }
+        }
+
+        .dependency-tree-node {
+            display: flex;
+            flex-direction: column;
+            align-items: start;
+        }
+        .dependency-tree-node .node-content {
+            padding: 4px 8px;
+            border-radius: 6px;
+            background-color: #f3f4f6; /* gray-100 */
+            border: 1px solid #e5e7eb; /* gray-200 */
+            font-size: 12px;
+            margin-bottom: 4px;
+            transition: all 0.2s;
+        }
+        .dark .dependency-tree-node .node-content {
+            background-color: #334155; /* slate-700 */
+            border-color: #475569; /* slate-600 */
+        }
+        .dependency-tree-node .node-children {
+            padding-left: 20px;
+            position: relative;
+        }
+         .dependency-tree-node .node-children > .dependency-tree-node {
+            margin-top: 4px;
+         }
+        .dependency-tree-node .node-children::before {
+            content: '';
+            position: absolute;
+            left: 5px;
+            top: -4px;
+            bottom: 4px;
+            width: 1px;
+            background-color: #d1d5db; /* gray-300 */
+        }
+        .dark .dependency-tree-node .node-children::before {
+            background-color: #475569; /* slate-600 */
+        }
+        .dependency-tree-node .node-children > .dependency-tree-node::before {
+            content: '';
+            position: absolute;
+            left: -15px;
+            top: 12px;
+            width: 15px;
+            height: 1px;
+            background-color: #d1d5db; /* gray-300 */
+        }
+         .dark .dependency-tree-node .node-children > .dependency-tree-node::before {
+             background-color: #475569; /* slate-600 */
+         }
+        .node-content.highlight {
+            outline: 2px solid #3b82f6; /* blue-500 */
+            box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+            font-weight: 600;
+        }
+        .node-type-label {
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #9ca3af; /* gray-400 */
+            margin-bottom: 4px;
+        }
+
+        .add-subtask-btn {
+            display: none;
+        }
+        .task-row:hover .add-subtask-btn {
+            display: flex;
         }
 
     </style>
@@ -293,6 +362,8 @@
     <div id="dependency-banner" class="hidden sticky top-0 bg-blue-100 dark:bg-blue-900 border-b-2 border-blue-500 text-blue-800 dark:text-blue-200 text-center py-2 z-40">
         <p><b>Dependency Mode:</b> Click a dependent item to create the link. Press ESC to cancel.</p>
     </div>
+
+    <div id="dependency-tooltip" class="hidden absolute z-[1002] p-3 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl text-xs w-max max-w-xs"></div>
 
     <div class="container mx-auto p-4 sm:p-5 max-w-6xl">
 
@@ -368,6 +439,7 @@
         const saveReasonBtn = document.getElementById('save-reason-btn');
         const cancelReasonBtn = document.getElementById('cancel-reason-btn');
         const dependencyBanner = document.getElementById('dependency-banner');
+        const dependencyTooltip = document.getElementById('dependency-tooltip');
         const confirmModal = document.getElementById('confirm-modal');
         const confirmModalTitle = document.getElementById('confirm-modal-title');
         const confirmModalText = document.getElementById('confirm-modal-text');
@@ -399,15 +471,15 @@
                 project.phases.forEach(phase => { 
                     if(phase.collapsed === undefined) phase.collapsed = false; 
                     if(!phase.dependencies) phase.dependencies = [];
-                    if(!phase.precedents) phase.precedents = [];
+                    if(!phase.dependents) phase.dependents = [];
                     phase.tasks.forEach(task => {
                         if(task.collapsed === undefined) task.collapsed = false;
                         if(!task.dependencies) task.dependencies = [];
-                        if(!task.precedents) task.precedents = [];
+                        if(!task.dependents) task.dependents = [];
                         if(task.subtasks) {
                             task.subtasks.forEach(subtask => {
                                 if(!subtask.dependencies) subtask.dependencies = [];
-                                if(!subtask.precedents) subtask.precedents = [];
+                                if(!subtask.dependents) subtask.dependents = [];
                             });
                         }
                     });
@@ -501,22 +573,22 @@
             for (let i = 0; i < allItems.size; i++) {
                 allItems.forEach(item => {
                     if (item.dependencies && item.dependencies.length > 0) {
-                        let latestDependencyEndDate = null;
+                        let latestParentEndDate = null;
                         let driver = null;
 
                         item.dependencies.forEach(depId => {
-                            const dependency = allItems.get(depId);
-                            if (dependency && dependency.effectiveEndDate) {
-                                const depEndDate = parseDate(dependency.effectiveEndDate);
-                                if (!latestDependencyEndDate || depEndDate > latestDependencyEndDate) {
-                                    latestDependencyEndDate = depEndDate;
-                                    driver = dependency;
+                            const parent = allItems.get(depId);
+                            if (parent && parent.effectiveEndDate) {
+                                const parentEndDate = parseDate(parent.effectiveEndDate);
+                                if (!latestParentEndDate || parentEndDate > latestParentEndDate) {
+                                    latestParentEndDate = parentEndDate;
+                                    driver = parent;
                                 }
                             }
                         });
 
-                        if (latestDependencyEndDate) {
-                            const newStartDate = new Date(latestDependencyEndDate);
+                        if (latestParentEndDate) {
+                            const newStartDate = new Date(latestParentEndDate);
                             newStartDate.setDate(newStartDate.getDate() + 1); // Dependent starts day after
                             const newStartDateStr = newStartDate.toISOString().split('T')[0];
                             
@@ -608,16 +680,22 @@
         }
         
         function getDependencyIcon(item) {
-            const precedentCount = item.precedents?.length || 0;
-            const isPrecedent = precedentCount > 0;
-            const isDependent = (item.dependencies?.length || 0) > 0;
-            let precedentClass = isPrecedent ? 'is-precedent' : '';
-            let dependentClass = isDependent ? 'is-dependent' : '';
+            const dependentCount = item.dependents?.length || 0;
+            const isDependentSource = dependentCount > 0; // This item is a parent to others
+            const isParentSource = (item.dependencies?.length || 0) > 0; // This item has parents
+            let dependentSourceClass = isDependentSource ? 'is-dependent-source' : '';
+            let parentSourceClass = isParentSource ? 'is-parent-source' : '';
 
             return `
                 <div class="dependency-container">
-                    <div class="dependency-circle ${precedentClass}" onclick="startDependencyMode(${item.id})">${isPrecedent ? `<span>${precedentCount}</span>` : ''}</div>
-                    <div class="dependency-circle ${dependentClass}" onclick="handleCircleClick(${item.id})"></div>
+                    <div class="dependency-circle ${dependentSourceClass}" 
+                         onmouseover="showDependencyTooltip(event, ${item.id})" 
+                         onmouseout="hideDependencyTooltip()"
+                         onclick="startDependencyMode(${item.id})">${isDependentSource ? `<span>${dependentCount}</span>` : ''}</div>
+                    <div class="dependency-circle ${parentSourceClass}"
+                         onmouseover="showDependencyTooltip(event, ${item.id})"
+                         onmouseout="hideDependencyTooltip()"
+                         onclick="handleCircleClick(${item.id})"></div>
                 </div>
             `;
         }
@@ -687,7 +765,7 @@
                             ${taskControlHtml}
                             <div class="flex-grow flex items-center gap-2">
                                 <span class="font-medium" contenteditable="true" onblur="updateTaskName(${projectId}, ${phaseId}, ${task.id}, this.innerText)" onkeydown="handleEnter(event)">${task.name}</span>
-                                <button onclick="showAddSubtaskInput(${task.id})" class="hidden group-hover:flex items-center gap-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-semibold rounded-md px-2 py-1 flex-shrink-0">
+                                <button onclick="showAddSubtaskInput(${task.id})" class="add-subtask-btn items-center gap-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-semibold rounded-md px-2 py-1 flex-shrink-0">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
                                     <span>Subtask</span>
                                 </button>
@@ -911,6 +989,79 @@
             }, 0);
         }
 
+        function showDependencyTooltip(event, itemId) {
+            const allItems = new Map();
+            projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
+            const item = allItems.get(itemId);
+            if (!item || ((!item.dependents || item.dependents.length === 0) && (!item.dependencies || item.dependencies.length === 0))) {
+                return;
+            }
+
+            // Find the ultimate root of the dependency chain
+            let rootItem = item;
+            let visited = new Set();
+            while (rootItem.dependencies && rootItem.dependencies.length > 0 && !visited.has(rootItem.id)) {
+                visited.add(rootItem.id);
+                const parentId = rootItem.dependencies[0];
+                const parentItem = allItems.get(parentId);
+                if (!parentItem || visited.has(parentId)) break; // Cycle detected or parent not found
+                rootItem = parentItem;
+            }
+
+            const treeHtml = buildDependencyTree(rootItem.id, itemId, allItems);
+            dependencyTooltip.innerHTML = treeHtml;
+            dependencyTooltip.classList.remove('hidden');
+
+            const rect = event.target.getBoundingClientRect();
+            const containerRect = projectsContainer.getBoundingClientRect();
+            
+            let top = rect.bottom + window.scrollY + 5;
+            let left = rect.left + window.scrollX;
+
+            dependencyTooltip.style.top = `${top}px`;
+            dependencyTooltip.style.left = `${left}px`;
+            
+            // Adjust position if it overflows the viewport
+            const tooltipRect = dependencyTooltip.getBoundingClientRect();
+            if (tooltipRect.right > window.innerWidth) {
+                dependencyTooltip.style.left = `${window.innerWidth - tooltipRect.width - 10}px`;
+            }
+             if (tooltipRect.bottom > window.innerHeight) {
+                dependencyTooltip.style.top = `${top - tooltipRect.height - rect.height - 10}px`;
+            }
+        }
+
+        function hideDependencyTooltip() {
+            dependencyTooltip.classList.add('hidden');
+        }
+
+        function buildDependencyTree(itemId, highlightedId, allItems, visited = new Set()) {
+            if (visited.has(itemId)) return ''; // Prevent infinite loops
+            visited.add(itemId);
+
+            const item = allItems.get(itemId);
+            if (!item) return '';
+
+            let highlightClass = item.id === highlightedId ? 'highlight' : '';
+            
+            let childrenHtml = '';
+            if (item.dependents && item.dependents.length > 0) {
+                childrenHtml += '<div class="node-children">';
+                item.dependents.forEach(childId => {
+                    childrenHtml += buildDependencyTree(childId, highlightedId, allItems, visited);
+                });
+                childrenHtml += '</div>';
+            }
+
+            return `
+                <div class="dependency-tree-node">
+                    <div class="node-content ${highlightClass}">
+                        ${item.name}
+                    </div>
+                    ${childrenHtml}
+                </div>
+            `;
+        }
 
         function formatDateInput(event) { let value = event.target.value.replace(/\D/g, ''); if (value.length > 2) value = value.substring(0, 2) + '/' + value.substring(2); if (value.length > 5) value = value.substring(0, 5) + '/' + value.substring(5, 7); event.target.value = value; }
         function handleManualDateInput(event) {
@@ -960,17 +1111,17 @@
 
         function addPhase(projectId) {
             const nameInput = document.getElementById(`new-phase-name-${projectId}`), name = nameInput.value.trim(); if (!name) return;
-            const project = projects.find(p => p.id === projectId); if (project) { project.phases.push({ id: Date.now(), name, collapsed: false, tasks: [], dependencies: [], precedents: [] }); saveProjects(); renderProjects(); }
+            const project = projects.find(p => p.id === projectId); if (project) { project.phases.push({ id: Date.now(), name, collapsed: false, tasks: [], dependencies: [], dependents: [] }); saveProjects(); renderProjects(); }
         }
 
         function addTask(projectId, phaseId) {
             const nameInput = document.getElementById(`new-task-name-${phaseId}`), name = nameInput.value.trim(); if (!name) return;
-            const phase = projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId); if (phase) { phase.tasks.push({ id: Date.now(), name, startDate: null, endDate: null, completed: false, subtasks: [], dependencies: [], precedents: [] }); saveProjects(); renderProjects(); }
+            const phase = projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId); if (phase) { phase.tasks.push({ id: Date.now(), name, startDate: null, endDate: null, completed: false, subtasks: [], dependencies: [], dependents: [] }); saveProjects(); renderProjects(); }
         }
 
         function addSubtask(projectId, phaseId, taskId) {
             const nameInput = document.getElementById(`new-subtask-name-${taskId}`), name = nameInput.value.trim(); if (!name) return;
-            const task = projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId); if (task) { if (!task.subtasks) task.subtasks = []; task.subtasks.push({ id: Date.now(), name, startDate: null, endDate: null, completed: false, dependencies: [], precedents: [] }); nameInput.value = ''; saveProjects(); renderProjects(); }
+            const task = projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId); if (task) { if (!task.subtasks) task.subtasks = []; task.subtasks.push({ id: Date.now(), name, startDate: null, endDate: null, completed: false, dependencies: [], dependents: [] }); nameInput.value = ''; saveProjects(); renderProjects(); }
         }
 
         function updateProjectName(projectId, newName) { const p = projects.find(p => p.id === projectId); if (p) { p.name = newName; saveProjects(); } }
@@ -1000,21 +1151,23 @@
              const itemToRemove = allItems.get(itemId);
              if (!itemToRemove) return;
 
-             (itemToRemove.dependencies || []).forEach(depId => {
-                const dep = allItems.get(depId);
-                if (dep && dep.precedents) {
-                    dep.precedents = dep.precedents.filter(pId => pId !== itemId);
+             // Remove this item from its parents' dependents list
+             (itemToRemove.dependencies || []).forEach(parentId => {
+                const parent = allItems.get(parentId);
+                if (parent && parent.dependents) {
+                    parent.dependents = parent.dependents.filter(id => id !== itemId);
                 }
              });
              itemToRemove.dependencies = [];
 
-             (itemToRemove.precedents || []).forEach(preId => {
-                const pre = allItems.get(preId);
-                if(pre && pre.dependencies) {
-                    pre.dependencies = pre.dependencies.filter(dId => dId !== itemId);
+             // Remove this item from its dependents' parents list
+             (itemToRemove.dependents || []).forEach(dependentId => {
+                const dependent = allItems.get(dependentId);
+                if(dependent && dependent.dependencies) {
+                    dependent.dependencies = dependent.dependencies.filter(id => id !== itemId);
                 }
              });
-             itemToRemove.precedents = [];
+             itemToRemove.dependents = [];
         }
         
         function deleteProject(projectId) {
@@ -1254,7 +1407,7 @@
             const item = allItems.get(itemId);
             if (item.dependencies && item.dependencies.length > 0) {
                 pendingClearDependencies = itemId;
-                confirmModalText.textContent = 'Do you want to clear the dependencies for this item?';
+                confirmModalText.textContent = 'Do you want to clear the parents for this item?';
                 confirmModal.classList.remove('hidden');
             }
         }
@@ -1279,10 +1432,11 @@
             const itemToClear = allItems.get(itemId);
             if (!itemToClear || !itemToClear.dependencies) return;
             
-            itemToClear.dependencies.forEach(depId => {
-                const dependency = allItems.get(depId);
-                if (dependency && dependency.precedents) {
-                    dependency.precedents = dependency.precedents.filter(pId => pId !== itemId);
+            // Remove this item from its parents' dependents list
+            itemToClear.dependencies.forEach(parentId => {
+                const parent = allItems.get(parentId);
+                if (parent && parent.dependents) {
+                    parent.dependents = parent.dependents.filter(id => id !== itemId);
                 }
             });
             
@@ -1309,19 +1463,33 @@
             if (firstSelectedItem.id === itemId) return;
             const allItems = new Map();
             projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
-            const secondItem = allItems.get(itemId);
+            const secondItem = allItems.get(itemId); // The new dependent
 
-            if (firstSelectedItem.id !== secondItem.id && !secondItem.dependencies.includes(firstSelectedItem.id)) {
-                // Simple cycle check: A cannot depend on B if B already depends on A
-                if(!firstSelectedItem.dependencies.includes(secondItem.id)) {
-                    if (!secondItem.dependencies) secondItem.dependencies = [];
-                    if (!firstSelectedItem.precedents) firstSelectedItem.precedents = [];
-                    secondItem.dependencies.push(firstSelectedItem.id);
-                    firstSelectedItem.precedents.push(secondItem.id);
-                } else {
+            // A (first) is the parent, B (second) is the dependent.
+            // Check for circular dependency: B cannot be a parent of A.
+            let current = secondItem;
+            let visited = new Set();
+            while(current) {
+                if (current.id === firstSelectedItem.id) {
                     alert("Cannot create a circular dependency.");
+                    dependencyMode = false;
+                    firstSelectedItem = null;
+                    dependencyBanner.classList.add('hidden');
+                    renderProjects();
+                    return;
                 }
+                if (!current.dependencies || current.dependencies.length === 0 || visited.has(current.id)) break;
+                visited.add(current.id);
+                current = allItems.get(current.dependencies[0]);
             }
+
+            if (!secondItem.dependencies.includes(firstSelectedItem.id)) {
+                secondItem.dependencies.push(firstSelectedItem.id);
+            }
+            if (!firstSelectedItem.dependents.includes(secondItem.id)) {
+                firstSelectedItem.dependents.push(secondItem.id);
+            }
+            
             dependencyMode = false;
             firstSelectedItem = null;
             dependencyBanner.classList.add('hidden');
