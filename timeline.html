@@ -389,6 +389,11 @@
             border-radius: 6px;
             font-size: 12px;
             font-weight: 600;
+            display: inline-block;
+            word-wrap: break-word;
+            max-width: 100%;
+            text-align: center;
+
         }
         .editable-text {
             cursor: pointer;
@@ -1069,8 +1074,8 @@
         function showFullscreenChart(projectId) {
             const project = projects.find(p => p.id === projectId);
             if (!project) return;
-            drawFullscreenChart(project);
             fullscreenModal.style.display = 'block';
+            drawFullscreenChart(project);
         }
 
         function drawFullscreenChart(project) {
@@ -1099,12 +1104,27 @@
             const endDate = parseDate(project.endDate);
             x.domain([startDate, endDate]);
             y.domain([0, 100]);
+            
+            const timeDiff = endDate.getTime() - startDate.getTime();
+            const days = timeDiff / (1000 * 3600 * 24);
+
+            let tickInterval;
+            if (days > 365) {
+                tickInterval = d3.timeMonth.every(3);
+            } else if (days > 180) {
+                tickInterval = d3.timeMonth.every(1);
+            } else if (days > 60) {
+                tickInterval = d3.timeWeek.every(2);
+            } else {
+                 tickInterval = d3.timeWeek.every(1);
+            }
+
 
             // More granular axis
             svg.append("g")
                 .attr("class", "chart-grid")
                 .attr("transform", `translate(0,${chartHeight})`)
-                .call(d3.axisBottom(x).ticks(d3.timeWeek.every(1)).tickFormat(d3.timeFormat("%b %d")));
+                .call(d3.axisBottom(x).ticks(tickInterval).tickFormat(d3.timeFormat("%b %d")));
 
             svg.append("g")
                 .attr("class", "chart-grid")
@@ -1185,22 +1205,20 @@
                 .enter().append("foreignObject")
                 .attr("class", "phase-marker-fs")
                 .attr("width", 150)
-                .attr("height", 30)
+                .attr("height", 50)
                 .attr("x", d => {
                     const phaseEndDate = parseDate(d.effectiveEndDate);
-                    let tasksInPhaseOrBefore = allTasks.filter(t => parseDate(t.effectiveEndDate) <= phaseEndDate);
-                    let phaseEndProgress = (tasksInPhaseOrBefore.length / (allTasks.length || 1)) * 100;
                     return x(phaseEndDate) - 75; // Center the label
                 })
                 .attr("y", d => {
                      const phaseEndDate = parseDate(d.effectiveEndDate);
                     let tasksInPhaseOrBefore = allTasks.filter(t => parseDate(t.effectiveEndDate) <= phaseEndDate);
                     let phaseEndProgress = (tasksInPhaseOrBefore.length / (allTasks.length || 1)) * 100;
-                    return y(phaseEndProgress) - 35; // Position above the point
+                    return y(phaseEndProgress) - 55; // Position above the point
                 });
 
             phaseMarkers.append("xhtml:div")
-                .attr("class", "phase-label text-center")
+                .attr("class", "phase-label")
                 .html(d => d.name);
         }
 
