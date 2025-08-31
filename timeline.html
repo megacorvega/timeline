@@ -23,11 +23,6 @@
         .title-font {
             font-family: 'Cascadia Code', monospace;
         }
-        [contenteditable]:focus {
-            outline: 2px solid #3b82f6;
-            border-radius: 2px;
-            background-color: rgba(59, 130, 246, 0.1);
-        }
         .custom-checkbox {
             appearance: none;
             background-color: #fff;
@@ -239,7 +234,7 @@
             body {
                 background-color: #fff;
             }
-            header, .bg-white.dark\\:bg-slate-900:first-of-type, #import-btn, #export-btn, #pdf-btn, #theme-toggle, #dependency-btn-container, #dependency-tooltip {
+            header, .bg-white.dark\\:bg-slate-900:first-of-type, #import-btn, #export-btn, #pdf-btn, #theme-toggle, #dependency-btn-container, #dependency-tooltip, #fullscreen-modal {
                 display: none !important;
             }
             .project-card {
@@ -331,6 +326,73 @@
             display: flex;
         }
 
+        #fullscreen-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #f8fafc;
+            z-index: 1000;
+            display: none;
+            padding: 2rem;
+            box-sizing: border-box;
+        }
+        .dark #fullscreen-modal {
+            background-color: #020617;
+        }
+        #fullscreen-chart-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        #close-fullscreen-btn {
+            position: absolute;
+            top: -1rem;
+            right: -1rem;
+            background: #e5e7eb;
+            border: none;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .dark #close-fullscreen-btn {
+            background: #374151;
+            color: #e5e7eb;
+        }
+        .chart-tooltip {
+            position: absolute;
+            visibility: hidden;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            pointer-events: none;
+            white-space: nowrap;
+        }
+        .dark .chart-tooltip {
+            background: #1e293b;
+            border-color: #334155;
+        }
+        .phase-label {
+            background-color: #3b82f6;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .editable-text {
+            cursor: pointer;
+        }
     </style>
 </head>
 <body class="antialiased text-gray-900 dark:text-white">
@@ -364,6 +426,12 @@
     </div>
 
     <div id="dependency-tooltip" class="hidden absolute z-[1002] p-3 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl text-xs w-max max-w-xs"></div>
+
+    <div id="fullscreen-modal">
+        <div id="fullscreen-chart-container">
+            <button id="close-fullscreen-btn">&times;</button>
+        </div>
+    </div>
 
     <div class="container mx-auto p-4 sm:p-5 max-w-6xl">
 
@@ -445,6 +513,8 @@
         const confirmModalText = document.getElementById('confirm-modal-text');
         const cancelConfirmBtn = document.getElementById('cancel-confirm-btn');
         const confirmActionBtn = document.getElementById('confirm-action-btn');
+        const fullscreenModal = document.getElementById('fullscreen-modal');
+        const closeFullscreenBtn = document.getElementById('close-fullscreen-btn');
 
 
         // --- DATA & UTILS ---
@@ -641,7 +711,7 @@
                             <button onclick="toggleProjectCollapse(${project.id})" class="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 flex-shrink-0">
                                 <svg id="chevron-${project.id}" class="w-5 h-5 text-gray-500 chevron ${project.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                             </button>
-                            <h3 class="text-xl font-bold truncate" contenteditable="true" onblur="updateProjectName(${project.id}, this.innerText)" onkeydown="handleEnter(event)">${project.name}</h3>
+                            <h3 class="text-xl font-bold truncate editable-text" onclick="makeEditable(this, 'updateProjectName', ${project.id})">${project.name}</h3>
                             <span class="text-sm font-medium text-gray-500 flex-shrink-0">${Math.round(project.overallProgress)}%</span>
                         </div>
                         <div class="flex items-center gap-2 text-sm text-gray-500 flex-shrink-0">
@@ -657,7 +727,7 @@
                         <button onclick="deleteProject(${project.id})" class="text-gray-400 hover:text-red-500 transition-colors text-xl font-bold ml-4 flex-shrink-0">&times;</button>
                     </div>
                      <div id="project-body-${project.id}" class="${project.collapsed ? 'hidden' : ''}">
-                        <div id="chart-${project.id}" class="w-full h-48 mb-3"></div>
+                        <div id="chart-${project.id}" class="w-full h-48 mb-3 relative"></div>
                         <div id="phases-${project.id}" class="space-y-2"></div>
                         <div class="mt-3">
                             <button onclick="toggleLog(${project.id})" class="text-xs font-semibold text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-1">
@@ -722,7 +792,7 @@
                             ${toggleButton}
                              ${drivenDot}
                             <div class="text-xs font-bold text-gray-500 dark:text-gray-400 w-10 text-center flex-shrink-0">${Math.round(phase.progress || 0)}%</div>
-                            <span class="font-semibold flex-grow" contenteditable="true" onblur="updatePhaseName(${project.id}, ${phase.id}, this.innerText)" onkeydown="handleEnter(event)">${phase.name}</span>
+                            <span class="font-semibold flex-grow editable-text" onclick="makeEditable(this, 'updatePhaseName', ${project.id}, ${phase.id})">${phase.name}</span>
                             ${getDependencyIcon(phase)}
                             <div class="flex items-center gap-2 text-sm text-gray-500">
                                 <div class="date-input-container"><input type="text" value="${phase.effectiveStartDate ? formatDate(parseDate(phase.effectiveStartDate)) : ''}" placeholder="Start" readonly class="date-input bg-gray-200 dark:bg-slate-700" disabled></div>
@@ -764,7 +834,7 @@
                             ${drivenDot}
                             ${taskControlHtml}
                             <div class="flex-grow flex items-center gap-2">
-                                <span class="font-medium" contenteditable="true" onblur="updateTaskName(${projectId}, ${phaseId}, ${task.id}, this.innerText)" onkeydown="handleEnter(event)">${task.name}</span>
+                                <span class="font-medium editable-text" onclick="makeEditable(this, 'updateTaskName', ${projectId}, ${phaseId}, ${task.id})">${task.name}</span>
                                 <button onclick="showAddSubtaskInput(${task.id})" class="add-subtask-btn items-center gap-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-semibold rounded-md px-2 py-1 flex-shrink-0">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
                                     <span>Subtask</span>
@@ -819,7 +889,7 @@
                     <div class="flex items-center gap-3 subtask-row ${depClass} ${selectedClass}" data-id="${subtask.id}" data-type="subtask" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}">
                         ${drivenDot}
                         <input type="checkbox" class="custom-checkbox" onchange="toggleSubtaskComplete(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" ${subtask.completed ? 'checked' : ''}>
-                        <span class="text-sm text-gray-700 dark:text-gray-300 flex-grow ${subtask.completed ? 'line-through opacity-60' : ''}" contenteditable="true" onblur="updateSubtaskName(${projectId}, ${phaseId}, ${taskId}, ${subtask.id}, this.innerText)" onkeydown="handleEnter(event)">${subtask.name}</span>
+                        <span class="text-sm text-gray-700 dark:text-gray-300 flex-grow ${subtask.completed ? 'line-through opacity-60' : ''} editable-text" onclick="makeEditable(this, 'updateSubtaskName', ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})">${subtask.name}</span>
                         ${getDependencyIcon(subtask)}
                         <div class="flex items-center gap-2 text-sm text-gray-500">
                              <div class="date-input-container">
@@ -892,6 +962,13 @@
                 const width = container.node().getBoundingClientRect().width;
                 if (width <= 0) return;
                 container.selectAll("*").remove();
+                
+                // Add fullscreen button
+                container.append('button')
+                    .html('<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 1v4m0 0h-4m4 0l-5-5" /></svg>')
+                    .attr('class', 'absolute bottom-1 right-1 p-1.5 bg-gray-200 dark:bg-gray-700 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600')
+                    .on('click', () => showFullscreenChart(project.id));
+                
                 const margin = { top: 10, right: 20, bottom: 20, left: 40 },
                     chartWidth = width - margin.left - margin.right,
                     height = container.node().getBoundingClientRect().height - margin.top - margin.bottom;
@@ -947,7 +1024,7 @@
                     const dateForPoint = parseDate(task.effectiveEndDate);
                     if (dateForPoint) {
                         cumulativeProgress += 100 / (allTasks.length || 1);
-                        pathData.push({ date: dateForPoint, progress: cumulativeProgress, completed: task.completed });
+                        pathData.push({ date: dateForPoint, progress: cumulativeProgress, completed: task.completed, name: task.name });
                     }
                 });
 
@@ -987,6 +1064,144 @@
                     .text((d, i) => `P${i + 1}`);
 
             }, 0);
+        }
+        
+        function showFullscreenChart(projectId) {
+            const project = projects.find(p => p.id === projectId);
+            if (!project) return;
+            drawFullscreenChart(project);
+            fullscreenModal.style.display = 'block';
+        }
+
+        function drawFullscreenChart(project) {
+            const container = d3.select("#fullscreen-chart-container");
+            container.selectAll("svg").remove(); // Clear previous chart
+            container.selectAll(".chart-tooltip").remove(); // Clear tooltips
+
+            const tooltip = d3.select("body").append("div").attr("class", "chart-tooltip");
+
+            const width = container.node().getBoundingClientRect().width;
+            const height = container.node().getBoundingClientRect().height;
+            const margin = { top: 40, right: 50, bottom: 40, left: 60 };
+            const chartWidth = width - margin.left - margin.right;
+            const chartHeight = height - margin.top - margin.bottom;
+
+            const svg = container.append("svg")
+                .attr("width", width)
+                .attr("height", height)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            const x = d3.scaleTime().range([0, chartWidth]);
+            const y = d3.scaleLinear().range([chartHeight, 0]);
+
+            const startDate = parseDate(project.startDate);
+            const endDate = parseDate(project.endDate);
+            x.domain([startDate, endDate]);
+            y.domain([0, 100]);
+
+            // More granular axis
+            svg.append("g")
+                .attr("class", "chart-grid")
+                .attr("transform", `translate(0,${chartHeight})`)
+                .call(d3.axisBottom(x).ticks(d3.timeWeek.every(1)).tickFormat(d3.timeFormat("%b %d")));
+
+            svg.append("g")
+                .attr("class", "chart-grid")
+                .call(d3.axisLeft(y).ticks(10).tickFormat(d => `${d}%`));
+            
+            svg.append("text")
+                .attr("x", chartWidth / 2)
+                .attr("y", 0 - (margin.top / 2))
+                .attr("text-anchor", "middle")
+                .attr("class", "text-lg font-bold fill-current")
+                .text(`${project.name} - Progress Chart`);
+
+            // Planned line and finish line
+            svg.append("line").attr("class", "planned-line").attr("x1", x(startDate)).attr("y1", y(0)).attr("x2", x(endDate)).attr("y2", y(100));
+            svg.append("line").attr("class", "finish-line").attr("x1", x(endDate)).attr("y1", 0).attr("x2", x(endDate)).attr("y2", chartHeight);
+
+            // Today line
+            const today = new Date();
+            if (today >= startDate && today <= endDate) {
+                svg.append("line").attr("class", "today-line").attr("x1", x(today)).attr("y1", 0).attr("x2", x(today)).attr("y2", chartHeight);
+            }
+            
+            const allTasks = project.phases.flatMap(phase => phase.tasks).filter(task => task.effectiveEndDate);
+            const firstActivityDate = parseDate(getBoundaryDate(allTasks, 'earliest')) || startDate;
+            
+            const pathData = [{ date: firstActivityDate, progress: 0 }];
+            let cumulativeProgress = 0;
+
+            allTasks.sort((a,b) => parseDate(a.effectiveEndDate) - parseDate(b.effectiveEndDate)).forEach(task => {
+                const dateForPoint = parseDate(task.effectiveEndDate);
+                if (dateForPoint) {
+                    cumulativeProgress += 100 / (allTasks.length || 1);
+                    pathData.push({ 
+                        date: dateForPoint, 
+                        progress: cumulativeProgress, 
+                        completed: task.completed, 
+                        name: task.name,
+                        percentComplete: Math.round(task.progress)
+                    });
+                }
+            });
+
+            const line = d3.line().x(d => x(d.date)).y(d => y(d.progress));
+            const getPlannedProgress = date => (date.getTime() - startDate.getTime()) / (endDate.getTime() - startDate.getTime()) * 100;
+            
+            // Draw path segments
+            for (let i = 0; i < pathData.length - 1; i++) {
+                const segment = [pathData[i], pathData[i+1]], endPoint = segment[1];
+                const colorClass = endPoint.date > endDate ? 'stroke-red-500' : (endPoint.progress >= getPlannedProgress(endPoint.date) ? 'stroke-green-500' : 'stroke-red-500');
+                svg.append("path").datum(segment).attr("class", `${endPoint.completed ? 'actual-line' : 'projected-line'} ${colorClass}`).attr("d", line);
+            }
+
+            // Draw points and setup tooltips
+            svg.selectAll(".task-point")
+                .data(pathData.slice(1))
+                .enter().append("circle")
+                .attr("class", "task-point actual-point")
+                .attr("cx", d => x(d.date))
+                .attr("cy", d => y(d.progress))
+                .attr("fill", d => d.date > endDate ? '#ef4444' : (d.progress >= getPlannedProgress(d.date) ? '#22c55e' : '#ef4444'))
+                .on("mouseover", function(event, d) {
+                    tooltip.style("visibility", "visible")
+                           .html(`<strong>${d.name}</strong><br>Due: ${formatDate(d.date)}<br>Completed: ${d.percentComplete}%`);
+                    d3.select(this).transition().duration(100).attr("r", 6);
+                })
+                .on("mousemove", function(event) {
+                    tooltip.style("top", (event.pageY - 10) + "px").style("left", (event.pageX + 10) + "px");
+                })
+                .on("mouseout", function() {
+                    tooltip.style("visibility", "hidden");
+                    d3.select(this).transition().duration(100).attr("r", 4);
+                });
+
+            // Expanded Phase Markers
+            const sortedPhases = [...project.phases].filter(p => p.effectiveEndDate).sort((a, b) => parseDate(a.effectiveEndDate) - parseDate(b.effectiveEndDate));
+            const phaseMarkers = svg.selectAll(".phase-marker-fs")
+                .data(sortedPhases)
+                .enter().append("foreignObject")
+                .attr("class", "phase-marker-fs")
+                .attr("width", 150)
+                .attr("height", 30)
+                .attr("x", d => {
+                    const phaseEndDate = parseDate(d.effectiveEndDate);
+                    let tasksInPhaseOrBefore = allTasks.filter(t => parseDate(t.effectiveEndDate) <= phaseEndDate);
+                    let phaseEndProgress = (tasksInPhaseOrBefore.length / (allTasks.length || 1)) * 100;
+                    return x(phaseEndDate) - 75; // Center the label
+                })
+                .attr("y", d => {
+                     const phaseEndDate = parseDate(d.effectiveEndDate);
+                    let tasksInPhaseOrBefore = allTasks.filter(t => parseDate(t.effectiveEndDate) <= phaseEndDate);
+                    let phaseEndProgress = (tasksInPhaseOrBefore.length / (allTasks.length || 1)) * 100;
+                    return y(phaseEndProgress) - 35; // Position above the point
+                });
+
+            phaseMarkers.append("xhtml:div")
+                .attr("class", "phase-label text-center")
+                .html(d => d.name);
         }
 
         function showDependencyTooltip(event, itemId) {
@@ -1084,13 +1299,30 @@
             else if (!oldDate) { updateDate(context, newDate); }
         }
         
-        function handleEnter(event) {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                event.target.blur();
-            }
-        }
+        function makeEditable(element, updateFunction, ...args) {
+            const originalText = element.innerText;
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = originalText;
+            input.className = element.className.replace('editable-text', '') + ' inline-input';
+            element.replaceWith(input);
+            input.focus();
 
+            input.addEventListener('blur', () => {
+                const newText = input.value.trim();
+                if (newText) {
+                    window[updateFunction](...args, newText);
+                }
+                renderProjects();
+            });
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    input.blur();
+                }
+            });
+        }
+        
         function showAddSubtaskInput(taskId) {
             const form = document.getElementById(`add-subtask-form-${taskId}`);
             if (form) {
@@ -1514,12 +1746,22 @@
                 }
             });
             addProjectBtn.addEventListener('click', addProject);
+            closeFullscreenBtn.addEventListener('click', () => {
+                fullscreenModal.style.display = 'none';
+                d3.select(".chart-tooltip").remove();
+            });
             document.addEventListener('keydown', (e) => {
-                if(e.key === 'Escape' && dependencyMode) {
-                    dependencyMode = false;
-                    firstSelectedItem = null;
-                    dependencyBanner.classList.add('hidden');
-                    renderProjects();
+                if(e.key === 'Escape') {
+                    if (dependencyMode) {
+                        dependencyMode = false;
+                        firstSelectedItem = null;
+                        dependencyBanner.classList.add('hidden');
+                        renderProjects();
+                    }
+                    if (fullscreenModal.style.display === 'block') {
+                         fullscreenModal.style.display = 'none';
+                         d3.select(".chart-tooltip").remove();
+                    }
                 }
             });
             applyTheme();
