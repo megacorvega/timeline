@@ -1,4 +1,4 @@
-![timeline logo](https://i.imgur.com/A5mNXAr.png)
+<img src="https://i.imgur.com/A5mNXAr.png" alt="timeline logo" width="25%"/>
 
 `timeline` is a dynamic and intuitive project management tool designed to help you visualize, track, and manage complex projects with ease. It operates entirely within your browser, saving all data locally for privacy and offline access.
 
