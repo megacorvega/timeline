@@ -1,4 +1,4 @@
-# <font face="Cascadia Code"><span style="color: grey;">time</span>line</font>
+![timeline logo](https://i.imgur.com/7Kc0vax.png)
 
 `timeline` is a dynamic and intuitive project management tool designed to help you visualize, track, and manage complex projects with ease. It operates entirely within your browser, saving all data locally for privacy and offline access.
 
