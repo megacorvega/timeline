@@ -843,11 +843,11 @@
                         </div>
                         <div class="flex items-center gap-2 text-sm text-gray-500 flex-shrink-0">
                             <div class="date-input-container">
-                                <input type="text" value="${project.startDate ? formatDate(parseDate(project.startDate)) : ''}" placeholder="Start Date" class="date-input" data-project-id="${project.id}" data-type="project-start" data-date="${project.startDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
+                                <input type="text" value="${project.startDate ? formatDate(parseDate(project.startDate)) : ''}" placeholder="Start Date" class="date-input text-gray-900 dark:text-white" data-project-id="${project.id}" data-type="project-start" data-date="${project.startDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
                                 <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
                             </div>
                             <div class="date-input-container">
-                                <input type="text" value="${project.endDate ? formatDate(parseDate(project.endDate)) : ''}" placeholder="End Date" class="date-input" data-project-id="${project.id}" data-type="project-end" data-date="${project.endDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
+                                <input type="text" value="${project.endDate ? formatDate(parseDate(project.endDate)) : ''}" placeholder="End Date" class="date-input text-gray-900 dark:text-white" data-project-id="${project.id}" data-type="project-end" data-date="${project.endDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
                                 <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
                             </div>
                         </div>
@@ -938,8 +938,8 @@
                             <span class="font-semibold flex-grow editable-text" onclick="makeEditable(this, 'updatePhaseName', ${project.id}, ${phase.id})">${phase.name}</span>
                             ${getDependencyIcon(phase)}
                             <div class="flex items-center gap-2 text-sm text-gray-500">
-                                <div class="date-input-container"><input type="text" value="${phase.effectiveStartDate ? formatDate(parseDate(phase.effectiveStartDate)) : ''}" placeholder="Start" readonly class="date-input bg-gray-200 dark:bg-slate-700" disabled></div>
-                                <div class="date-input-container"><input type="text" value="${phase.effectiveEndDate ? formatDate(parseDate(phase.effectiveEndDate)) : ''}" placeholder="End" readonly class="date-input bg-gray-200 dark:bg-slate-700" disabled></div>
+                                <div class="date-input-container"><input type="text" value="${phase.effectiveStartDate ? formatDate(parseDate(phase.effectiveStartDate)) : ''}" placeholder="Start" readonly class="date-input bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-gray-400" disabled></div>
+                                <div class="date-input-container"><input type="text" value="${phase.effectiveEndDate ? formatDate(parseDate(phase.effectiveEndDate)) : ''}" placeholder="End" readonly class="date-input bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-gray-400" disabled></div>
                             </div>
                             <button onclick="deletePhase(${project.id}, ${phase.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold">&times;</button>
                         </div>
@@ -1002,11 +1002,11 @@
                             ${getDependencyIcon(task)}
                             <div class="flex items-center gap-2 text-sm text-gray-500">
                                 <div class="date-input-container">
-                                    <input type="text" value="${task.effectiveStartDate ? formatDate(parseDate(task.effectiveStartDate)) : ''}" placeholder="Start" class="date-input ${hasSubtasks || task.isDriven ? 'bg-gray-200 dark:bg-slate-700' : ''}" ${hasSubtasks || task.isDriven ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-start" data-date="${task.startDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
+                                    <input type="text" value="${task.effectiveStartDate ? formatDate(parseDate(task.effectiveStartDate)) : ''}" placeholder="Start" class="date-input ${hasSubtasks || task.isDriven ? 'bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-gray-400' : ''}" ${hasSubtasks || task.isDriven ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-start" data-date="${task.startDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
                                     ${!hasSubtasks && !task.isDriven ? iconHtml : ''}
                                 </div>
                                 <div class="date-input-container">
-                                    <input type="text" value="${task.effectiveStartDate ? formatDate(parseDate(task.effectiveStartDate)) : ''}" placeholder="Start" class="date-input ${hasSubtasks || task.isDriven ? 'bg-gray-200 dark:bg-slate-700' : ''}" ${hasSubtasks || task.isDriven ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-start" data-date="${task.startDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
+                                    <input type="text" value="${task.effectiveEndDate ? formatDate(parseDate(task.effectiveEndDate)) : ''}" placeholder="End" class="date-input ${hasSubtasks ? 'bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-gray-400' : ''}" ${hasSubtasks ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-end" data-date="${task.endDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
                                     ${!hasSubtasks ? iconHtml : ''}
                                 </div>
                             </div>
@@ -1066,16 +1066,14 @@
                         </div>
                         <span class="text-sm text-gray-700 dark:text-gray-300 flex-grow ${subtask.completed ? 'line-through opacity-60' : ''} editable-text" onclick="makeEditable(this, 'updateSubtaskName', ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})">${subtask.name}</span>
                         ${getDependencyIcon(subtask)}
-                        <div class="flex items-center gap-2 text-sm text-gray-500">
-                             <div class="date-input-container">
-                                <input type="text" value="${subtask.startDate ? formatDate(parseDate(subtask.startDate)) : ''}" placeholder="Start" class="date-input ${subtask.isDriven ? 'bg-gray-100 dark:bg-slate-800' : ''}" ${subtask.isDriven ? 'disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}" data-subtask-id="${subtask.id}" data-type="subtask-start" data-date="${subtask.startDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
+                        <div class="date-input-container">
+                                <input type="text" value="${subtask.startDate ? formatDate(parseDate(subtask.startDate)) : ''}" placeholder="Start" class="date-input ${subtask.isDriven ? 'bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-gray-400' : ''}" ${subtask.isDriven ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}" data-subtask-id="${subtask.id}" data-type="subtask-start" data-date="${subtask.startDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
                                  ${!subtask.isDriven ? iconHtml : ''}
                              </div>
                              <div class="date-input-container">
                                 <input type="text" value="${subtask.endDate ? formatDate(parseDate(subtask.endDate)) : ''}" placeholder="End" class="date-input" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}" data-subtask-id="${subtask.id}" data-type="subtask-end" data-date="${subtask.endDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
                                 ${iconHtml}
                             </div>
-                        </div>
                         <button onclick="deleteSubtask(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold w-5 text-center flex-shrink-0">&times;</button>
                     </div>`;
             });
