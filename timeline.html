@@ -254,7 +254,6 @@
         }
         .duration-scale-bar {
             height: 100%;
-            background-color: #3b82f6; /* blue-500 */
             border-radius: 4px;
             transition: width 0.3s ease-in-out;
         }
@@ -858,6 +857,19 @@
                 const depClass = dependencyMode && firstSelectedItem?.id !== phase.id ? 'dependency-candidate' : '';
                 const selectedClass = firstSelectedItem?.id === phase.id ? 'dependency-selected' : '';
                 const drivenDot = phase.isDriven ? `<div class="driven-by-dot" title="Starts after: ${phase.driverName.replace(/"/g, '&quot;')}"></div>` : '<div class="w-2"></div>';
+
+                const durationProgress = getDurationProgress(phase.effectiveStartDate, phase.effectiveEndDate);
+                let durationBarColorClass = 'bg-blue-500';
+                if (phase.completed) {
+                    durationBarColorClass = 'bg-green-500';
+                } else if (durationProgress === 100) {
+                    durationBarColorClass = 'bg-red-500';
+                } else if (durationProgress > 90) {
+                    durationBarColorClass = 'bg-orange-500';
+                } else if (durationProgress > 75) {
+                    durationBarColorClass = 'bg-yellow-500';
+                }
+
                 html += `
                     <div class="bg-gray-100 dark:bg-slate-800/50 rounded-lg p-3 phase-row ${depClass} ${selectedClass}" data-id="${phase.id}" data-type="phase" data-project-id="${project.id}">
                         <div class="flex items-center gap-3 item-main-row">
@@ -865,7 +877,7 @@
                              ${drivenDot}
                             <div class="text-xs font-bold text-gray-500 dark:text-gray-400 w-10 text-center flex-shrink-0">${Math.round(phase.progress || 0)}%</div>
                             <div class="duration-scale-container" title="Duration Progress">
-                                <div class="duration-scale-bar" style="width: ${getDurationProgress(phase.effectiveStartDate, phase.effectiveEndDate)}%;"></div>
+                                <div class="duration-scale-bar ${durationBarColorClass}" style="width: ${durationProgress}%;"></div>
                             </div>
                             <span class="font-semibold flex-grow editable-text" onclick="makeEditable(this, 'updatePhaseName', ${project.id}, ${phase.id})">${phase.name}</span>
                             ${getDependencyIcon(phase)}
@@ -902,6 +914,19 @@
                 const depClass = dependencyMode && firstSelectedItem?.id !== task.id ? 'dependency-candidate' : '';
                 const selectedClass = firstSelectedItem?.id === task.id ? 'dependency-selected' : '';
                 const drivenDot = task.isDriven ? `<div class="driven-by-dot" title="Starts after: ${task.driverName.replace(/"/g, '&quot;')}"></div>` : '<div class="w-2"></div>';
+
+                const durationProgress = getDurationProgress(task.effectiveStartDate, task.effectiveEndDate);
+                let durationBarColorClass = 'bg-blue-500';
+                if (task.completed) {
+                    durationBarColorClass = 'bg-green-500';
+                } else if (durationProgress === 100) {
+                    durationBarColorClass = 'bg-red-500';
+                } else if (durationProgress > 90) {
+                    durationBarColorClass = 'bg-orange-500';
+                } else if (durationProgress > 75) {
+                    durationBarColorClass = 'bg-yellow-500';
+                }
+
                 html += `
                     <div class="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-2 task-row ${depClass} ${selectedClass}" data-id="${task.id}" data-type="task" data-project-id="${projectId}" data-phase-id="${phaseId}">
                         <div class="flex items-center gap-3 item-main-row">
@@ -909,7 +934,7 @@
                             ${drivenDot}
                             ${taskControlHtml}
                             <div class="duration-scale-container" title="Duration Progress">
-                                <div class="duration-scale-bar" style="width: ${getDurationProgress(task.effectiveStartDate, task.effectiveEndDate)}%;"></div>
+                                <div class="duration-scale-bar ${durationBarColorClass}" style="width: ${durationProgress}%;"></div>
                             </div>
                             <div class="flex-grow flex items-center gap-2">
                                 <span class="font-medium editable-text" onclick="makeEditable(this, 'updateTaskName', ${projectId}, ${phaseId}, ${task.id})">${task.name}</span>
@@ -963,12 +988,25 @@
                 const depClass = dependencyMode && firstSelectedItem?.id !== subtask.id ? 'dependency-candidate' : '';
                 const selectedClass = firstSelectedItem?.id === subtask.id ? 'dependency-selected' : '';
                 const drivenDot = subtask.isDriven ? `<div class="driven-by-dot" title="Starts after: ${subtask.driverName.replace(/"/g, '&quot;')}"></div>` : '<div class="w-2"></div>';
+
+                const durationProgress = getDurationProgress(subtask.startDate, subtask.endDate);
+                let durationBarColorClass = 'bg-blue-500';
+                if (subtask.completed) {
+                    durationBarColorClass = 'bg-green-500';
+                } else if (durationProgress === 100) {
+                    durationBarColorClass = 'bg-red-500';
+                } else if (durationProgress > 90) {
+                    durationBarColorClass = 'bg-orange-500';
+                } else if (durationProgress > 75) {
+                    durationBarColorClass = 'bg-yellow-500';
+                }
+
                 html += `
                     <div class="flex items-center gap-3 subtask-row ${depClass} ${selectedClass}" data-id="${subtask.id}" data-type="subtask" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}">
                         ${drivenDot}
                         <input type="checkbox" class="custom-checkbox" onchange="toggleSubtaskComplete(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" ${subtask.completed ? 'checked' : ''}>
                         <div class="duration-scale-container" title="Duration Progress">
-                            <div class="duration-scale-bar" style="width: ${getDurationProgress(subtask.startDate, subtask.endDate)}%;"></div>
+                            <div class="duration-scale-bar ${durationBarColorClass}" style="width: ${durationProgress}%;"></div>
                         </div>
                         <span class="text-sm text-gray-700 dark:text-gray-300 flex-grow ${subtask.completed ? 'line-through opacity-60' : ''} editable-text" onclick="makeEditable(this, 'updateSubtaskName', ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})">${subtask.name}</span>
                         ${getDependencyIcon(subtask)}
