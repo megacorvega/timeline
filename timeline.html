@@ -230,11 +230,12 @@
         }
 
         .inline-input {
-             background-color: #fff;
-             border: 1px solid #e2e8f0;
-             border-radius: 6px;
-             padding: 1px 6px;
-             font-size: inherit;
+            background-color: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 1px 6px;
+            font-size: inherit;
+            width: 100%;
         }
         .dark .inline-input {
             background-color: #1e293b;
@@ -644,7 +645,7 @@
             });
         }
 
-function resolveDependencies() {
+        function resolveDependencies() {
             const allItems = new Map();
             projects.forEach(p => {
                 p.phases.forEach(ph => {
@@ -670,8 +671,9 @@ function resolveDependencies() {
 
                         item.dependencies.forEach(depId => {
                             const parent = allItems.get(depId);
-                            if (parent && parent.effectiveEndDate) {
-                                const parentEndDate = parseDate(parent.effectiveEndDate);
+                            const parentEndDateValue = parent ? (parent.effectiveEndDate || parent.endDate) : null;
+                            if (parent && parentEndDateValue) {
+                                const parentEndDate = parseDate(parentEndDateValue);
                                 if (!latestParentEndDate || parentEndDate > latestParentEndDate) {
                                     latestParentEndDate = parentEndDate;
                                     driver = parent;
@@ -692,12 +694,13 @@ function resolveDependencies() {
 
                             item.startDate = newStartDate.toISOString().split('T')[0];
 
+                            // --- MODIFICATION ---
+                            // The 'else' block that was setting item.endDate = item.startDate has been removed.
                             if (duration !== null) {
                                 const newEndDate = new Date(newStartDate.getTime() + duration);
                                 item.endDate = newEndDate.toISOString().split('T')[0];
-                            } else {
-                                item.endDate = item.startDate;
                             }
+                            // --- END MODIFICATION ---
                             
                             item.isDriven = true;
                             item.driverName = driver.name;
@@ -824,7 +827,7 @@ function resolveDependencies() {
 
                 const depClass = dependencyMode && firstSelectedItem?.id !== phase.id ? 'dependency-candidate' : '';
                 const selectedClass = firstSelectedItem?.id === phase.id ? 'dependency-selected' : '';
-                const drivenDot = phase.isDriven ? `<div class="driven-by-dot" title="Starts after: ${phase.driverName}"></div>` : '<div class="w-2"></div>';
+                const drivenDot = phase.isDriven ? `<div class="driven-by-dot" title="Starts after: ${phase.driverName.replace(/"/g, '&quot;')}"></div>` : '<div class="w-2"></div>';
                 html += `
                     <div class="bg-gray-100 dark:bg-slate-800/50 rounded-lg p-3 phase-row ${depClass} ${selectedClass}" data-id="${phase.id}" data-type="phase" data-project-id="${project.id}">
                         <div class="flex items-center gap-3 item-main-row">
@@ -865,7 +868,7 @@ function resolveDependencies() {
                     </button>` : `<div class="w-6 h-6 flex-shrink-0"></div>`; // Placeholder
                 const depClass = dependencyMode && firstSelectedItem?.id !== task.id ? 'dependency-candidate' : '';
                 const selectedClass = firstSelectedItem?.id === task.id ? 'dependency-selected' : '';
-                const drivenDot = task.isDriven ? `<div class="driven-by-dot" title="Starts after: ${task.driverName}"></div>` : '<div class="w-2"></div>';
+                const drivenDot = task.isDriven ? `<div class="driven-by-dot" title="Starts after: ${task.driverName.replace(/"/g, '&quot;')}"></div>` : '<div class="w-2"></div>';
                 html += `
                     <div class="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-2 task-row ${depClass} ${selectedClass}" data-id="${task.id}" data-type="task" data-project-id="${projectId}" data-phase-id="${phaseId}">
                         <div class="flex items-center gap-3 item-main-row">
@@ -923,7 +926,7 @@ function resolveDependencies() {
             sortedSubtasks.forEach(subtask => {
                 const depClass = dependencyMode && firstSelectedItem?.id !== subtask.id ? 'dependency-candidate' : '';
                 const selectedClass = firstSelectedItem?.id === subtask.id ? 'dependency-selected' : '';
-                const drivenDot = subtask.isDriven ? `<div class="driven-by-dot" title="Starts after: ${subtask.driverName}"></div>` : '<div class="w-2"></div>';
+                const drivenDot = subtask.isDriven ? `<div class="driven-by-dot" title="Starts after: ${subtask.driverName.replace(/"/g, '&quot;')}"></div>` : '<div class="w-2"></div>';
                 html += `
                     <div class="flex items-center gap-3 subtask-row ${depClass} ${selectedClass}" data-id="${subtask.id}" data-type="subtask" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}">
                         ${drivenDot}
