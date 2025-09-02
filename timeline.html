@@ -229,6 +229,18 @@
             opacity: 1 !important;
         }
 
+        .inline-input {
+             background-color: #fff;
+             border: 1px solid #e2e8f0;
+             border-radius: 6px;
+             padding: 1px 6px;
+             font-size: inherit;
+        }
+        .dark .inline-input {
+            background-color: #1e293b;
+            border-color: #334155;
+        }
+
 
         @media print {
             body {
@@ -463,11 +475,11 @@
             <div class="flex flex-col sm:flex-row gap-2 items-center">
                 <input type="text" id="new-project-name" placeholder="Enter new project name..." class="flex-grow w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm h-[28px]" onkeydown="if(event.key==='Enter') addProject()">
                 <div class="date-input-container">
-                    <input type="text" id="new-project-start-date" placeholder="Start Date" class="date-input" data-type="new-project-start" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)">
+                    <input type="text" id="new-project-start-date" placeholder="Start Date" class="date-input" data-type="new-project-start" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
                     <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
                 </div>
                 <div class="date-input-container">
-                    <input type="text" id="new-project-end-date" placeholder="End Date" class="date-input" data-type="new-project-end" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)">
+                    <input type="text" id="new-project-end-date" placeholder="End Date" class="date-input" data-type="new-project-end" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
                      <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
                 </div>
                 <button id="add-project-btn" class="w-full sm:w-auto bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-colors btn-sm">
@@ -671,15 +683,13 @@
 
                         if (latestParentEndDate) {
                             const newStartDate = new Date(latestParentEndDate);
-                            newStartDate.setDate(newStartDate.getDate() + 1); // Dependent starts day after
                             const newStartDateStr = newStartDate.toISOString().split('T')[0];
                             
-                            const oldStartDate = item.startDate ? parseDate(item.startDate) : null;
-                            const oldEndDate = item.endDate ? parseDate(item.endDate) : null;
+                            const oldEffectiveStartDate = item.effectiveStartDate ? parseDate(item.effectiveStartDate) : null;
                             let duration = null;
 
-                            if (oldStartDate && oldEndDate) {
-                                duration = oldEndDate.getTime() - oldStartDate.getTime();
+                            if (oldEffectiveStartDate && item.effectiveEndDate) {
+                                duration = parseDate(item.effectiveEndDate).getTime() - oldEffectiveStartDate.getTime();
                             }
 
                             item.startDate = newStartDateStr;
@@ -687,10 +697,29 @@
                             if (duration !== null) {
                                 const newEndDate = new Date(newStartDate.getTime() + duration);
                                 item.endDate = newEndDate.toISOString().split('T')[0];
+                            } else if (!item.endDate && item.startDate) {
+                                // If there's no end date, default to same day
+                                item.endDate = item.startDate;
                             }
                             
                             item.isDriven = true;
                             item.driverName = driver.name;
+                            
+                            if (item.subtasks && item.subtasks.length > 0 && oldEffectiveStartDate) {
+                                const timeShift = newStartDate.getTime() - oldEffectiveStartDate.getTime();
+                                item.subtasks.forEach(subtask => {
+                                    if (subtask.startDate) {
+                                        const oldSubtaskStartDate = parseDate(subtask.startDate);
+                                        const newSubtaskStartDate = new Date(oldSubtaskStartDate.getTime() + timeShift);
+                                        subtask.startDate = newSubtaskStartDate.toISOString().split('T')[0];
+                                    }
+                                    if (subtask.endDate) {
+                                        const oldSubtaskEndDate = parseDate(subtask.endDate);
+                                        const newSubtaskEndDate = new Date(oldSubtaskEndDate.getTime() + timeShift);
+                                        subtask.endDate = newSubtaskEndDate.toISOString().split('T')[0];
+                                    }
+                                });
+                            }
                         }
                     }
                 });
@@ -728,11 +757,11 @@
                         </div>
                         <div class="flex items-center gap-2 text-sm text-gray-500 flex-shrink-0">
                             <div class="date-input-container">
-                                <input type="text" value="${project.startDate ? formatDate(parseDate(project.startDate)) : ''}" placeholder="Start Date" class="date-input" data-project-id="${project.id}" data-type="project-start" data-date="${project.startDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)">
+                                <input type="text" value="${project.startDate ? formatDate(parseDate(project.startDate)) : ''}" placeholder="Start Date" class="date-input" data-project-id="${project.id}" data-type="project-start" data-date="${project.startDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
                                 <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
                             </div>
                             <div class="date-input-container">
-                                <input type="text" value="${project.endDate ? formatDate(parseDate(project.endDate)) : ''}" placeholder="End Date" class="date-input" data-project-id="${project.id}" data-type="project-end" data-date="${project.endDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)">
+                                <input type="text" value="${project.endDate ? formatDate(parseDate(project.endDate)) : ''}" placeholder="End Date" class="date-input" data-project-id="${project.id}" data-type="project-end" data-date="${project.endDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
                                 <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
                             </div>
                         </div>
@@ -855,11 +884,11 @@
                             ${getDependencyIcon(task)}
                             <div class="flex items-center gap-2 text-sm text-gray-500">
                                 <div class="date-input-container">
-                                    <input type="text" value="${task.effectiveStartDate ? formatDate(parseDate(task.effectiveStartDate)) : ''}" placeholder="Start" class="date-input ${hasSubtasks || task.isDriven ? 'bg-gray-100 dark:bg-slate-800' : ''}" ${hasSubtasks || task.isDriven ? 'disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-start" data-date="${task.startDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)">
+                                    <input type="text" value="${task.effectiveStartDate ? formatDate(parseDate(task.effectiveStartDate)) : ''}" placeholder="Start" class="date-input ${hasSubtasks || task.isDriven ? 'bg-gray-100 dark:bg-slate-800' : ''}" ${hasSubtasks || task.isDriven ? 'disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-start" data-date="${task.startDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
                                     ${!hasSubtasks && !task.isDriven ? iconHtml : ''}
                                 </div>
                                 <div class="date-input-container">
-                                    <input type="text" value="${task.effectiveEndDate ? formatDate(parseDate(task.effectiveEndDate)) : ''}" placeholder="End" class="date-input ${hasSubtasks ? 'bg-gray-100 dark:bg-slate-800' : ''}" ${hasSubtasks ? 'disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-end" data-date="${task.endDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)">
+                                    <input type="text" value="${task.effectiveEndDate ? formatDate(parseDate(task.effectiveEndDate)) : ''}" placeholder="End" class="date-input ${hasSubtasks ? 'bg-gray-100 dark:bg-slate-800' : ''}" ${hasSubtasks ? 'disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-end" data-date="${task.endDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
                                     ${!hasSubtasks ? iconHtml : ''}
                                 </div>
                             </div>
@@ -905,11 +934,11 @@
                         ${getDependencyIcon(subtask)}
                         <div class="flex items-center gap-2 text-sm text-gray-500">
                              <div class="date-input-container">
-                                <input type="text" value="${subtask.startDate ? formatDate(parseDate(subtask.startDate)) : ''}" placeholder="Start" class="date-input ${subtask.isDriven ? 'bg-gray-100 dark:bg-slate-800' : ''}" ${subtask.isDriven ? 'disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}" data-subtask-id="${subtask.id}" data-type="subtask-start" data-date="${subtask.startDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)">
+                                <input type="text" value="${subtask.startDate ? formatDate(parseDate(subtask.startDate)) : ''}" placeholder="Start" class="date-input ${subtask.isDriven ? 'bg-gray-100 dark:bg-slate-800' : ''}" ${subtask.isDriven ? 'disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}" data-subtask-id="${subtask.id}" data-type="subtask-start" data-date="${subtask.startDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
                                  ${!subtask.isDriven ? iconHtml : ''}
                              </div>
                              <div class="date-input-container">
-                                <input type="text" value="${subtask.endDate ? formatDate(parseDate(subtask.endDate)) : ''}" placeholder="End" class="date-input" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}" data-subtask-id="${subtask.id}" data-type="subtask-end" data-date="${subtask.endDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)">
+                                <input type="text" value="${subtask.endDate ? formatDate(parseDate(subtask.endDate)) : ''}" placeholder="End" class="date-input" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}" data-subtask-id="${subtask.id}" data-type="subtask-end" data-date="${subtask.endDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
                                 ${iconHtml}
                             </div>
                         </div>
@@ -1374,7 +1403,55 @@
             else if (!oldDate) { updateDate(context, newDate); }
         }
         
+        function handleDateInputKeydown(event) {
+            const input = event.target;
+            const type = input.dataset.type;
+
+            if (event.key === 'Escape') {
+                input.blur();
+                return;
+            }
+
+            if (event.key === 'Enter') {
+                event.preventDefault(); 
+                
+                if (type.endsWith('-start')) {
+                    const endType = type.replace('-start', '-end');
+                    // Find the parent container of the date inputs and then find the end date input within it.
+                    const container = input.closest('.flex.items-center.gap-2');
+                    if (container) {
+                        const endInput = container.querySelector(`[data-type="${endType}"]`);
+                        if (endInput) {
+                            endInput.focus();
+                        }
+                    } else if (type === 'new-project-start') {
+                        document.getElementById('new-project-end-date').focus();
+                    }
+                } 
+                else if (type.endsWith('-end')) {
+                    if (type === 'new-project-end') {
+                        document.getElementById('add-project-btn').focus();
+                    } 
+                    else if (type === 'project-end') {
+                        const projectId = input.dataset.projectId;
+                        document.getElementById(`new-phase-name-${projectId}`).focus();
+                    }
+                    else if (type === 'task-end') {
+                        const phaseId = input.closest('.task-row').dataset.phaseId;
+                        document.getElementById(`new-task-name-${phaseId}`).focus();
+                    } 
+                    else if (type === 'subtask-end') {
+                        const taskId = input.closest('.subtask-row').dataset.taskId;
+                        showAddSubtaskInput(taskId); 
+                        document.getElementById(`new-subtask-name-${taskId}`).focus();
+                    }
+                }
+            }
+        }
+
         function makeEditable(element, updateFunction, ...args) {
+            if (dependencyMode) return;
+
             const originalText = element.innerText;
             const input = document.createElement('input');
             input.type = 'text';
@@ -1395,16 +1472,18 @@
                 if (e.key === 'Enter') {
                     input.blur();
                 }
+                 if (e.key === 'Escape') {
+                    input.value = originalText; 
+                    input.blur();
+                }
             });
         }
         
         function showAddSubtaskInput(taskId) {
             const form = document.getElementById(`add-subtask-form-${taskId}`);
             if (form) {
-                form.classList.toggle('hidden');
-                if (!form.classList.contains('hidden')) {
-                    form.querySelector('input').focus();
-                }
+                form.classList.remove('hidden');
+                form.querySelector('input').focus();
             }
         }
         
