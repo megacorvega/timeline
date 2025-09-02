@@ -1002,11 +1002,11 @@
                             ${getDependencyIcon(task)}
                             <div class="flex items-center gap-2 text-sm text-gray-500">
                                 <div class="date-input-container">
-                                    <input type="text" value="${task.effectiveStartDate ? formatDate(parseDate(task.effectiveStartDate)) : ''}" placeholder="Start" class="date-input ${hasSubtasks || task.isDriven ? 'bg-gray-100 dark:bg-slate-800' : ''}" ${hasSubtasks || task.isDriven ? 'disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-start" data-date="${task.startDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
+                                    <input type="text" value="${task.effectiveStartDate ? formatDate(parseDate(task.effectiveStartDate)) : ''}" placeholder="Start" class="date-input ${hasSubtasks || task.isDriven ? 'bg-gray-200 dark:bg-slate-700' : ''}" ${hasSubtasks || task.isDriven ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-start" data-date="${task.startDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
                                     ${!hasSubtasks && !task.isDriven ? iconHtml : ''}
                                 </div>
                                 <div class="date-input-container">
-                                    <input type="text" value="${task.effectiveEndDate ? formatDate(parseDate(task.effectiveEndDate)) : ''}" placeholder="End" class="date-input ${hasSubtasks ? 'bg-gray-100 dark:bg-slate-800' : ''}" ${hasSubtasks ? 'disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-end" data-date="${task.endDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
+                                    <input type="text" value="${task.effectiveStartDate ? formatDate(parseDate(task.effectiveStartDate)) : ''}" placeholder="Start" class="date-input ${hasSubtasks || task.isDriven ? 'bg-gray-200 dark:bg-slate-700' : ''}" ${hasSubtasks || task.isDriven ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-start" data-date="${task.startDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
                                     ${!hasSubtasks ? iconHtml : ''}
                                 </div>
                             </div>
