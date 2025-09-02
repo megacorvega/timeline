@@ -241,6 +241,23 @@
             background-color: #1e293b;
             border-color: #334155;
         }
+        .duration-scale-container {
+            width: 60px;
+            height: 8px;
+            background-color: #e5e7eb; /* gray-200 */
+            border-radius: 4px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .dark .duration-scale-container {
+            background-color: #374151; /* gray-700 */
+        }
+        .duration-scale-bar {
+            height: 100%;
+            background-color: #3b82f6; /* blue-500 */
+            border-radius: 4px;
+            transition: width 0.3s ease-in-out;
+        }
 
 
         @media print {
@@ -615,6 +632,19 @@
             return boundary.toISOString().split('T')[0];
         }
 
+        function getDurationProgress(startDateStr, endDateStr) {
+            if (!startDateStr || !endDateStr) return 0;
+            const start = parseDate(startDateStr).getTime();
+            const end = parseDate(endDateStr).getTime();
+            const now = new Date().getTime();
+            if (now < start) return 0;
+            if (now > end) return 100;
+            const totalDuration = end - start;
+            if (totalDuration <= 0) return 100;
+            const elapsed = now - start;
+            return (elapsed / totalDuration) * 100;
+        }
+
         function calculateRollups() {
             projects.forEach(p => {
                 p.phases.forEach(phase => {
@@ -834,6 +864,9 @@
                             ${toggleButton}
                              ${drivenDot}
                             <div class="text-xs font-bold text-gray-500 dark:text-gray-400 w-10 text-center flex-shrink-0">${Math.round(phase.progress || 0)}%</div>
+                            <div class="duration-scale-container" title="Duration Progress">
+                                <div class="duration-scale-bar" style="width: ${getDurationProgress(phase.effectiveStartDate, phase.effectiveEndDate)}%;"></div>
+                            </div>
                             <span class="font-semibold flex-grow editable-text" onclick="makeEditable(this, 'updatePhaseName', ${project.id}, ${phase.id})">${phase.name}</span>
                             ${getDependencyIcon(phase)}
                             <div class="flex items-center gap-2 text-sm text-gray-500">
@@ -875,6 +908,9 @@
                              ${toggleButton}
                             ${drivenDot}
                             ${taskControlHtml}
+                            <div class="duration-scale-container" title="Duration Progress">
+                                <div class="duration-scale-bar" style="width: ${getDurationProgress(task.effectiveStartDate, task.effectiveEndDate)}%;"></div>
+                            </div>
                             <div class="flex-grow flex items-center gap-2">
                                 <span class="font-medium editable-text" onclick="makeEditable(this, 'updateTaskName', ${projectId}, ${phaseId}, ${task.id})">${task.name}</span>
                                 <button onclick="showAddSubtaskInput(${task.id})" class="add-subtask-btn items-center gap-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-semibold rounded-md px-2 py-1 flex-shrink-0">
@@ -931,6 +967,9 @@
                     <div class="flex items-center gap-3 subtask-row ${depClass} ${selectedClass}" data-id="${subtask.id}" data-type="subtask" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}">
                         ${drivenDot}
                         <input type="checkbox" class="custom-checkbox" onchange="toggleSubtaskComplete(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" ${subtask.completed ? 'checked' : ''}>
+                        <div class="duration-scale-container" title="Duration Progress">
+                            <div class="duration-scale-bar" style="width: ${getDurationProgress(subtask.startDate, subtask.endDate)}%;"></div>
+                        </div>
                         <span class="text-sm text-gray-700 dark:text-gray-300 flex-grow ${subtask.completed ? 'line-through opacity-60' : ''} editable-text" onclick="makeEditable(this, 'updateSubtaskName', ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})">${subtask.name}</span>
                         ${getDependencyIcon(subtask)}
                         <div class="flex items-center gap-2 text-sm text-gray-500">
