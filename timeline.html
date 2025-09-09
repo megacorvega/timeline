@@ -771,63 +771,55 @@
             for (let i = 0; i < allItems.size; i++) {
                 allItems.forEach(item => {
                     if (item.dependencies && item.dependencies.length > 0) {
-                        let latestParentEndDate = null;
-                        let driver = null;
+                        // --- MODIFICATION: SINGLE PARENT ---
+                        // With the new rule, there will only ever be one dependency.
+                        const parentId = item.dependencies[0];
+                        const parent = allItems.get(parentId);
 
-                        item.dependencies.forEach(depId => {
-                            const parent = allItems.get(depId);
-                            const parentEndDateValue = parent ? (parent.effectiveEndDate || parent.endDate) : null;
-                            if (parent && parentEndDateValue) {
+                        if (parent) {
+                            const parentEndDateValue = parent.effectiveEndDate || parent.endDate;
+                            if (parentEndDateValue) {
                                 const parentEndDate = parseDate(parentEndDateValue);
-                                if (!latestParentEndDate || parentEndDate > latestParentEndDate) {
-                                    latestParentEndDate = parentEndDate;
-                                    driver = parent;
+                                const newStartDate = new Date(parentEndDate);
+
+                                const oldEffectiveStartDate = item.effectiveStartDate ? parseDate(item.effectiveStartDate) : null;
+                                const oldEffectiveEndDate = item.effectiveEndDate ? parseDate(item.effectiveEndDate) : null;
+                                let duration = null;
+
+                                if (oldEffectiveStartDate && oldEffectiveEndDate) {
+                                    duration = oldEffectiveEndDate.getTime() - oldEffectiveStartDate.getTime();
                                 }
-                            }
-                        });
 
-                        if (latestParentEndDate) {
-                            const newStartDate = new Date(latestParentEndDate);
-                            
-                            const oldEffectiveStartDate = item.effectiveStartDate ? parseDate(item.effectiveStartDate) : null;
-                            const oldEffectiveEndDate = item.effectiveEndDate ? parseDate(item.effectiveEndDate) : null;
-                            let duration = null;
+                                item.startDate = newStartDate.toISOString().split('T')[0];
 
-                            if (oldEffectiveStartDate && oldEffectiveEndDate) {
-                                duration = oldEffectiveEndDate.getTime() - oldEffectiveStartDate.getTime();
-                            }
-
-                            item.startDate = newStartDate.toISOString().split('T')[0];
-
-                            // --- MODIFICATION ---
-                            // The 'else' block that was setting item.endDate = item.startDate has been removed.
-                            if (duration !== null) {
-                                const newEndDate = new Date(newStartDate.getTime() + duration);
-                                item.endDate = newEndDate.toISOString().split('T')[0];
-                            }
-                            // --- END MODIFICATION ---
-                            
-                            item.isDriven = true;
-                            item.driverName = driver.name;
-                            
-                            if (item.subtasks && item.subtasks.length > 0 && oldEffectiveStartDate) {
-                                const timeShift = newStartDate.getTime() - oldEffectiveStartDate.getTime();
-                                if(timeShift !== 0) {
-                                    item.subtasks.forEach(subtask => {
-                                        if (subtask.startDate) {
-                                            const oldSubtaskStartDate = parseDate(subtask.startDate);
-                                            const newSubtaskStartDate = new Date(oldSubtaskStartDate.getTime() + timeShift);
-                                            subtask.startDate = newSubtaskStartDate.toISOString().split('T')[0];
-                                        }
-                                        if (subtask.endDate) {
-                                            const oldSubtaskEndDate = parseDate(subtask.endDate);
-                                            const newSubtaskEndDate = new Date(oldSubtaskEndDate.getTime() + timeShift);
-                                            subtask.endDate = newSubtaskEndDate.toISOString().split('T')[0];
-                                        }
-                                    });
+                                if (duration !== null) {
+                                    const newEndDate = new Date(newStartDate.getTime() + duration);
+                                    item.endDate = newEndDate.toISOString().split('T')[0];
+                                }
+                                
+                                item.isDriven = true;
+                                item.driverName = parent.name;
+                                
+                                if (item.subtasks && item.subtasks.length > 0 && oldEffectiveStartDate) {
+                                    const timeShift = newStartDate.getTime() - oldEffectiveStartDate.getTime();
+                                    if(timeShift !== 0) {
+                                        item.subtasks.forEach(subtask => {
+                                            if (subtask.startDate) {
+                                                const oldSubtaskStartDate = parseDate(subtask.startDate);
+                                                const newSubtaskStartDate = new Date(oldSubtaskStartDate.getTime() + timeShift);
+                                                subtask.startDate = newSubtaskStartDate.toISOString().split('T')[0];
+                                            }
+                                            if (subtask.endDate) {
+                                                const oldSubtaskEndDate = parseDate(subtask.endDate);
+                                                const newSubtaskEndDate = new Date(oldSubtaskEndDate.getTime() + timeShift);
+                                                subtask.endDate = newSubtaskEndDate.toISOString().split('T')[0];
+                                            }
+                                        });
+                                    }
                                 }
                             }
                         }
+                         // --- END MODIFICATION ---
                     }
                 });
                 calculateRollups();
@@ -1003,6 +995,12 @@
                     durationBarColorClass = 'bg-yellow-500';
                 }
 
+                // --- MODIFICATION: STYLING ---
+                const isDriven = hasSubtasks || task.isDriven;
+                const drivenClasses = 'bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-gray-400';
+                const editableClasses = 'text-gray-900 dark:text-white';
+                // --- END MODIFICATION ---
+
                 html += `
                     <div class="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-2 task-row ${depClass} ${selectedClass}" data-id="${task.id}" data-type="task" data-project-id="${projectId}" data-phase-id="${phaseId}">
                         <div class="flex items-center gap-3 item-main-row">
@@ -1022,12 +1020,12 @@
                             ${getDependencyIcon(task)}
                             <div class="flex items-center gap-2 text-sm text-gray-500">
                                 <div class="date-input-container">
-                                    <input type="text" value="${task.effectiveStartDate ? formatDate(parseDate(task.effectiveStartDate)) : ''}" placeholder="Start" class="date-input ${hasSubtasks || task.isDriven ? 'bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-gray-400' : ''}" ${hasSubtasks || task.isDriven ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-start" data-date="${task.startDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
-                                    ${!hasSubtasks && !task.isDriven ? iconHtml : ''}
+                                    <input type="text" value="${task.effectiveStartDate ? formatDate(parseDate(task.effectiveStartDate)) : ''}" placeholder="Start" class="date-input ${isDriven ? drivenClasses : editableClasses}" ${isDriven ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-start" data-date="${task.startDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
+                                    ${!isDriven ? iconHtml : ''}
                                 </div>
                                 <div class="date-input-container">
-                                    <input type="text" value="${task.effectiveEndDate ? formatDate(parseDate(task.effectiveEndDate)) : ''}" placeholder="End" class="date-input ${hasSubtasks ? 'bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-gray-400' : ''}" ${hasSubtasks ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-end" data-date="${task.endDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
-                                    ${!hasSubtasks ? iconHtml : ''}
+                                    <input type="text" value="${task.effectiveEndDate ? formatDate(parseDate(task.effectiveEndDate)) : ''}" placeholder="End" class="date-input ${isDriven ? drivenClasses : editableClasses}" ${isDriven ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-end" data-date="${task.endDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
+                                    ${!isDriven ? iconHtml : ''}
                                 </div>
                             </div>
                             <button onclick="deleteTask(${projectId}, ${phaseId}, ${task.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold">&times;</button>
@@ -2014,13 +2012,14 @@
             const allItems = new Map();
             projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
             const secondItem = allItems.get(itemId); // The new dependent
+            const firstItem = firstSelectedItem; // The new parent
 
             // A (first) is the parent, B (second) is the dependent.
             // Check for circular dependency: B cannot be a parent of A.
             let current = secondItem;
             let visited = new Set();
             while(current) {
-                if (current.id === firstSelectedItem.id) {
+                if (current.id === firstItem.id) {
                     alert("Cannot create a circular dependency.");
                     dependencyMode = false;
                     firstSelectedItem = null;
@@ -2030,15 +2029,30 @@
                 }
                 if (!current.dependencies || current.dependencies.length === 0 || visited.has(current.id)) break;
                 visited.add(current.id);
+                // Since we have a single parent, we can just grab the first one
                 current = allItems.get(current.dependencies[0]);
             }
 
-            if (!secondItem.dependencies.includes(firstSelectedItem.id)) {
-                secondItem.dependencies.push(firstSelectedItem.id);
+            // --- NEW LOGIC: Enforce single parent ---
+            // If the dependent (secondItem) already has a parent, remove the old relationship
+            if (secondItem.dependencies && secondItem.dependencies.length > 0) {
+                const oldParentId = secondItem.dependencies[0];
+                const oldParent = allItems.get(oldParentId);
+                if (oldParent && oldParent.dependents) {
+                    // Remove secondItem from the old parent's list of kids
+                    oldParent.dependents = oldParent.dependents.filter(dependentId => dependentId !== secondItem.id);
+                }
             }
-            if (!firstSelectedItem.dependents.includes(secondItem.id)) {
-                firstSelectedItem.dependents.push(secondItem.id);
+
+            // Set the new parent for the dependent
+            secondItem.dependencies = [firstItem.id];
+
+            // Add the dependent to the new parent's list of kids
+            if (!firstItem.dependents) firstItem.dependents = [];
+            if (!firstItem.dependents.includes(secondItem.id)) {
+                firstItem.dependents.push(secondItem.id);
             }
+            // --- END NEW LOGIC ---
             
             dependencyMode = false;
             firstSelectedItem = null;
