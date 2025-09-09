@@ -79,3 +79,9 @@ Each project features an interactive progress chart that visualizes the project'
 4.  **Track Progress:** Mark tasks and subtasks as complete. The progress percentages and charts will update automatically.
 5.  **Log Changes:** When you change a date or delete an item, a modal will appear prompting for a reason. This is stored in the project's "Change Log".
 6.  **Import/Export:** Use the buttons in the header to save your project data to a `.json` file or to load data from a file.
+
+
+### To-do
+1. Add initial scope function to use as a basis of comparison.
+2. Mouseover graph highlight functionality
+3. Integrate Punch List
