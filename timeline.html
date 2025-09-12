@@ -434,6 +434,7 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             pointer-events: none;
             white-space: nowrap;
+            z-index: 1000;
         }
         .dark .chart-tooltip {
             background: #1e293b;
@@ -454,6 +455,36 @@
         }
         .editable-text {
             cursor: pointer;
+        }
+
+        /* Tab Styles */
+        .tab-button {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            line-height: 1.25rem;
+            font-weight: 500;
+            color: #6b7280; /* gray-500 */
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            transition: color 0.2s, border-color 0.2s;
+        }
+        .dark .tab-button {
+            color: #9ca3af; /* gray-400 */
+        }
+        .tab-button:hover {
+            color: #4b5563; /* gray-600 */
+            border-bottom-color: #d1d5db; /* gray-300 */
+        }
+        .dark .tab-button:hover {
+            color: #d1d5db; /* gray-300 */
+        }
+        .tab-button.active {
+            color: #2563eb; /* blue-600 */
+            border-bottom-color: #2563eb; /* blue-600 */
+        }
+        .dark .tab-button.active {
+            color: #3b82f6; /* blue-500 */
+            border-bottom-color: #3b82f6; /* blue-500 */
         }
     </style>
 </head>
@@ -545,7 +576,31 @@
             </div>
         </div>
 
-        <div id="projects-container" class="space-y-6"></div>
+        <div class="mb-5">
+            <div class="border-b border-gray-200 dark:border-slate-700">
+                <nav id="main-tabs" class="-mb-px flex space-x-4" aria-label="Tabs">
+                    <button onclick="showMainTab('projects')" id="main-tab-btn-projects" class="tab-button active text-base">Projects</button>
+                    <button onclick="showMainTab('overall-load')" id="main-tab-btn-overall-load" class="tab-button text-base">Task Load</button>
+                    <button onclick="showMainTab('upcoming')" id="main-tab-btn-upcoming" class="tab-button text-base">Upcoming</button>
+                </nav>
+            </div>
+        </div>
+
+        <div id="main-tab-panel-projects">
+            <div id="projects-container" class="space-y-4"></div>
+        </div>
+    
+        <div id="main-tab-panel-overall-load" class="hidden">
+            <div class="bg-white dark:bg-slate-900 p-3 rounded-xl shadow-md border border-gray-200 dark:border-gray-800">
+                <div id="overall-load-chart" class="w-full h-96 relative"></div>
+                <div id="overall-load-legend" class="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs"></div>
+            </div>
+        </div>
+
+        <div id="main-tab-panel-upcoming" class="hidden">
+            <div id="upcoming-tasks-container" class="space-y-4"></div>
+        </div>
+
         <div class="mt-6">
             <button id="toggle-deleted-log-btn" class="text-xs font-semibold text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-1 mb-2 hidden">
                 <svg id="deleted-log-chevron" class="w-4 h-4 chevron -rotate-90" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
@@ -573,6 +628,7 @@
         let firstSelectedItem = null;
         let pendingClearDependencies = null;
         let deletedLogCollapsed = true;
+        const taskLoadChartColor = d3.scaleOrdinal(d3.schemeTableau10);
 
         // --- DOM ELEMENTS ---
         const projectsContainer = document.getElementById('projects-container');
@@ -601,8 +657,8 @@
         const confirmActionBtn = document.getElementById('confirm-action-btn');
         const fullscreenModal = document.getElementById('fullscreen-modal');
         const closeFullscreenBtn = document.getElementById('close-fullscreen-btn');
-        const undoBtn = document.getElementById('undo-btn'); // New
-        const redoBtn = document.getElementById('redo-btn'); // New
+        const undoBtn = document.getElementById('undo-btn');
+        const redoBtn = document.getElementById('redo-btn');
 
 
         // --- DATA & UTILS ---
@@ -900,7 +956,7 @@
                     </div>
                      <div id="project-body-${project.id}" class="${project.collapsed ? 'hidden' : ''}">
                         <div id="chart-${project.id}" class="w-full h-48 mb-3 relative"></div>
-                        <div id="phases-${project.id}" class="space-y-2"></div>
+                        <div id="phases-${project.id}" class="space-y-1"></div>
                         <div class="mt-3">
                             <button onclick="toggleLog(${project.id})" class="text-xs font-semibold text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-1">
                                 <svg id="log-chevron-${project.id}" class="w-4 h-4 chevron -rotate-90" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
@@ -919,6 +975,13 @@
                 }
             });
             renderDeletedProjectsLog();
+             // Re-render active main tab if it's not the project tab
+            const activeTabBtn = document.querySelector('#main-tabs .tab-button.active');
+            if (activeTabBtn && activeTabBtn.id === 'main-tab-btn-overall-load') {
+                drawOverallLoadChart();
+            } else if (activeTabBtn && activeTabBtn.id === 'main-tab-btn-upcoming') {
+                renderUpcomingTasks();
+            }
         }
         
         function getDependencyIcon(item) {
@@ -972,7 +1035,7 @@
                 }
 
                 html += `
-                    <div class="bg-gray-100 dark:bg-slate-800/50 rounded-lg p-3 phase-row ${depClass} ${selectedClass}" data-id="${phase.id}" data-type="phase" data-project-id="${project.id}">
+                    <div class="bg-gray-100 dark:bg-slate-800/50 rounded-lg p-2 phase-row ${depClass} ${selectedClass}" data-id="${phase.id}" data-type="phase" data-project-id="${project.id}">
                         <div class="flex items-center gap-3 item-main-row">
                             ${toggleButton}
                              ${drivenDot}
@@ -988,7 +1051,7 @@
                             </div>
                             <button onclick="deletePhase(${project.id}, ${phase.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold">&times;</button>
                         </div>
-                        <div id="tasks-container-${phase.id}" class="pl-12 mt-2 space-y-2 pt-2 border-t border-gray-200 dark:border-slate-700/50 ${phase.collapsed ? 'hidden' : ''}">${renderTaskList(project.id, phase.id, phase.tasks)}</div>
+                        <div id="tasks-container-${phase.id}" class="pl-12 mt-2 space-y-1 pt-2 border-t border-gray-200 dark:border-slate-700/50 ${phase.collapsed ? 'hidden' : ''}">${renderTaskList(project.id, phase.id, phase.tasks)}</div>
                     </div>`;
             });
              html += `
@@ -1035,7 +1098,7 @@
                 // --- END MODIFICATION ---
 
                 html += `
-                    <div class="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-2 task-row ${depClass} ${selectedClass}" data-id="${task.id}" data-type="task" data-project-id="${projectId}" data-phase-id="${phaseId}">
+                    <div class="bg-gray-50 dark:bg-slate-800/50 rounded-lg px-2 py-1 task-row ${depClass} ${selectedClass}" data-id="${task.id}" data-type="task" data-project-id="${projectId}" data-phase-id="${phaseId}">
                         <div class="flex items-center gap-3 item-main-row">
                              ${toggleButton}
                             ${drivenDot}
@@ -1188,11 +1251,11 @@
 
             [...deletedProjectLogs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).forEach(log => {
                 tableHtml += `<tr class="border-b border-gray-100 dark:border-slate-700/50">
-                                <td class="p-1 align-top">${formatLogTimestamp(new Date(log.timestamp))}</td>
-                                <td class="p-1 align-top">${log.item}</td>
-                                <td class="p-1 align-top">Deleted</td>
-                                <td class="p-1 align-top">${log.comment}</td>
-                              </tr>`;
+                                    <td class="p-1 align-top">${formatLogTimestamp(new Date(log.timestamp))}</td>
+                                    <td class="p-1 align-top">${log.item}</td>
+                                    <td class="p-1 align-top">Deleted</td>
+                                    <td class="p-1 align-top">${log.comment}</td>
+                                </tr>`;
             });
 
             tableHtml += '</tbody></table></div>';
@@ -1309,7 +1372,256 @@
 
             }, 0);
         }
+
+        function drawOverallLoadChart() {
+            const containerId = `overall-load-chart`;
+            const container = d3.select(`#${containerId}`);
+            if (container.empty()) {
+                return;
+            }
+            container.selectAll("*").remove();
+            
+            const legendContainer = d3.select('#overall-load-legend');
+            legendContainer.html(''); // Clear old legend
+
+            // 1. Gather all tasks/subtasks from ALL projects
+            const allTasks = [];
+            projects.forEach(project => {
+                project.phases.forEach(phase => {
+                    phase.tasks.forEach(task => {
+                        if (task.subtasks && task.subtasks.length > 0) {
+                            task.subtasks.forEach(subtask => {
+                                if (subtask.endDate) {
+                                    allTasks.push({ name: subtask.name, endDate: subtask.endDate, colorKey: project.name });
+                                }
+                            });
+                        } else if (task.endDate) {
+                            allTasks.push({ name: task.name, endDate: task.endDate, colorKey: project.name });
+                        }
+                    });
+                });
+            });
+
+            if (allTasks.length === 0) {
+                container.html(`<div class="flex items-center justify-center h-full text-gray-400">No tasks with due dates across any projects.</div>`);
+                return;
+            }
+
+            // 2. Group tasks by week
+            const tasksByWeek = d3.group(allTasks, d => d3.timeMonday(parseDate(d.endDate)));
+
+            // 3. Prepare data for d3.stack
+            const uniqueProjectNames = [...new Set(allTasks.map(t => t.colorKey))];
+            const overallChartColor = d3.scaleOrdinal(d3.schemeTableau10).domain(uniqueProjectNames);
+
+            const stackData = Array.from(tasksByWeek.entries())
+            .sort((a, b) => a[0] - b[0])
+            .map(([week, tasks]) => {
+                const weekData = { week: week };
+                uniqueProjectNames.forEach(name => {
+                    weekData[name] = tasks.filter(t => t.colorKey === name).length;
+                });
+                return weekData;
+            });
+
+            const stack = d3.stack().keys(uniqueProjectNames);
+            const series = stack(stackData);
+
+            // 4. Draw the chart
+            setTimeout(() => {
+                const width = container.node().getBoundingClientRect().width;
+                if (width <= 0) return;
+                
+                const margin = { top: 20, right: 20, bottom: 50, left: 40 },
+                    chartWidth = width - margin.left - margin.right,
+                    height = container.node().getBoundingClientRect().height - margin.top - margin.bottom;
+
+                const svg = container.append("svg")
+                    .attr("width", chartWidth + margin.left + margin.right)
+                    .attr("height", height + margin.top + margin.bottom)
+                    .append("g")
+                    .attr("transform", `translate(${margin.left},${margin.top})`);
+                    
+                const x = d3.scaleBand()
+                    .domain(stackData.map(d => d.week))
+                    .range([0, chartWidth])
+                    .padding(0.2);
+
+                const yMax = d3.max(series, d => d3.max(d, d => d[1]));
+                const y = d3.scaleLinear()
+                    .domain([0, yMax > 0 ? yMax : 1]).nice()
+                    .range([height, 0]);
+                    
+                svg.append("g")
+                    .attr("class", "chart-grid")
+                    .attr("transform", `translate(0,${height})`)
+                    .call(d3.axisBottom(x).tickFormat(d3.timeFormat("%b %d")))
+                    .selectAll("text")
+                    .style("font-size", "10px")
+                    .attr("transform", "rotate(-45)")
+                    .style("text-anchor", "end");
+
+                svg.append("g")
+                    .attr("class", "chart-grid")
+                    .call(d3.axisLeft(y).ticks(Math.min(yMax, 10)).tickFormat(d3.format("d")));
+
+                let tooltip = d3.select("body").select(".chart-tooltip");
+                if (tooltip.empty()) {
+                    tooltip = d3.select("body").append("div").attr("class", "chart-tooltip");
+                }
+
+                svg.append("g")
+                    .selectAll("g")
+                    .data(series)
+                    .enter().append("g")
+                    .attr("fill", d => overallChartColor(d.key))
+                    .selectAll("rect")
+                    .data(d => d)
+                    .enter().append("rect")
+                    .attr("x", d => x(d.data.week))
+                    .attr("y", d => y(d[1]))
+                    .attr("height", d => y(d[0]) - y(d[1]))
+                    .attr("width", x.bandwidth())
+                    .on("mouseover", function(event, d) {
+                        const seriesData = d3.select(this.parentNode).datum();
+                        const projectName = seriesData.key;
+                        const taskCount = d.data[projectName];
+                        if (taskCount === 0) return;
+                        const weekStart = d3.timeFormat("%b %d")(d.data.week);
+
+                        tooltip.style("visibility", "visible")
+                            .html(`<strong>${projectName}</strong><br>Week of ${weekStart}<br>Tasks Due: ${taskCount}`);
+                    })
+                    .on("mousemove", function(event) {
+                        tooltip.style("top", (event.pageY - 10) + "px")
+                            .style("left", (event.pageX + 10) + "px");
+                    })
+                    .on("mouseout", function() {
+                        tooltip.style("visibility", "hidden");
+                    });
+
+                // Add Legend
+                const legend = legendContainer.selectAll('.legend-item')
+                    .data(uniqueProjectNames)
+                    .enter()
+                    .append('div')
+                    .attr('class', 'flex items-center');
+
+                legend.append('div')
+                    .style('width', '12px')
+                    .style('height', '12px')
+                    .style('background-color', d => overallChartColor(d))
+                    .attr('class', 'mr-2 rounded-sm');
+
+                legend.append('span')
+                    .text(d => d);
+            }, 0)
+        }
         
+        function renderUpcomingTasks() {
+            const container = document.getElementById('upcoming-tasks-container');
+            container.innerHTML = '';
+
+            const allItems = [];
+            projects.forEach(project => {
+                project.phases.forEach(phase => {
+                    phase.tasks.forEach(task => {
+                        if (task.subtasks && task.subtasks.length > 0) {
+                            task.subtasks.forEach(subtask => {
+                                if (subtask.endDate && !subtask.completed) {
+                                    allItems.push({
+                                        date: subtask.endDate,
+                                        path: `${project.name} &gt; ${phase.name} &gt; ${task.name}`,
+                                        name: subtask.name,
+                                        completed: subtask.completed
+                                    });
+                                }
+                            });
+                        } else {
+                            if (task.effectiveEndDate && !task.completed) { // Use effectiveEndDate for standalone tasks
+                                allItems.push({
+                                    date: task.effectiveEndDate,
+                                    path: `${project.name} &gt; ${phase.name}`,
+                                    name: task.name,
+                                    completed: task.completed
+                                });
+                            }
+                        }
+                    });
+                });
+            });
+
+            if (allItems.length === 0) {
+                container.innerHTML = `<div class="bg-white dark:bg-slate-900 p-4 rounded-xl shadow-md border border-gray-200 dark:border-gray-800 text-center text-gray-500">No upcoming tasks with due dates.</div>`;
+                return;
+            }
+
+            // Sort items by date
+            allItems.sort((a, b) => parseDate(a.date) - parseDate(b.date));
+
+            const groupedByDate = d3.group(allItems, d => d.date);
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // Normalize today's date
+
+            let html = '';
+            const sortedDates = Array.from(groupedByDate.keys()).sort((a,b) => parseDate(a) - parseDate(b));
+
+            for (const dateStr of sortedDates) {
+                const items = groupedByDate.get(dateStr);
+                const dueDate = parseDate(dateStr);
+                
+                const diffDays = Math.round((dueDate - today) / (1000 * 60 * 60 * 24));
+                
+                let dateLabel = '';
+                let headerColorClass = 'bg-gray-100 dark:bg-slate-800';
+
+                if (diffDays < 0) {
+                    dateLabel = `${Math.abs(diffDays)} days ago`;
+                    headerColorClass = 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200';
+                } else if (diffDays === 0) {
+                    dateLabel = 'Today';
+                    headerColorClass = 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200';
+                } else if (diffDays === 1) {
+                    dateLabel = 'Tomorrow';
+                } else {
+                    dateLabel = `in ${diffDays} days`;
+                }
+
+                html += `
+                    <div class="bg-white dark:bg-slate-900 rounded-xl shadow-md border border-gray-200 dark:border-gray-800">
+                        <div class="p-3 border-b border-gray-200 dark:border-slate-700 ${headerColorClass} rounded-t-xl">
+                            <h3 class="font-bold">${formatDate(dueDate)} <span class="text-sm font-normal text-gray-500 dark:text-gray-400">(${dateLabel})</span></h3>
+                        </div>
+                        <div class="p-3 space-y-2">
+                `;
+
+                items.forEach(item => {
+                    const isOverdue = diffDays < 0 && !item.completed;
+                    const completedClass = item.completed ? 'line-through opacity-60' : '';
+                    const overdueClass = isOverdue ? 'text-red-600 dark:text-red-400 font-semibold' : '';
+
+                    html += `
+                        <div class="flex items-center text-sm ${completedClass}">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                            </svg>
+                            <span class="text-gray-500 dark:text-gray-400 mr-2">${item.path} &gt;</span>
+                            <span class="font-medium ${overdueClass}">${item.name}</span>
+                            ${isOverdue ? '<span class="ml-2 text-xs font-bold text-red-500 bg-red-100 dark:bg-red-900/50 px-2 py-0.5 rounded-full">OVERDUE</span>' : ''}
+                        </div>
+                    `;
+                });
+
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
         function showFullscreenChart(projectId) {
             const project = projects.find(p => p.id === projectId);
             if (!project) return;
@@ -1320,9 +1632,9 @@
         function drawFullscreenChart(project) {
             const container = d3.select("#fullscreen-chart-container");
             container.selectAll("svg").remove(); // Clear previous chart
-            container.selectAll(".chart-tooltip").remove(); // Clear tooltips
+            d3.select("body").selectAll(".fullscreen-chart-tooltip").remove(); // Clear tooltips
 
-            const tooltip = d3.select("body").append("div").attr("class", "chart-tooltip");
+            const tooltip = d3.select("body").append("div").attr("class", "chart-tooltip fullscreen-chart-tooltip");
 
             const width = container.node().getBoundingClientRect().width;
             const height = container.node().getBoundingClientRect().height;
@@ -1373,7 +1685,7 @@
                 .attr("x", chartWidth / 2)
                 .attr("y", 0 - (margin.top / 2))
                 .attr("text-anchor", "middle")
-                .attr("class", "text-lg font-bold fill-current")
+                .attr("class", "text-lg font-bold fill-current text-gray-900 dark:text-white")
                 .text(`${project.name} - Progress Chart`);
 
             // Planned line and finish line
@@ -1386,7 +1698,6 @@
                 svg.append("line").attr("class", "today-line").attr("x1", x(today)).attr("y1", 0).attr("x2", x(today)).attr("y2", chartHeight);
             }
             
-            // --- MODIFICATION START: Combine Task and Phase data ---
             const allTasksWithPhase = [];
             project.phases.forEach(phase => {
                 phase.tasks.forEach(task => {
@@ -1414,10 +1725,9 @@
                     });
                 }
             });
-            // --- MODIFICATION END ---
-
+            
             const line = d3.line().x(d => x(d.date)).y(d => y(d.progress));
-            // --- MODIFICATION START: Match Color Logic ---
+            
             const totalDuration = endDate.getTime() - startDate.getTime();
             const getPlannedProgress = date => totalDuration <= 0 ? 0 : Math.min(100, (date.getTime() - startDate.getTime()) / totalDuration * 100);
             
@@ -1436,15 +1746,13 @@
                 .attr("cx", d => x(d.date))
                 .attr("cy", d => y(d.progress))
                 .attr("fill", d => d.date > endDate ? '#ef4444' : (d.progress >= getPlannedProgress(d.date) ? '#22c55e' : '#ef4444'));
-            // --- MODIFICATION END ---
 
-            // --- MODIFICATION START: Updated Task Labels with Phase Name ---
             const labels = svg.selectAll(".task-label-container")
                 .data(pathData.slice(1))
                 .enter().append("foreignObject")
                 .attr("class", "task-label-container")
                 .attr("width", 180) 
-                .attr("height", 60); // Increased height for phase name
+                .attr("height", 60);
 
             labels.each(function(d) {
                 const fo = d3.select(this);
@@ -1495,7 +1803,6 @@
                     }
                 });
             });
-             // --- MODIFICATION END ---
         }
 
         function showDependencyTooltip(event, itemId) {
@@ -1522,7 +1829,6 @@
             dependencyTooltip.classList.remove('hidden');
 
             const rect = event.target.getBoundingClientRect();
-            const containerRect = projectsContainer.getBoundingClientRect();
             
             let top = rect.bottom + window.scrollY + 5;
             let left = rect.left + window.scrollX;
@@ -1530,7 +1836,6 @@
             dependencyTooltip.style.top = `${top}px`;
             dependencyTooltip.style.left = `${left}px`;
             
-            // Adjust position if it overflows the viewport
             const tooltipRect = dependencyTooltip.getBoundingClientRect();
             if (tooltipRect.right > window.innerWidth) {
                 dependencyTooltip.style.left = `${window.innerWidth - tooltipRect.width - 10}px`;
@@ -1576,7 +1881,11 @@
         function handleManualDateInput(event) {
             const input = event.target, dateStr = input.value;
             const revert = () => { input.value = input.dataset.date ? formatDate(parseDate(input.dataset.date)) : ''; };
-            if (!/^\d{2}\/\d{2}\/\d{2}$/.test(dateStr)) { revert(); return; }
+            if (dateStr && !/^\d{2}\/\d{2}\/\d{2}$/.test(dateStr)) { revert(); return; }
+            if (!dateStr) {
+                updateDate({ type: input.dataset.type, projectId: parseInt(input.dataset.projectId), phaseId: parseInt(input.dataset.phaseId), taskId: parseInt(input.dataset.taskId), subtaskId: parseInt(input.dataset.subtaskId), element: input }, null);
+                return;
+            }
             const [month, day, year] = dateStr.split('/').map(p => parseInt(p, 10));
             const dateObj = new Date(year + 2000, month - 1, day);
             if (dateObj.getFullYear() !== year + 2000 || dateObj.getMonth() !== month - 1 || dateObj.getDate() !== day) { revert(); return; }
@@ -1590,46 +1899,13 @@
                 reasonModal.classList.remove('hidden');
                 reasonCommentTextarea.focus();
             }
-            else if (!oldDate) { updateDate(context, newDate); }
+            else if (!oldDate && newDate) { updateDate(context, newDate); }
         }
         
         function handleDateInputKeydown(event) {
             if (event.key !== 'Enter') return;
             event.preventDefault();
-
-            const input = event.target;
-            const type = input.dataset.type;
-
-            if (type.endsWith('-start')) {
-                const endType = type.replace('-start', '-end');
-                const container = input.closest('.date-input-container');
-                if (container && container.nextElementSibling && container.nextElementSibling.classList.contains('date-input-container')) {
-                    const endInput = container.nextElementSibling.querySelector(`[data-type="${endType}"]`);
-                    if (endInput) {
-                        endInput.focus();
-                        return;
-                    }
-                }
-                // Fallback for new project section
-                if (type === 'new-project-start') {
-                    document.getElementById('new-project-end-date').focus();
-                }
-
-            } else if (type.endsWith('-end')) {
-                if (type === 'new-project-end') {
-                    document.getElementById('add-project-btn').focus();
-                } else if (type === 'project-end') {
-                    const projectId = input.dataset.projectId;
-                    document.getElementById(`new-phase-name-${projectId}`).focus();
-                } else if (type === 'task-end') {
-                    const phaseId = input.closest('.task-row').dataset.phaseId;
-                    document.getElementById(`new-task-name-${phaseId}`).focus();
-                } else if (type === 'subtask-end') {
-                    const taskId = input.closest('.subtask-row').dataset.taskId;
-                    showAddSubtaskInput(taskId);
-                    document.getElementById(`new-subtask-name-${taskId}`).focus();
-                }
-            }
+            event.target.blur();
         }
 
         function makeEditable(element, updateFunction, ...args) {
@@ -1639,19 +1915,16 @@
             const input = document.createElement('input');
             input.type = 'text';
             input.value = originalText;
-            
-            // Set base styling from existing CSS
             input.className = 'inline-input';
 
-            // Directly apply colors based on the current theme
             if (document.documentElement.classList.contains('dark')) {
-                input.style.backgroundColor = '#1e293b'; // slate-800
-                input.style.color = '#e2e8f0'; // slate-200
-                input.style.border = '1px solid #334155'; // slate-700
+                input.style.backgroundColor = '#1e293b';
+                input.style.color = '#e2e8f0';
+                input.style.border = '1px solid #334155';
             } else {
-                input.style.backgroundColor = '#ffffff'; // white
-                input.style.color = '#1e293b'; // slate-800
-                input.style.border = '1px solid #e2e8f0'; // slate-200
+                input.style.backgroundColor = '#ffffff';
+                input.style.color = '#1e293b';
+                input.style.border = '1px solid #e2e8f0';
             }
 
             element.replaceWith(input);
@@ -1659,20 +1932,15 @@
 
             input.addEventListener('blur', () => {
                 const newText = input.value.trim();
-                if (newText) {
+                if (newText && newText !== originalText) {
                     window[updateFunction](...args, newText);
                 }
                 renderProjects();
             });
 
             input.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    input.blur();
-                }
-                 if (e.key === 'Escape') {
-                    input.value = originalText; 
-                    input.blur();
-                }
+                if (e.key === 'Enter') input.blur();
+                if (e.key === 'Escape') { input.value = originalText; input.blur(); }
             });
         }
         
@@ -1717,30 +1985,21 @@
             const taskIndex = fromPhase.tasks.findIndex(t => t.id === taskId);
             if (taskIndex === -1) return;
 
-            // Remove task from the 'from' phase and get the task object
             const [taskToMove] = fromPhase.tasks.splice(taskIndex, 1);
-
-            // Add task to the 'to' phase
             toPhase.tasks.push(taskToMove);
-
             saveState();
             renderProjects();
         }
 
         function toggleMoveTaskDropdown(event, projectId, phaseId, taskId) {
-            event.stopPropagation(); // Prevent the click from closing the menu immediately
+            event.stopPropagation();
             const dropdown = document.getElementById(`move-task-dropdown-${taskId}`);
             const isVisible = dropdown.classList.contains('show');
-
-            // Close all other dropdowns
             document.querySelectorAll('.move-task-dropdown').forEach(d => d.classList.remove('show'));
 
-            if (isVisible) {
-                dropdown.classList.remove('show');
-            } else {
+            if (!isVisible) {
                 const project = projects.find(p => p.id === projectId);
                 if (!project) return;
-
                 let optionsHtml = '';
                 project.phases.forEach(phase => {
                     if (phase.id === phaseId) {
@@ -1753,7 +2012,6 @@
                 dropdown.classList.add('show');
             }
         }
-
 
         function updateProjectName(projectId, newName) { const p = projects.find(p => p.id === projectId); if (p) { p.name = newName; saveState(); } }
         function updatePhaseName(projectId, phaseId, newName) { const p = projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId); if (p) { p.name = newName; saveState(); } }
@@ -1777,48 +2035,29 @@
         
         function removeAllDependencies(itemId) {
             const allItems = new Map();
-             projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
-             
-             const itemToRemove = allItems.get(itemId);
-             if (!itemToRemove) return;
+            projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
+            
+            const itemToRemove = allItems.get(itemId);
+            if (!itemToRemove) return;
 
-             // Remove this item from its parents' dependents list
-             (itemToRemove.dependencies || []).forEach(parentId => {
+            (itemToRemove.dependencies || []).forEach(parentId => {
                 const parent = allItems.get(parentId);
-                if (parent && parent.dependents) {
-                    parent.dependents = parent.dependents.filter(id => id !== itemId);
-                }
-             });
-             itemToRemove.dependencies = [];
+                if (parent && parent.dependents) { parent.dependents = parent.dependents.filter(id => id !== itemId); }
+            });
+            itemToRemove.dependencies = [];
 
-             // Remove this item from its dependents' parents list
-             (itemToRemove.dependents || []).forEach(dependentId => {
+            (itemToRemove.dependents || []).forEach(dependentId => {
                 const dependent = allItems.get(dependentId);
-                if(dependent && dependent.dependencies) {
-                    dependent.dependencies = dependent.dependencies.filter(id => id !== itemId);
-                }
-             });
-             itemToRemove.dependents = [];
+                if(dependent && dependent.dependencies) { dependent.dependencies = dependent.dependencies.filter(id => id !== itemId); }
+            });
+            itemToRemove.dependents = [];
         }
         
         function deleteProject(projectId) {
             const project = projects.find(p => p.id === projectId);
             if (project) {
-                 project.phases.forEach(ph => {
-                    removeAllDependencies(ph.id);
-                    ph.tasks.forEach(t => {
-                        removeAllDependencies(t.id);
-                        if(t.subtasks) t.subtasks.forEach(st => removeAllDependencies(st.id));
-                    });
-                });
-                pendingDeletion = {
-                    type: 'project',
-                    logContext: { projectId },
-                    deleteFn: () => {
-                        projects = projects.filter(p => p.id !== projectId);
-                    },
-                    itemName: `Project '${project.name}'`
-                };
+                project.phases.forEach(ph => { removeAllDependencies(ph.id); ph.tasks.forEach(t => { removeAllDependencies(t.id); if(t.subtasks) t.subtasks.forEach(st => removeAllDependencies(st.id)); }); });
+                pendingDeletion = { type: 'project', logContext: { projectId }, deleteFn: () => { projects = projects.filter(p => p.id !== projectId); }, itemName: `Project '${project.name}'` };
                 reasonModalTitle.textContent = 'Reason for Deletion';
                 reasonModalDetails.textContent = `You are about to delete the project: "${project.name}".`;
                 reasonModal.classList.remove('hidden');
@@ -1831,18 +2070,8 @@
             const phase = project?.phases.find(ph => ph.id === phaseId);
             if (phase) {
                 removeAllDependencies(phaseId);
-                phase.tasks.forEach(t => {
-                    removeAllDependencies(t.id);
-                    if(t.subtasks) t.subtasks.forEach(st => removeAllDependencies(st.id));
-                });
-                pendingDeletion = {
-                    type: 'phase',
-                    logContext: { projectId },
-                    deleteFn: () => {
-                        project.phases = project.phases.filter(ph => ph.id !== phaseId);
-                    },
-                    itemName: `Phase '${phase.name}' from project '${project.name}'`
-                };
+                phase.tasks.forEach(t => { removeAllDependencies(t.id); if(t.subtasks) t.subtasks.forEach(st => removeAllDependencies(st.id)); });
+                pendingDeletion = { type: 'phase', logContext: { projectId }, deleteFn: () => { project.phases = project.phases.filter(ph => ph.id !== phaseId); }, itemName: `Phase '${phase.name}' from project '${project.name}'` };
                 reasonModalTitle.textContent = 'Reason for Deletion';
                 reasonModalDetails.textContent = `You are about to delete the phase: "${phase.name}".`;
                 reasonModal.classList.remove('hidden');
@@ -1856,15 +2085,8 @@
             const task = phase?.tasks.find(t => t.id === taskId);
             if (task) {
                 removeAllDependencies(taskId);
-                 if(task.subtasks) task.subtasks.forEach(st => removeAllDependencies(st.id));
-                pendingDeletion = {
-                    type: 'task',
-                    logContext: { projectId },
-                    deleteFn: () => {
-                        phase.tasks = phase.tasks.filter(t => t.id !== taskId);
-                    },
-                    itemName: `Task '${task.name}' from phase '${phase.name}'`
-                };
+                if(task.subtasks) task.subtasks.forEach(st => removeAllDependencies(st.id));
+                pendingDeletion = { type: 'task', logContext: { projectId }, deleteFn: () => { phase.tasks = phase.tasks.filter(t => t.id !== taskId); }, itemName: `Task '${task.name}' from phase '${phase.name}'` };
                 reasonModalTitle.textContent = 'Reason for Deletion';
                 reasonModalDetails.textContent = `You are about to delete the task: "${task.name}".`;
                 reasonModal.classList.remove('hidden');
@@ -1878,14 +2100,7 @@
             const subtask = task?.subtasks.find(st => st.id === subtaskId);
             if (subtask) {
                 removeAllDependencies(subtaskId);
-                pendingDeletion = {
-                    type: 'subtask',
-                    logContext: { projectId },
-                    deleteFn: () => {
-                        task.subtasks = task.subtasks.filter(st => st.id !== subtaskId);
-                    },
-                    itemName: `Subtask '${subtask.name}' from task '${task.name}'`
-                };
+                pendingDeletion = { type: 'subtask', logContext: { projectId }, deleteFn: () => { task.subtasks = task.subtasks.filter(st => st.id !== subtaskId); }, itemName: `Subtask '${subtask.name}' from task '${task.name}'` };
                 reasonModalTitle.textContent = 'Reason for Deletion';
                 reasonModalDetails.textContent = `You are about to delete the subtask: "${subtask.name}".`;
                 reasonModal.classList.remove('hidden');
@@ -1916,6 +2131,25 @@
             }
         }
 
+        function showMainTab(tabName) {
+            document.getElementById(`main-tab-panel-projects`).classList.add('hidden');
+            document.getElementById(`main-tab-panel-overall-load`).classList.add('hidden');
+            document.getElementById(`main-tab-panel-upcoming`).classList.add('hidden');
+            document.getElementById(`main-tab-panel-${tabName}`).classList.remove('hidden');
+
+            document.getElementById(`main-tab-btn-projects`).classList.remove('active');
+            document.getElementById(`main-tab-btn-overall-load`).classList.remove('active');
+            document.getElementById(`main-tab-btn-upcoming`).classList.remove('active');
+            document.getElementById(`main-tab-btn-${tabName}`).classList.add('active');
+
+            if (tabName === 'overall-load') {
+                drawOverallLoadChart();
+            } else if (tabName === 'upcoming') {
+                renderUpcomingTasks();
+            }
+        }
+
+
         function toggleLog(projectId) { document.getElementById(`log-container-${projectId}`).classList.toggle('hidden'); document.getElementById(`log-chevron-${projectId}`).classList.toggle('-rotate-90'); }
         function togglePhaseCollapse(projectId, phaseId) { const phase = projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId); if (phase) { phase.collapsed = !phase.collapsed; saveState(); document.getElementById(`tasks-container-${phaseId}`).classList.toggle('hidden'); document.getElementById(`phase-chevron-${phaseId}`).classList.toggle('-rotate-90'); } }
 
@@ -1924,29 +2158,18 @@
             renderDeletedProjectsLog();
         }
 
-        function applyTheme() { if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { document.documentElement.classList.add('dark'); lightIcon.classList.remove('hidden'); darkIcon.classList.add('hidden'); } else { document.documentElement.classList.remove('dark'); darkIcon.classList.remove('hidden'); lightIcon.classList.add('hidden'); } }
-        themeToggleBtn.addEventListener('click', () => { document.documentElement.classList.toggle('dark'); localStorage.setItem('color-theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light'); applyTheme(); renderProjects(); });
-        exportBtn.addEventListener('click', () => { const a = document.createElement('a'); a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projects, null, 2)); a.download = "timeline-projects.json"; document.body.appendChild(a); a.click(); a.remove(); });
-        importBtn.addEventListener('click', () => importFileInput.click());
-        importFileInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (e) => { try { const imported = JSON.parse(e.target.result); if (Array.isArray(imported)) { projects = imported; saveState(); renderProjects(); } } catch (err) { console.error(err); } }; reader.readAsText(file); e.target.value = null; });
-        pdfBtn.addEventListener('click', () => {
-            const originalCollapsedState = projects.map(p => ({id: p.id, collapsed: p.collapsed, phases: p.phases.map(ph => ({id: ph.id, collapsed: ph.collapsed}))}));
-            projects.forEach(p => { p.collapsed = false; p.phases.forEach(ph => ph.collapsed = false); });
-            renderProjects();
-            setTimeout(() => {
-                window.print();
-                projects.forEach(p => {
-                    const originalProject = originalCollapsedState.find(op => op.id === p.id);
-                    p.collapsed = originalProject.collapsed;
-                    p.phases.forEach(ph => {
-                        const originalPhase = originalProject.phases.find(oph => oph.id === ph.id);
-                        ph.collapsed = originalPhase.collapsed;
-                    });
-                });
-                renderProjects();
-            }, 100);
-        });
-
+        function applyTheme() { 
+            if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+                lightIcon.classList.remove('hidden');
+                darkIcon.classList.add('hidden');
+            } else {
+                document.documentElement.classList.remove('dark');
+                darkIcon.classList.remove('hidden');
+                lightIcon.classList.add('hidden');
+            }
+        }
+        
         function initializeSharedDatePicker() {
             const dummy = document.createElement('input'); dummy.style.display = 'none'; document.body.appendChild(dummy);
             sharedPicker = flatpickr(dummy, {
@@ -2150,21 +2373,40 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
+            themeToggleBtn.addEventListener('click', () => { document.documentElement.classList.toggle('dark'); localStorage.setItem('color-theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light'); applyTheme(); renderProjects(); showMainTab('projects'); });
+            exportBtn.addEventListener('click', () => { const a = document.createElement('a'); a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projects, null, 2)); a.download = "timeline-projects.json"; document.body.appendChild(a); a.click(); a.remove(); });
+            importBtn.addEventListener('click', () => importFileInput.click());
+            importFileInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (e) => { try { const imported = JSON.parse(e.target.result); if (Array.isArray(imported)) { projects = imported; saveState(); renderProjects(); } } catch (err) { console.error(err); } }; reader.readAsText(file); e.target.value = null; });
+            pdfBtn.addEventListener('click', () => {
+                const originalCollapsedState = projects.map(p => ({id: p.id, collapsed: p.collapsed, phases: p.phases.map(ph => ({id: ph.id, collapsed: ph.collapsed}))}));
+                projects.forEach(p => { p.collapsed = false; p.phases.forEach(ph => ph.collapsed = false); });
+                renderProjects();
+                setTimeout(() => {
+                    window.print();
+                    projects.forEach(p => {
+                        const originalProject = originalCollapsedState.find(op => op.id === p.id);
+                        p.collapsed = originalProject.collapsed;
+                        p.phases.forEach(ph => {
+                            const originalPhase = originalProject.phases.find(oph => oph.id === ph.id);
+                            ph.collapsed = originalPhase.collapsed;
+                        });
+                    });
+                    renderProjects();
+                }, 100);
+            });
+
             initializeSharedDatePicker();
             document.querySelector('.container').addEventListener('click', (e) => { 
                 const icon = e.target.closest('.date-input-icon-wrapper'); 
                 if (icon) { 
                     const input = icon.parentElement.querySelector('.date-input'); 
                     if (input && !input.disabled) handleDateTrigger(input);
-                    return; // Prevent event from bubbling to dependency handler
+                    return;
                 }
                 if (dependencyMode) {
                     const candidate = e.target.closest('.dependency-candidate');
-                    if (candidate) {
-                        handleDependencyClick(candidate);
-                    }
+                    if (candidate) handleDependencyClick(candidate);
                 }
-                 // Close dropdown if clicking outside
                 if (!e.target.closest('.move-task-btn') && !e.target.closest('.move-task-dropdown')) {
                     document.querySelectorAll('.move-task-dropdown').forEach(d => d.classList.remove('show'));
                 }
@@ -2175,7 +2417,7 @@
             document.getElementById('toggle-deleted-log-btn').addEventListener('click', toggleDeletedLog);
             closeFullscreenBtn.addEventListener('click', () => {
                 fullscreenModal.style.display = 'none';
-                d3.select(".chart-tooltip").remove();
+                d3.select("body").selectAll(".fullscreen-chart-tooltip").remove();
             });
             document.addEventListener('keydown', (e) => {
                 if(e.key === 'Escape') {
@@ -2187,7 +2429,7 @@
                     }
                     if (fullscreenModal.style.display === 'block') {
                          fullscreenModal.style.display = 'none';
-                         d3.select(".chart-tooltip").remove();
+                         d3.select("body").selectAll(".fullscreen-chart-tooltip").remove();
                     }
                 }
             });
