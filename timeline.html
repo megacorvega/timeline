@@ -358,9 +358,7 @@
             display: none;
             position: absolute;
             background-color: white;
-            dark:bg-slate-700;
             border: 1px solid #e2e8f0;
-            dark:border-slate-600;
             border-radius: 6px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             z-index: 10;
@@ -378,12 +376,10 @@
         }
         .move-task-dropdown-item:hover {
             background-color: #f3f4f6;
-            dark:bg-slate-600;
         }
         .move-task-dropdown-item.disabled {
             cursor: not-allowed;
             color: #9ca3af;
-            dark:text-gray-500;
         }
 
 
@@ -803,8 +799,6 @@
             for (let i = 0; i < allItems.size; i++) {
                 allItems.forEach(item => {
                     if (item.dependencies && item.dependencies.length > 0) {
-                        // --- MODIFICATION: SINGLE PARENT ---
-                        // With the new rule, there will only ever be one dependency.
                         const parentId = item.dependencies[0];
                         const parent = allItems.get(parentId);
 
@@ -827,6 +821,14 @@
                                 if (duration !== null) {
                                     const newEndDate = new Date(newStartDate.getTime() + duration);
                                     item.endDate = newEndDate.toISOString().split('T')[0];
+                                } else if (item.endDate) {
+                                    // FIX: If duration couldn't be calculated but an end date exists,
+                                    // prevent the start date from surpassing the end date.
+                                    const existingEndDate = parseDate(item.endDate);
+                                    if (newStartDate > existingEndDate) {
+                                        // Set the end date to the new start date, making it a "milestone".
+                                        item.endDate = newStartDate.toISOString().split('T')[0];
+                                    }
                                 }
                                 
                                 item.isDriven = true;
@@ -851,7 +853,6 @@
                                 }
                             }
                         }
-                         // --- END MODIFICATION ---
                     }
                 });
                 calculateRollups();
