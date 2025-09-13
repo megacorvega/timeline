@@ -486,6 +486,134 @@
             color: #3b82f6; /* blue-500 */
             border-bottom-color: #3b82f6; /* blue-500 */
         }
+
+        /* Punch List Styles */
+        #main-tab-panel-list .punch-list-container {
+            font-family: 'Cascadia Code', monospace;
+        }
+        #punch-list-container {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        #main-tab-panel-list .task-item {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 6px;
+          max-width: 100%;
+          position: relative;
+        }
+        #main-tab-panel-list .task-item.active {
+          outline: 1px solid #3b82f6; /* blue-500 */
+          border-radius: 4px;
+        }
+        .dark #main-tab-panel-list .task-item.active {
+          outline-color: #60a5fa; /* blue-400 */
+        }
+        #main-tab-panel-list .task-item.checked .task-label {
+          text-decoration: line-through;
+          opacity: 0.5;
+        }
+        #main-tab-panel-list .task-label {
+          flex: 1;
+          font-size: 14px;
+          font-weight: 500;
+          outline: none;
+          white-space: pre-wrap;
+          word-break: break-word;
+          transition: background-color 0.2s;
+          -webkit-box-decoration-break: clone;
+          box-decoration-break: clone;
+          padding: 2px 4px;
+          border-radius: 4px;
+        }
+        #main-tab-panel-list .task-label:hover,
+        #main-tab-panel-list .task-label:focus {
+            background-color: #eef2ff; /* indigo-50 */
+        }
+        .dark #main-tab-panel-list .task-label:hover,
+        .dark #main-tab-panel-list .task-label:focus {
+            background-color: #312e81; /* indigo-900 */
+        }
+        
+        #main-tab-panel-list .header-1 { /* ## Sub-section */
+          background-color: #f1f5f9; /* slate-100 */
+          font-size: 14px;
+          font-weight: 700;
+          padding: 4px 8px;
+          border-radius: 4px;
+          color: #1e293b; /* slate-800 */
+        }
+        .dark #main-tab-panel-list .header-1 {
+          background-color: #334155; /* slate-700 */
+          color: #f1f5f9; /* slate-100 */
+        }
+
+        #main-tab-panel-list .header-2 { /* # Project Title */
+          background-color: #3b82f6; /* blue-500 */
+          color: white;
+          padding: 6px 12px;
+          font-weight: 700;
+          font-size: 16px;
+          border-radius: 6px;
+        }
+        .dark #main-tab-panel-list .header-2 {
+          background-color: #60a5fa; /* blue-400 */
+          color: #020617; /* slate-950 */
+        }
+
+        #main-tab-panel-list .note-block {
+          font-style: italic;
+          color: #64748b; /* slate-500 */
+          border-left: 3px solid #cbd5e1; /* slate-300 */
+          padding-left: 8px;
+        }
+        .dark #main-tab-panel-list .note-block {
+          color: #94a3b8; /* slate-400 */
+          border-left-color: #475569; /* slate-600 */
+        }
+
+        #main-tab-panel-list .indent-1 { margin-left: 24px; }
+        #main-tab-panel-list .indent-2 { margin-left: 48px; }
+        #main-tab-panel-list .indent-3 { margin-left: 72px; }
+        #main-tab-panel-list .indent-4 { margin-left: 96px; }
+
+        #main-tab-panel-list .project-wrapper {
+          background-color: #f8fafc; /* gray-50 */
+          border: 1px solid #e2e8f0; /* gray-200 */
+          border-radius: 12px;
+          padding: 16px;
+          margin-bottom: 16px;
+        }
+        .dark #main-tab-panel-list .project-wrapper {
+            background-color: #1e293b; /* slate-800 */
+            border-color: #334155; /* slate-700 */
+        }
+
+        /* Animation for punch list */
+        .task-slide-out {
+          transition: all 150ms ease-in-out;
+          opacity: 0;
+          transform: translateX(20px);
+          max-height: 0;
+          margin-bottom: 0 !important;
+          padding-top: 0;
+          padding-bottom: 0;
+          overflow: hidden;
+        }
+
+        /* Highlight Colors */
+        .highlight-yellow { background-color: #fef08a; color: #713f12; }
+        .highlight-blue { background-color: #bae6fd; color: #0c4a6e; }
+        .highlight-purple { background-color: #e9d5ff; color: #581c87; }
+        .highlight-red { background-color: #fecaca; color: #7f1d1d; }
+
+        .dark .highlight-yellow { background-color: #a16207; color: #fefce8; }
+        .dark .highlight-blue { background-color: #075985; color: #f0f9ff; }
+        .dark .highlight-purple { background-color: #6b21a8; color: #fae8ff; }
+        .dark .highlight-red { background-color: #991b1b; color: #fef2f2; }
+
     </style>
 </head>
 <body class="antialiased text-gray-900 dark:text-white">
@@ -561,13 +689,13 @@
         <div class="bg-white dark:bg-slate-900 p-3 rounded-xl shadow-md mb-5 border border-gray-200 dark:border-gray-800">
             <h2 class="text-lg font-semibold mb-2">Add a New Project</h2>
             <div class="flex flex-col sm:flex-row gap-2 items-center">
-                <input type="text" id="new-project-name" placeholder="Enter new project name..." class="flex-grow w-full px-3 py-1.5 border border-gray-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm h-[28px]" onkeydown="if(event.key==='Enter') addProject()">
+                <input type="text" id="new-project-name" placeholder="Enter new project name..." class="flex-grow w-full px-3 py-1.5 border border-gray-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm h-[28px]" onkeydown="if(event.key==='Enter') timelineApp.addProject()">
                 <div class="date-input-container">
-                    <input type="text" id="new-project-start-date" placeholder="Start Date" class="date-input" data-type="new-project-start" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
+                    <input type="text" id="new-project-start-date" placeholder="Start Date" class="date-input" data-type="new-project-start" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
                     <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
                 </div>
                 <div class="date-input-container">
-                    <input type="text" id="new-project-end-date" placeholder="End Date" class="date-input" data-type="new-project-end" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
+                    <input type="text" id="new-project-end-date" placeholder="End Date" class="date-input" data-type="new-project-end" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
                      <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
                 </div>
                 <button id="add-project-btn" class="w-full sm:w-auto bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-colors btn-sm">
@@ -579,15 +707,22 @@
         <div class="mb-5">
             <div class="border-b border-gray-200 dark:border-slate-700">
                 <nav id="main-tabs" class="-mb-px flex space-x-4" aria-label="Tabs">
-                    <button onclick="showMainTab('projects')" id="main-tab-btn-projects" class="tab-button active text-base">Projects</button>
-                    <button onclick="showMainTab('overall-load')" id="main-tab-btn-overall-load" class="tab-button text-base">Task Load</button>
-                    <button onclick="showMainTab('upcoming')" id="main-tab-btn-upcoming" class="tab-button text-base">Upcoming</button>
+                    <button onclick="timelineApp.showMainTab('projects')" id="main-tab-btn-projects" class="tab-button active text-base">Projects</button>
+                    <button onclick="timelineApp.showMainTab('list')" id="main-tab-btn-list" class="tab-button text-base">List</button>
+                    <button onclick="timelineApp.showMainTab('overall-load')" id="main-tab-btn-overall-load" class="tab-button text-base">Task Load</button>
+                    <button onclick="timelineApp.showMainTab('upcoming')" id="main-tab-btn-upcoming" class="tab-button text-base">Upcoming</button>
                 </nav>
             </div>
         </div>
 
         <div id="main-tab-panel-projects">
             <div id="projects-container" class="space-y-4"></div>
+        </div>
+
+        <div id="main-tab-panel-list" class="hidden">
+            <div class="bg-white dark:bg-slate-900 p-4 rounded-xl shadow-md border border-gray-200 dark:border-gray-800 punch-list-container">
+                <section id="punch-list-container" aria-label="Task List"></section>
+            </div>
         </div>
     
         <div id="main-tab-panel-overall-load" class="hidden">
@@ -612,98 +747,209 @@
 
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
+    const timelineApp = {
         // --- STATE & CONFIG ---
-        let projects = [];
-        let deletedProjectLogs = [];
-        // --- UNDO/REDO STATE ---
-        let history = [];
-        let redoStack = [];
-        const MAX_HISTORY = 10;
-        // -------------------------
-        let sharedPicker = null;
-        let currentPickerContext = null;
-        let pendingDateChange = null;
-        let pendingDeletion = null;
-        let dependencyMode = false;
-        let firstSelectedItem = null;
-        let pendingClearDependencies = null;
-        let deletedLogCollapsed = true;
-        const taskLoadChartColor = d3.scaleOrdinal(d3.schemeTableau10);
+        projects: [],
+        deletedProjectLogs: [],
+        history: [],
+        redoStack: [],
+        MAX_HISTORY: 10,
+        sharedPicker: null,
+        currentPickerContext: null,
+        pendingDateChange: null,
+        pendingDeletion: null,
+        dependencyMode: false,
+        firstSelectedItem: null,
+        pendingClearDependencies: null,
+        deletedLogCollapsed: true,
+        taskLoadChartColor: d3.scaleOrdinal(d3.schemeTableau10),
 
         // --- DOM ELEMENTS ---
-        const projectsContainer = document.getElementById('projects-container');
-        const addProjectBtn = document.getElementById('add-project-btn');
-        const newProjectNameInput = document.getElementById('new-project-name');
-        const themeToggleBtn = document.getElementById('theme-toggle');
-        const darkIcon = document.getElementById('theme-toggle-dark-icon');
-        const lightIcon = document.getElementById('theme-toggle-light-icon');
-        const importBtn = document.getElementById('import-btn');
-        const exportBtn = document.getElementById('export-btn');
-        const pdfBtn = document.getElementById('pdf-btn');
-        const importFileInput = document.getElementById('import-file-input');
-        const datepickerBackdrop = document.getElementById('datepicker-backdrop');
-        const reasonModal = document.getElementById('reason-modal');
-        const reasonModalTitle = document.getElementById('reason-modal-title');
-        const reasonModalDetails = document.getElementById('reason-modal-details');
-        const reasonCommentTextarea = document.getElementById('reason-comment');
-        const saveReasonBtn = document.getElementById('save-reason-btn');
-        const cancelReasonBtn = document.getElementById('cancel-reason-btn');
-        const dependencyBanner = document.getElementById('dependency-banner');
-        const dependencyTooltip = document.getElementById('dependency-tooltip');
-        const confirmModal = document.getElementById('confirm-modal');
-        const confirmModalTitle = document.getElementById('confirm-modal-title');
-        const confirmModalText = document.getElementById('confirm-modal-text');
-        const cancelConfirmBtn = document.getElementById('cancel-confirm-btn');
-        const confirmActionBtn = document.getElementById('confirm-action-btn');
-        const fullscreenModal = document.getElementById('fullscreen-modal');
-        const closeFullscreenBtn = document.getElementById('close-fullscreen-btn');
-        const undoBtn = document.getElementById('undo-btn');
-        const redoBtn = document.getElementById('redo-btn');
+        elements: {},
 
+        init() {
+            this.cacheDOMElements();
+            this.addEventListeners();
+            this.applyTheme();
+            this.loadProjects();
+            this.renderProjects();
+            this.updateUndoRedoButtons();
+            this.initializeSharedDatePicker();
+        },
 
-        // --- DATA & UTILS ---
-        // --- UNDO/REDO ---
-        function saveState() {
-            // Deep copy of the current state
-            history.push(JSON.parse(JSON.stringify(projects)));
-            if (history.length > MAX_HISTORY) {
-                history.shift(); // Keep history size limited
-            }
-            redoStack = []; // Clear redo stack on new action
-            saveProjects();
-            updateUndoRedoButtons();
-        }
+        cacheDOMElements() {
+            this.elements = {
+                projectsContainer: document.getElementById('projects-container'),
+                addProjectBtn: document.getElementById('add-project-btn'),
+                newProjectNameInput: document.getElementById('new-project-name'),
+                themeToggleBtn: document.getElementById('theme-toggle'),
+                darkIcon: document.getElementById('theme-toggle-dark-icon'),
+                lightIcon: document.getElementById('theme-toggle-light-icon'),
+                importBtn: document.getElementById('import-btn'),
+                exportBtn: document.getElementById('export-btn'),
+                pdfBtn: document.getElementById('pdf-btn'),
+                importFileInput: document.getElementById('import-file-input'),
+                datepickerBackdrop: document.getElementById('datepicker-backdrop'),
+                reasonModal: document.getElementById('reason-modal'),
+                reasonModalTitle: document.getElementById('reason-modal-title'),
+                reasonModalDetails: document.getElementById('reason-modal-details'),
+                reasonCommentTextarea: document.getElementById('reason-comment'),
+                saveReasonBtn: document.getElementById('save-reason-btn'),
+                cancelReasonBtn: document.getElementById('cancel-reason-btn'),
+                dependencyBanner: document.getElementById('dependency-banner'),
+                dependencyTooltip: document.getElementById('dependency-tooltip'),
+                confirmModal: document.getElementById('confirm-modal'),
+                confirmModalTitle: document.getElementById('confirm-modal-title'),
+                confirmModalText: document.getElementById('confirm-modal-text'),
+                cancelConfirmBtn: document.getElementById('cancel-confirm-btn'),
+                confirmActionBtn: document.getElementById('confirm-action-btn'),
+                fullscreenModal: document.getElementById('fullscreen-modal'),
+                closeFullscreenBtn: document.getElementById('close-fullscreen-btn'),
+                undoBtn: document.getElementById('undo-btn'),
+                redoBtn: document.getElementById('redo-btn'),
+                toggleDeletedLogBtn: document.getElementById('toggle-deleted-log-btn')
+            };
+        },
 
-        function undo() {
-            if (history.length > 0) {
-                redoStack.push(JSON.parse(JSON.stringify(projects)));
-                projects = history.pop();
-                saveProjects(); // Save the undone state to localStorage
-                renderProjects();
-                updateUndoRedoButtons();
-            }
-        }
-
-        function redo() {
-            if (redoStack.length > 0) {
-                history.push(JSON.parse(JSON.stringify(projects)));
-                projects = redoStack.pop();
-                saveProjects(); // Save the redone state to localStorage
-                renderProjects();
-                updateUndoRedoButtons();
-            }
-        }
+        addEventListeners() {
+            this.elements.themeToggleBtn.addEventListener('click', () => { 
+                document.documentElement.classList.toggle('dark'); 
+                localStorage.setItem('color-theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light'); 
+                this.applyTheme(); 
+                this.renderProjects(); 
+            });
+            this.elements.exportBtn.addEventListener('click', () => { 
+                const a = document.createElement('a'); 
+                a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.projects, null, 2)); 
+                a.download = "timeline-projects.json"; 
+                document.body.appendChild(a); 
+                a.click(); 
+                a.remove(); 
+            });
+            this.elements.importBtn.addEventListener('click', () => this.elements.importFileInput.click());
+            this.elements.importFileInput.addEventListener('change', (e) => { 
+                const file = e.target.files[0]; if (!file) return; 
+                const reader = new FileReader(); 
+                reader.onload = (e) => { 
+                    try { 
+                        const imported = JSON.parse(e.target.result); 
+                        if (Array.isArray(imported)) { this.projects = imported; this.saveState(); this.renderProjects(); } 
+                    } catch (err) { console.error(err); } 
+                }; 
+                reader.readAsText(file); e.target.value = null; 
+            });
+             this.elements.pdfBtn.addEventListener('click', () => {
+                const originalCollapsedState = this.projects.map(p => ({id: p.id, collapsed: p.collapsed, phases: p.phases.map(ph => ({id: ph.id, collapsed: ph.collapsed}))}));
+                this.projects.forEach(p => { p.collapsed = false; p.phases.forEach(ph => ph.collapsed = false); });
+                this.renderProjects();
+                setTimeout(() => {
+                    window.print();
+                    this.projects.forEach(p => {
+                        const originalProject = originalCollapsedState.find(op => op.id === p.id);
+                        if(originalProject) {
+                           p.collapsed = originalProject.collapsed;
+                            p.phases.forEach(ph => {
+                                const originalPhase = originalProject.phases.find(oph => oph.id === ph.id);
+                                if(originalPhase) ph.collapsed = originalPhase.collapsed;
+                            });
+                        }
+                    });
+                    this.renderProjects();
+                }, 100);
+            });
+            document.querySelector('.container').addEventListener('click', (e) => { 
+                const icon = e.target.closest('.date-input-icon-wrapper'); 
+                if (icon) { 
+                    const input = icon.parentElement.querySelector('.date-input'); 
+                    if (input && !input.disabled) this.handleDateTrigger(input);
+                    return;
+                }
+                if (this.dependencyMode) {
+                    const candidate = e.target.closest('.dependency-candidate');
+                    if (candidate) this.handleDependencyClick(candidate);
+                }
+                if (!e.target.closest('.move-task-btn') && !e.target.closest('.move-task-dropdown')) {
+                    document.querySelectorAll('.move-task-dropdown').forEach(d => d.classList.remove('show'));
+                }
+            });
+            this.elements.addProjectBtn.addEventListener('click', this.addProject.bind(this));
+            this.elements.undoBtn.addEventListener('click', this.undo.bind(this));
+            this.elements.redoBtn.addEventListener('click', this.redo.bind(this));
+            this.elements.toggleDeletedLogBtn.addEventListener('click', this.toggleDeletedLog.bind(this));
+            this.elements.closeFullscreenBtn.addEventListener('click', () => {
+                this.elements.fullscreenModal.style.display = 'none';
+                d3.select("body").selectAll(".fullscreen-chart-tooltip").remove();
+            });
+            this.elements.saveReasonBtn.addEventListener('click', this.handleSaveReason.bind(this));
+            this.elements.cancelReasonBtn.addEventListener('click', this.handleCancelReason.bind(this));
+            this.elements.cancelConfirmBtn.addEventListener('click', () => {
+                this.elements.confirmModal.classList.add('hidden');
+                this.pendingClearDependencies = null;
+            });
+            this.elements.confirmActionBtn.addEventListener('click', () => {
+                if (this.pendingClearDependencies) {
+                    this.clearDependencies(this.pendingClearDependencies);
+                }
+                this.elements.confirmModal.classList.add('hidden');
+                this.pendingClearDependencies = null;
+            });
+            document.addEventListener('keydown', (e) => {
+                if(e.key === 'Escape') {
+                    if (this.dependencyMode) {
+                        this.dependencyMode = false;
+                        this.firstSelectedItem = null;
+                        this.elements.dependencyBanner.classList.add('hidden');
+                        this.renderProjects();
+                    }
+                    if (this.elements.fullscreenModal.style.display === 'block') {
+                         this.elements.fullscreenModal.style.display = 'none';
+                         d3.select("body").selectAll(".fullscreen-chart-tooltip").remove();
+                    }
+                }
+            });
+        },
         
-        function updateUndoRedoButtons() {
-            undoBtn.disabled = history.length === 0;
-            redoBtn.disabled = redoStack.length === 0;
-        }
-        // ------------------
-        function saveProjects() {
-            localStorage.setItem('projectTimelineData', JSON.stringify(projects));
-            localStorage.setItem('projectTimelineDeletedLogs', JSON.stringify(deletedProjectLogs));
-        }
-        function loadProjects() {
+        // --- DATA & UTILS ---
+        saveState() {
+            this.history.push(JSON.parse(JSON.stringify(this.projects)));
+            if (this.history.length > this.MAX_HISTORY) {
+                this.history.shift(); 
+            }
+            this.redoStack = []; 
+            this.saveProjects();
+            this.updateUndoRedoButtons();
+        },
+
+        undo() {
+            if (this.history.length > 0) {
+                this.redoStack.push(JSON.parse(JSON.stringify(this.projects)));
+                this.projects = this.history.pop();
+                this.saveProjects(); 
+                this.renderProjects();
+                this.updateUndoRedoButtons();
+            }
+        },
+
+        redo() {
+            if (this.redoStack.length > 0) {
+                this.history.push(JSON.parse(JSON.stringify(this.projects)));
+                this.projects = this.redoStack.pop();
+                this.saveProjects(); 
+                this.renderProjects();
+                this.updateUndoRedoButtons();
+            }
+        },
+        
+        updateUndoRedoButtons() {
+            this.elements.undoBtn.disabled = this.history.length === 0;
+            this.elements.redoBtn.disabled = this.redoStack.length === 0;
+        },
+
+        saveProjects() {
+            localStorage.setItem('projectTimelineData', JSON.stringify(this.projects));
+            localStorage.setItem('projectTimelineDeletedLogs', JSON.stringify(this.deletedProjectLogs));
+        },
+        loadProjects() {
             const savedData = localStorage.getItem('projectTimelineData');
             let loadedProjects = [];
             if (savedData) {
@@ -714,8 +960,8 @@
                     }
                 } catch (error) { console.error("Error parsing projects from localStorage:", error); }
             }
-            projects = loadedProjects;
-            projects.forEach(project => {
+            this.projects = loadedProjects;
+            this.projects.forEach(project => {
                 if (!project.originalStartDate) project.originalStartDate = project.startDate;
                 if (!project.originalEndDate) project.originalEndDate = project.endDate;
                 if (!project.phases) project.phases = [];
@@ -744,57 +990,48 @@
             const savedDeletedLogs = localStorage.getItem('projectTimelineDeletedLogs');
             if (savedDeletedLogs) {
                 try {
-                    deletedProjectLogs = JSON.parse(savedDeletedLogs);
+                    this.deletedProjectLogs = JSON.parse(savedDeletedLogs);
                 } catch (error) {
                     console.error("Error parsing deleted project logs from localStorage:", error);
-                    deletedProjectLogs = [];
+                    this.deletedProjectLogs = [];
                 }
             }
-        }
-        const parseDate = d3.timeParse("%Y-%m-%d");
-        const formatDate = d3.timeFormat("%m/%d/%y");
-        const formatLogTimestamp = d3.timeFormat("%Y-%m-%d %H:%M");
+        },
+        parseDate: d3.timeParse("%Y-%m-%d"),
+        formatDate: d3.timeFormat("%m/%d/%y"),
+        formatLogTimestamp: d3.timeFormat("%Y-%m-%d %H:%M"),
 
-        function sortByEndDate(a, b, dateKey = 'endDate') {
-            const dateA_end = a[dateKey] ? parseDate(a[dateKey]) : null;
-            const dateB_end = b[dateKey] ? parseDate(b[dateKey]) : null;
+        sortByEndDate(a, b, dateKey = 'endDate') {
+            const dateA_end = a[dateKey] ? this.parseDate(a[dateKey]) : null;
+            const dateB_end = b[dateKey] ? this.parseDate(b[dateKey]) : null;
 
             if (dateA_end && dateB_end) {
                 const diff = dateA_end - dateB_end;
-                if (diff !== 0) {
-                    return diff;
-                }
-            } else if (dateA_end) {
-                return -1;
-            } else if (dateB_end) {
-                return 1;
-            }
+                if (diff !== 0) return diff;
+            } else if (dateA_end) return -1;
+              else if (dateB_end) return 1;
 
-            // End dates are the same or both are null, now sort by start date.
             const startDateKey = dateKey.startsWith('effective') ? 'effectiveStartDate' : 'startDate';
+            const dateA_start = a[startDateKey] ? this.parseDate(a[startDateKey]) : null;
+            const dateB_start = b[startDateKey] ? this.parseDate(b[startDateKey]) : null;
 
-            const dateA_start = a[startDateKey] ? parseDate(a[startDateKey]) : null;
-            const dateB_start = b[startDateKey] ? parseDate(b[startDateKey]) : null;
-
-            if (dateA_start && dateB_start) {
-                return dateA_start - dateB_start;
-            }
+            if (dateA_start && dateB_start) return dateA_start - dateB_start;
             if (dateA_start) return -1;
             if (dateB_start) return 1;
             return 0;
-        }
+        },
 
-        function getBoundaryDate(items, type) {
-            const dates = items.map(item => parseDate(type === 'latest' ? item.effectiveEndDate || item.endDate : item.effectiveStartDate || item.startDate)).filter(Boolean);
+        getBoundaryDate(items, type) {
+            const dates = items.map(item => this.parseDate(type === 'latest' ? item.effectiveEndDate || item.endDate : item.effectiveStartDate || item.startDate)).filter(Boolean);
             if (dates.length === 0) return null;
             const boundary = type === 'latest' ? new Date(Math.max.apply(null, dates)) : new Date(Math.min.apply(null, dates));
             return boundary.toISOString().split('T')[0];
-        }
-
-        function getDurationProgress(startDateStr, endDateStr) {
+        },
+        
+        getDurationProgress(startDateStr, endDateStr) {
             if (!startDateStr || !endDateStr) return 0;
-            const start = parseDate(startDateStr).getTime();
-            const end = parseDate(endDateStr).getTime();
+            const start = this.parseDate(startDateStr).getTime();
+            const end = this.parseDate(endDateStr).getTime();
             const now = new Date().getTime();
             if (now < start) return 0;
             if (now > end) return 100;
@@ -802,16 +1039,16 @@
             if (totalDuration <= 0) return 100;
             const elapsed = now - start;
             return (elapsed / totalDuration) * 100;
-        }
+        },
 
-        function calculateRollups() {
-            projects.forEach(p => {
+        calculateRollups() {
+            this.projects.forEach(p => {
                 p.phases.forEach(phase => {
                     phase.tasks.forEach(task => {
                         const hasSubtasks = task.subtasks && task.subtasks.length > 0;
                         if (hasSubtasks) {
-                            task.effectiveStartDate = getBoundaryDate(task.subtasks, 'earliest');
-                            task.effectiveEndDate = getBoundaryDate(task.subtasks, 'latest');
+                            task.effectiveStartDate = this.getBoundaryDate(task.subtasks, 'earliest');
+                            task.effectiveEndDate = this.getBoundaryDate(task.subtasks, 'latest');
                             const completedSubtasks = task.subtasks.filter(st => st.completed).length;
                             task.progress = task.subtasks.length > 0 ? (completedSubtasks / task.subtasks.length) * 100 : 0;
                             task.completed = task.progress === 100;
@@ -822,8 +1059,8 @@
                         }
                     });
                     
-                    phase.effectiveStartDate = getBoundaryDate(phase.tasks, 'earliest');
-                    phase.effectiveEndDate = getBoundaryDate(phase.tasks, 'latest');
+                    phase.effectiveStartDate = this.getBoundaryDate(phase.tasks, 'earliest');
+                    phase.effectiveEndDate = this.getBoundaryDate(phase.tasks, 'latest');
                     const totalProgress = phase.tasks.reduce((sum, t) => sum + (t.progress || 0), 0);
                     phase.progress = phase.tasks.length > 0 ? totalProgress / phase.tasks.length : 0;
                     phase.completed = phase.progress === 100;
@@ -832,11 +1069,11 @@
                 p.totalPhaseProgress = p.phases.reduce((sum, ph) => sum + (ph.progress || 0), 0);
                 p.overallProgress = p.phases.length > 0 ? p.totalPhaseProgress / p.phases.length : 0;
             });
-        }
+        },
 
-        function resolveDependencies() {
+        resolveDependencies() {
             const allItems = new Map();
-            projects.forEach(p => {
+            this.projects.forEach(p => {
                 p.phases.forEach(ph => {
                     allItems.set(ph.id, ph);
                     ph.tasks.forEach(t => {
@@ -848,10 +1085,8 @@
                 });
             });
 
-            // Reset all 'isDriven' flags once before processing
             allItems.forEach(item => item.isDriven = false);
 
-            // Iterate multiple times to ensure all dependencies are resolved in order
             for (let i = 0; i < allItems.size; i++) {
                 allItems.forEach(item => {
                     if (item.dependencies && item.dependencies.length > 0) {
@@ -861,11 +1096,11 @@
                         if (parent) {
                             const parentEndDateValue = parent.effectiveEndDate || parent.endDate;
                             if (parentEndDateValue) {
-                                const parentEndDate = parseDate(parentEndDateValue);
+                                const parentEndDate = this.parseDate(parentEndDateValue);
                                 const newStartDate = new Date(parentEndDate);
 
-                                const oldEffectiveStartDate = item.effectiveStartDate ? parseDate(item.effectiveStartDate) : null;
-                                const oldEffectiveEndDate = item.effectiveEndDate ? parseDate(item.effectiveEndDate) : null;
+                                const oldEffectiveStartDate = item.effectiveStartDate ? this.parseDate(item.effectiveStartDate) : null;
+                                const oldEffectiveEndDate = item.effectiveEndDate ? this.parseDate(item.effectiveEndDate) : null;
                                 let duration = null;
 
                                 if (oldEffectiveStartDate && oldEffectiveEndDate) {
@@ -878,11 +1113,8 @@
                                     const newEndDate = new Date(newStartDate.getTime() + duration);
                                     item.endDate = newEndDate.toISOString().split('T')[0];
                                 } else if (item.endDate) {
-                                    // FIX: If duration couldn't be calculated but an end date exists,
-                                    // prevent the start date from surpassing the end date.
-                                    const existingEndDate = parseDate(item.endDate);
+                                    const existingEndDate = this.parseDate(item.endDate);
                                     if (newStartDate > existingEndDate) {
-                                        // Set the end date to the new start date, making it a "milestone".
                                         item.endDate = newStartDate.toISOString().split('T')[0];
                                     }
                                 }
@@ -895,12 +1127,12 @@
                                     if(timeShift !== 0) {
                                         item.subtasks.forEach(subtask => {
                                             if (subtask.startDate) {
-                                                const oldSubtaskStartDate = parseDate(subtask.startDate);
+                                                const oldSubtaskStartDate = this.parseDate(subtask.startDate);
                                                 const newSubtaskStartDate = new Date(oldSubtaskStartDate.getTime() + timeShift);
                                                 subtask.startDate = newSubtaskStartDate.toISOString().split('T')[0];
                                             }
                                             if (subtask.endDate) {
-                                                const oldSubtaskEndDate = parseDate(subtask.endDate);
+                                                const oldSubtaskEndDate = this.parseDate(subtask.endDate);
                                                 const newSubtaskEndDate = new Date(oldSubtaskEndDate.getTime() + timeShift);
                                                 subtask.endDate = newSubtaskEndDate.toISOString().split('T')[0];
                                             }
@@ -911,20 +1143,18 @@
                         }
                     }
                 });
-                calculateRollups();
+                this.calculateRollups();
             }
-        }
+        },
 
-
-        // --- RENDER ---
-        function renderProjects() {
-            calculateRollups();
-            resolveDependencies(); // This will now automatically handle date updates
-            projectsContainer.innerHTML = '';
-            const sortedProjects = [...projects].sort((a, b) => {
+        renderProjects() {
+            this.calculateRollups();
+            this.resolveDependencies(); 
+            this.elements.projectsContainer.innerHTML = '';
+            const sortedProjects = [...this.projects].sort((a, b) => {
                 if (a.overallProgress >= 100 && b.overallProgress < 100) return 1;
                 if (a.overallProgress < 100 && b.overallProgress >= 100) return -1;
-                return sortByEndDate(a, b, 'endDate');
+                return this.sortByEndDate(a, b, 'endDate');
             });
 
             sortedProjects.forEach((project) => {
@@ -936,93 +1166,92 @@
                     <div class="flex justify-between items-center mb-3">
                         <div class="flex items-center gap-2 flex-grow min-w-0">
                             ${completionIcon}
-                            <button onclick="toggleProjectCollapse(${project.id})" class="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 flex-shrink-0">
+                            <button onclick="timelineApp.toggleProjectCollapse(${project.id})" class="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 flex-shrink-0">
                                 <svg id="chevron-${project.id}" class="w-5 h-5 text-gray-500 chevron ${project.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                             </button>
-                            <h3 class="text-xl font-bold truncate editable-text" onclick="makeEditable(this, 'updateProjectName', ${project.id})">${project.name}</h3>
+                            <h3 class="text-xl font-bold truncate editable-text" onclick="timelineApp.makeEditable(this, 'updateProjectName', ${project.id})">${project.name}</h3>
                             <span class="text-sm font-medium text-gray-500 flex-shrink-0">${Math.round(project.overallProgress)}%</span>
                         </div>
                         <div class="flex items-center gap-2 text-sm text-gray-500 flex-shrink-0">
                             <div class="date-input-container">
-                                <input type="text" value="${project.startDate ? formatDate(parseDate(project.startDate)) : ''}" placeholder="Start Date" class="date-input text-gray-900 dark:text-white" data-project-id="${project.id}" data-type="project-start" data-date="${project.startDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
+                                <input type="text" value="${project.startDate ? this.formatDate(this.parseDate(project.startDate)) : ''}" placeholder="Start Date" class="date-input text-gray-900 dark:text-white" data-project-id="${project.id}" data-type="project-start" data-date="${project.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
                                 <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
                             </div>
                             <div class="date-input-container">
-                                <input type="text" value="${project.endDate ? formatDate(parseDate(project.endDate)) : ''}" placeholder="End Date" class="date-input text-gray-900 dark:text-white" data-project-id="${project.id}" data-type="project-end" data-date="${project.endDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
+                                <input type="text" value="${project.endDate ? this.formatDate(this.parseDate(project.endDate)) : ''}" placeholder="End Date" class="date-input text-gray-900 dark:text-white" data-project-id="${project.id}" data-type="project-end" data-date="${project.endDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
                                 <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
                             </div>
                         </div>
-                        <button onclick="deleteProject(${project.id})" class="text-gray-400 hover:text-red-500 transition-colors text-xl font-bold ml-4 flex-shrink-0">&times;</button>
+                        <button onclick="timelineApp.deleteProject(${project.id})" class="text-gray-400 hover:text-red-500 transition-colors text-xl font-bold ml-4 flex-shrink-0">&times;</button>
                     </div>
                      <div id="project-body-${project.id}" class="${project.collapsed ? 'hidden' : ''}">
                         <div id="chart-${project.id}" class="w-full h-48 mb-3 relative"></div>
                         <div id="phases-${project.id}" class="space-y-1"></div>
                         <div class="mt-3">
-                            <button onclick="toggleLog(${project.id})" class="text-xs font-semibold text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-1">
+                            <button onclick="timelineApp.toggleLog(${project.id})" class="text-xs font-semibold text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-1">
                                 <svg id="log-chevron-${project.id}" class="w-4 h-4 chevron -rotate-90" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                                 Change Log
                             </button>
-                            <div id="log-container-${project.id}" class="hidden mt-2 p-2 bg-gray-50 dark:bg-slate-800/50 rounded-md">${renderLog(project)}</div>
+                            <div id="log-container-${project.id}" class="hidden mt-2 p-2 bg-gray-50 dark:bg-slate-800/50 rounded-md">${this.renderLog(project)}</div>
                         </div>
                     </div>
                 `;
-                projectsContainer.appendChild(projectCard);
-                renderPhaseList(project);
+                this.elements.projectsContainer.appendChild(projectCard);
+                this.renderPhaseList(project);
                 if (!project.collapsed && project.startDate && project.endDate) {
-                    drawChart(project);
+                    this.drawChart(project);
                 } else if (!project.startDate || !project.endDate) {
                     document.getElementById(`chart-${project.id}`).innerHTML = `<div class="flex items-center justify-center h-full text-gray-400">Set project start and end dates to see progress chart.</div>`;
                 }
             });
-            renderDeletedProjectsLog();
+            this.renderDeletedProjectsLog();
              // Re-render active main tab if it's not the project tab
             const activeTabBtn = document.querySelector('#main-tabs .tab-button.active');
             if (activeTabBtn && activeTabBtn.id === 'main-tab-btn-overall-load') {
-                drawOverallLoadChart();
+                this.drawOverallLoadChart();
             } else if (activeTabBtn && activeTabBtn.id === 'main-tab-btn-upcoming') {
-                renderUpcomingTasks();
+                this.renderUpcomingTasks();
             }
-        }
+        },
         
-        function getDependencyIcon(item) {
+        getDependencyIcon(item) {
             const dependentCount = item.dependents?.length || 0;
-            const isDependentSource = dependentCount > 0; // This item is a parent to others
-            const isParentSource = (item.dependencies?.length || 0) > 0; // This item has parents
+            const isDependentSource = dependentCount > 0;
+            const isParentSource = (item.dependencies?.length || 0) > 0;
             let dependentSourceClass = isDependentSource ? 'is-dependent-source' : '';
             let parentSourceClass = isParentSource ? 'is-parent-source' : '';
 
             return `
                 <div class="dependency-container">
                     <div class="dependency-circle ${dependentSourceClass}" 
-                         onmouseover="showDependencyTooltip(event, ${item.id})" 
-                         onmouseout="hideDependencyTooltip()"
-                         onclick="startDependencyMode(${item.id})">${isDependentSource ? `<span>${dependentCount}</span>` : ''}</div>
+                         onmouseover="timelineApp.showDependencyTooltip(event, ${item.id})" 
+                         onmouseout="timelineApp.hideDependencyTooltip()"
+                         onclick="timelineApp.startDependencyMode(${item.id})">${isDependentSource ? `<span>${dependentCount}</span>` : ''}</div>
                     <div class="dependency-circle ${parentSourceClass}"
-                         onmouseover="showDependencyTooltip(event, ${item.id})"
-                         onmouseout="hideDependencyTooltip()"
-                         onclick="handleCircleClick(${item.id})"></div>
+                         onmouseover="timelineApp.showDependencyTooltip(event, ${item.id})"
+                         onmouseout="timelineApp.hideDependencyTooltip()"
+                         onclick="timelineApp.handleCircleClick(${item.id})"></div>
                 </div>
             `;
-        }
+        },
 
 
-        function renderPhaseList(project) {
+        renderPhaseList(project) {
             const phaseContainer = document.getElementById(`phases-${project.id}`);
             let html = '';
-            const sortedPhases = [...project.phases].sort((a, b) => sortByEndDate(a, b, 'effectiveEndDate'));
+            const sortedPhases = [...project.phases].sort((a, b) => this.sortByEndDate(a, b, 'effectiveEndDate'));
 
             sortedPhases.forEach(phase => {
                 const hasTasks = phase.tasks && phase.tasks.length > 0;
                 const toggleButton = hasTasks ?
-                    `<button onclick="togglePhaseCollapse(${project.id}, ${phase.id})" class="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 flex-shrink-0">
+                    `<button onclick="timelineApp.togglePhaseCollapse(${project.id}, ${phase.id})" class="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 flex-shrink-0">
                         <svg id="phase-chevron-${phase.id}" class="w-4 h-4 text-gray-500 chevron ${phase.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
-                    </button>` : `<div class="w-6 h-6 flex-shrink-0"></div>`; // Placeholder
+                    </button>` : `<div class="w-6 h-6 flex-shrink-0"></div>`; 
 
-                const depClass = dependencyMode && firstSelectedItem?.id !== phase.id ? 'dependency-candidate' : '';
-                const selectedClass = firstSelectedItem?.id === phase.id ? 'dependency-selected' : '';
+                const depClass = this.dependencyMode && this.firstSelectedItem?.id !== phase.id ? 'dependency-candidate' : '';
+                const selectedClass = this.firstSelectedItem?.id === phase.id ? 'dependency-selected' : '';
                 const drivenDot = phase.isDriven ? `<div class="driven-by-dot" title="Starts after: ${phase.driverName.replace(/"/g, '&quot;')}"></div>` : '<div class="w-2"></div>';
-
-                const durationProgress = getDurationProgress(phase.effectiveStartDate, phase.effectiveEndDate);
+                const durationProgress = this.getDurationProgress(phase.effectiveStartDate, phase.effectiveEndDate);
                 let durationBarColorClass = 'bg-blue-500';
                 if (phase.completed) {
                     durationBarColorClass = 'bg-green-500';
@@ -1043,43 +1272,42 @@
                             <div class="duration-scale-container" title="Duration Progress">
                                 <div class="duration-scale-bar ${durationBarColorClass}" style="width: ${durationProgress}%;"></div>
                             </div>
-                            <span class="font-semibold flex-grow editable-text" onclick="makeEditable(this, 'updatePhaseName', ${project.id}, ${phase.id})">${phase.name}</span>
-                            ${getDependencyIcon(phase)}
+                            <span class="font-semibold flex-grow editable-text" onclick="timelineApp.makeEditable(this, 'updatePhaseName', ${project.id}, ${phase.id})">${phase.name}</span>
+                            ${this.getDependencyIcon(phase)}
                             <div class="flex items-center gap-2 text-sm text-gray-500">
-                                <div class="date-input-container"><input type="text" value="${phase.effectiveStartDate ? formatDate(parseDate(phase.effectiveStartDate)) : ''}" placeholder="Start" readonly class="date-input bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-gray-400" disabled></div>
-                                <div class="date-input-container"><input type="text" value="${phase.effectiveEndDate ? formatDate(parseDate(phase.effectiveEndDate)) : ''}" placeholder="End" readonly class="date-input bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-gray-400" disabled></div>
+                                <div class="date-input-container"><input type="text" value="${phase.effectiveStartDate ? this.formatDate(this.parseDate(phase.effectiveStartDate)) : ''}" placeholder="Start" readonly class="date-input bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-gray-400" disabled></div>
+                                <div class="date-input-container"><input type="text" value="${phase.effectiveEndDate ? this.formatDate(this.parseDate(phase.effectiveEndDate)) : ''}" placeholder="End" readonly class="date-input bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-gray-400" disabled></div>
                             </div>
-                            <button onclick="deletePhase(${project.id}, ${phase.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold">&times;</button>
+                            <button onclick="timelineApp.deletePhase(${project.id}, ${phase.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold">&times;</button>
                         </div>
-                        <div id="tasks-container-${phase.id}" class="pl-12 mt-2 space-y-1 pt-2 border-t border-gray-200 dark:border-slate-700/50 ${phase.collapsed ? 'hidden' : ''}">${renderTaskList(project.id, phase.id, phase.tasks)}</div>
+                        <div id="tasks-container-${phase.id}" class="pl-12 mt-2 space-y-1 pt-2 border-t border-gray-200 dark:border-slate-700/50 ${phase.collapsed ? 'hidden' : ''}">${this.renderTaskList(project.id, phase.id, phase.tasks)}</div>
                     </div>`;
             });
              html += `
                 <div class="mt-2 pl-4">
                      <div class="flex items-center gap-2">
-                        <input type="text" id="new-phase-name-${project.id}" placeholder="Add a new phase..." class="flex-grow w-full px-2 py-1 border border-gray-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-sm h-[28px]" onkeydown="if(event.key==='Enter') addPhase(${project.id})">
-                        <button onclick="addPhase(${project.id})" class="bg-gray-200 dark:bg-gray-700 font-semibold rounded-md text-sm btn-sm">Add</button>
+                        <input type="text" id="new-phase-name-${project.id}" placeholder="Add a new phase..." class="flex-grow w-full px-2 py-1 border border-gray-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-sm h-[28px]" onkeydown="if(event.key==='Enter') timelineApp.addPhase(${project.id})">
+                        <button onclick="timelineApp.addPhase(${project.id})" class="bg-gray-200 dark:bg-gray-700 font-semibold rounded-md text-sm btn-sm">Add</button>
                     </div>
                 </div>`;
             phaseContainer.innerHTML = html;
-        }
+        },
 
-        function renderTaskList(projectId, phaseId, tasks) {
+        renderTaskList(projectId, phaseId, tasks) {
             let html = '';
-            const sortedTasks = [...tasks].sort((a, b) => sortByEndDate(a, b, 'effectiveEndDate'));
+            const sortedTasks = [...tasks].sort((a, b) => this.sortByEndDate(a, b, 'effectiveEndDate'));
             const iconHtml = `<div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>`;
             sortedTasks.forEach(task => {
                 const hasSubtasks = task.subtasks && task.subtasks.length > 0;
-                let taskControlHtml = hasSubtasks ? `<div class="text-xs font-bold text-gray-500 dark:text-gray-400 w-10 text-center flex-shrink-0">${Math.round(task.progress || 0)}%</div>` : `<input type="checkbox" class="custom-checkbox" onchange="toggleTaskComplete(${projectId}, ${phaseId}, ${task.id})" ${task.completed ? 'checked' : ''}>`;
+                let taskControlHtml = hasSubtasks ? `<div class="text-xs font-bold text-gray-500 dark:text-gray-400 w-10 text-center flex-shrink-0">${Math.round(task.progress || 0)}%</div>` : `<input type="checkbox" class="custom-checkbox" onchange="timelineApp.toggleTaskComplete(${projectId}, ${phaseId}, ${task.id})" ${task.completed ? 'checked' : ''}>`;
                 const toggleButton = hasSubtasks ? 
-                    `<button onclick="toggleTaskCollapse(${projectId}, ${phaseId}, ${task.id})" class="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 flex-shrink-0">
+                    `<button onclick="timelineApp.toggleTaskCollapse(${projectId}, ${phaseId}, ${task.id})" class="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 flex-shrink-0">
                         <svg id="task-chevron-${task.id}" class="w-4 h-4 text-gray-500 chevron ${task.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
-                    </button>` : `<div class="w-6 h-6 flex-shrink-0"></div>`; // Placeholder
-                const depClass = dependencyMode && firstSelectedItem?.id !== task.id ? 'dependency-candidate' : '';
-                const selectedClass = firstSelectedItem?.id === task.id ? 'dependency-selected' : '';
+                    </button>` : `<div class="w-6 h-6 flex-shrink-0"></div>`;
+                const depClass = this.dependencyMode && this.firstSelectedItem?.id !== task.id ? 'dependency-candidate' : '';
+                const selectedClass = this.firstSelectedItem?.id === task.id ? 'dependency-selected' : '';
                 const drivenDot = task.isDriven ? `<div class="driven-by-dot" title="Starts after: ${task.driverName.replace(/"/g, '&quot;')}"></div>` : '<div class="w-2"></div>';
-
-                const durationProgress = getDurationProgress(task.effectiveStartDate, task.effectiveEndDate);
+                const durationProgress = this.getDurationProgress(task.effectiveStartDate, task.effectiveEndDate);
                 let durationBarColorClass = 'bg-blue-500';
                 if (task.completed) {
                     durationBarColorClass = 'bg-green-500';
@@ -1090,12 +1318,9 @@
                 } else if (durationProgress > 75) {
                     durationBarColorClass = 'bg-yellow-500';
                 }
-
-                // --- MODIFICATION: STYLING ---
                 const isDriven = hasSubtasks || task.isDriven;
                 const drivenClasses = 'bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-gray-400';
                 const editableClasses = 'text-gray-900 dark:text-white';
-                // --- END MODIFICATION ---
 
                 html += `
                     <div class="bg-gray-50 dark:bg-slate-800/50 rounded-lg px-2 py-1 task-row ${depClass} ${selectedClass}" data-id="${task.id}" data-type="task" data-project-id="${projectId}" data-phase-id="${phaseId}">
@@ -1107,39 +1332,39 @@
                                 <div class="duration-scale-bar ${durationBarColorClass}" style="width: ${durationProgress}%;"></div>
                             </div>
                             <div class="flex-grow flex items-center gap-2">
-                                <span class="font-medium editable-text" onclick="makeEditable(this, 'updateTaskName', ${projectId}, ${phaseId}, ${task.id})">${task.name}</span>
-                                <button onclick="showAddSubtaskInput(${task.id})" class="add-subtask-btn items-center gap-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-semibold rounded-md px-2 py-1 flex-shrink-0">
+                                <span class="font-medium editable-text" onclick="timelineApp.makeEditable(this, 'updateTaskName', ${projectId}, ${phaseId}, ${task.id})">${task.name}</span>
+                                <button onclick="timelineApp.showAddSubtaskInput(${task.id})" class="add-subtask-btn items-center gap-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-semibold rounded-md px-2 py-1 flex-shrink-0">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
                                     <span>Subtask</span>
                                 </button>
                                 <div class="relative">
-                                    <button onclick="toggleMoveTaskDropdown(event, ${projectId}, ${phaseId}, ${task.id})" class="move-task-btn items-center gap-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-semibold rounded-md px-2 py-1 flex-shrink-0">
+                                    <button onclick="timelineApp.toggleMoveTaskDropdown(event, ${projectId}, ${phaseId}, ${task.id})" class="move-task-btn items-center gap-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-semibold rounded-md px-2 py-1 flex-shrink-0">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
                                         <span>Move</span>
                                     </button>
                                     <div id="move-task-dropdown-${task.id}" class="move-task-dropdown dark:bg-slate-700 border dark:border-slate-600"></div>
                                 </div>
                             </div>
-                            ${getDependencyIcon(task)}
+                            ${this.getDependencyIcon(task)}
                             <div class="flex items-center gap-2 text-sm text-gray-500">
                                 <div class="date-input-container">
-                                    <input type="text" value="${task.effectiveStartDate ? formatDate(parseDate(task.effectiveStartDate)) : ''}" placeholder="Start" class="date-input ${isDriven ? drivenClasses : editableClasses}" ${isDriven ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-start" data-date="${task.startDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
+                                    <input type="text" value="${task.effectiveStartDate ? this.formatDate(this.parseDate(task.effectiveStartDate)) : ''}" placeholder="Start" class="date-input ${isDriven ? drivenClasses : editableClasses}" ${isDriven ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-start" data-date="${task.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
                                     ${!isDriven ? iconHtml : ''}
                                 </div>
                                 <div class="date-input-container">
-                                    <input type="text" value="${task.effectiveEndDate ? formatDate(parseDate(task.effectiveEndDate)) : ''}" placeholder="End" class="date-input ${isDriven ? drivenClasses : editableClasses}" ${isDriven ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-end" data-date="${task.endDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
+                                    <input type="text" value="${task.effectiveEndDate ? this.formatDate(this.parseDate(task.effectiveEndDate)) : ''}" placeholder="End" class="date-input ${isDriven ? drivenClasses : editableClasses}" ${isDriven ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-end" data-date="${task.endDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
                                     ${!isDriven ? iconHtml : ''}
                                 </div>
                             </div>
-                            <button onclick="deleteTask(${projectId}, ${phaseId}, ${task.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold">&times;</button>
+                            <button onclick="timelineApp.deleteTask(${projectId}, ${phaseId}, ${task.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold">&times;</button>
                         </div>
                         <div id="subtasks-container-${task.id}" class="pl-12 mt-2 space-y-2 pt-2 border-t border-gray-200 dark:border-slate-700/50 ${task.collapsed || !hasSubtasks ? 'hidden' : ''}">
-                            ${renderSubtaskList(projectId, phaseId, task.id, task.subtasks || [])}
+                            ${this.renderSubtaskList(projectId, phaseId, task.id, task.subtasks || [])}
                         </div>
                         <div id="add-subtask-form-${task.id}" class="hidden ml-12 mt-2">
                              <div class="flex items-center gap-2">
-                                <input type="text" id="new-subtask-name-${task.id}" placeholder="Add subtask..." class="flex-grow w-full px-2 py-1 border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-xs h-[28px]" onkeydown="if(event.key==='Enter') addSubtask(${projectId}, ${phaseId}, ${task.id})">
-                                <button onclick="addSubtask(${projectId}, ${phaseId}, ${task.id})" class="bg-gray-200 dark:bg-gray-700 font-semibold rounded-md text-xs btn-sm">Add</button>
+                                <input type="text" id="new-subtask-name-${task.id}" placeholder="Add subtask..." class="flex-grow w-full px-2 py-1 border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-xs h-[28px]" onkeydown="if(event.key==='Enter') timelineApp.addSubtask(${projectId}, ${phaseId}, ${task.id})">
+                                <button onclick="timelineApp.addSubtask(${projectId}, ${phaseId}, ${task.id})" class="bg-gray-200 dark:bg-gray-700 font-semibold rounded-md text-xs btn-sm">Add</button>
                              </div>
                         </div>
                     </div>`;
@@ -1147,26 +1372,23 @@
             html += `
                 <div>
                     <div class="flex items-center gap-2">
-                        <input type="text" id="new-task-name-${phaseId}" placeholder="Add a new task..." class="flex-grow w-full px-2 py-1 border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-xs h-[28px]" onkeydown="if(event.key==='Enter') addTask(${projectId}, ${phaseId})">
-                        <button onclick="addTask(${projectId}, ${phaseId})" class="bg-gray-200 dark:bg-gray-700 font-semibold rounded-md text-xs btn-sm">Add</button>
+                        <input type="text" id="new-task-name-${phaseId}" placeholder="Add a new task..." class="flex-grow w-full px-2 py-1 border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-xs h-[28px]" onkeydown="if(event.key==='Enter') timelineApp.addTask(${projectId}, ${phaseId})">
+                        <button onclick="timelineApp.addTask(${projectId}, ${phaseId})" class="bg-gray-200 dark:bg-gray-700 font-semibold rounded-md text-xs btn-sm">Add</button>
                     </div>
                 </div>`;
             return html;
-        }
+        },
 
-        function renderSubtaskList(projectId, phaseId, taskId, subtasks) {
-            if (!subtasks || subtasks.length === 0) {
-                return '';
-            }
+        renderSubtaskList(projectId, phaseId, taskId, subtasks) {
+            if (!subtasks || subtasks.length === 0) return '';
             let html = '<div class="ml-12 mt-1 space-y-1 pt-1">';
-            const sortedSubtasks = [...subtasks].sort((a,b) => sortByEndDate(a, b, 'endDate'));
+            const sortedSubtasks = [...subtasks].sort((a,b) => this.sortByEndDate(a, b, 'endDate'));
             const iconHtml = `<div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>`;
             sortedSubtasks.forEach(subtask => {
-                const depClass = dependencyMode && firstSelectedItem?.id !== subtask.id ? 'dependency-candidate' : '';
-                const selectedClass = firstSelectedItem?.id === subtask.id ? 'dependency-selected' : '';
+                const depClass = this.dependencyMode && this.firstSelectedItem?.id !== subtask.id ? 'dependency-candidate' : '';
+                const selectedClass = this.firstSelectedItem?.id === subtask.id ? 'dependency-selected' : '';
                 const drivenDot = subtask.isDriven ? `<div class="driven-by-dot" title="Starts after: ${subtask.driverName.replace(/"/g, '&quot;')}"></div>` : '<div class="w-2"></div>';
-
-                const durationProgress = getDurationProgress(subtask.startDate, subtask.endDate);
+                const durationProgress = this.getDurationProgress(subtask.startDate, subtask.endDate);
                 let durationBarColorClass = 'bg-blue-500';
                 if (subtask.completed) {
                     durationBarColorClass = 'bg-green-500';
@@ -1181,27 +1403,27 @@
                 html += `
                     <div class="flex items-center gap-3 subtask-row ${depClass} ${selectedClass}" data-id="${subtask.id}" data-type="subtask" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}">
                         ${drivenDot}
-                        <input type="checkbox" class="custom-checkbox" onchange="toggleSubtaskComplete(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" ${subtask.completed ? 'checked' : ''}>
+                        <input type="checkbox" class="custom-checkbox" onchange="timelineApp.toggleSubtaskComplete(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" ${subtask.completed ? 'checked' : ''}>
                         <div class="duration-scale-container" title="Duration Progress">
                             <div class="duration-scale-bar ${durationBarColorClass}" style="width: ${durationProgress}%;"></div>
                         </div>
-                        <span class="text-sm text-gray-700 dark:text-gray-300 flex-grow ${subtask.completed ? 'line-through opacity-60' : ''} editable-text" onclick="makeEditable(this, 'updateSubtaskName', ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})">${subtask.name}</span>
-                        ${getDependencyIcon(subtask)}
+                        <span class="text-sm text-gray-700 dark:text-gray-300 flex-grow ${subtask.completed ? 'line-through opacity-60' : ''} editable-text" onclick="timelineApp.makeEditable(this, 'updateSubtaskName', ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})">${subtask.name}</span>
+                        ${this.getDependencyIcon(subtask)}
                         <div class="date-input-container">
-                                <input type="text" value="${subtask.startDate ? formatDate(parseDate(subtask.startDate)) : ''}" placeholder="Start" class="date-input ${subtask.isDriven ? 'bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-gray-400' : ''}" ${subtask.isDriven ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}" data-subtask-id="${subtask.id}" data-type="subtask-start" data-date="${subtask.startDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
+                                <input type="text" value="${subtask.startDate ? this.formatDate(this.parseDate(subtask.startDate)) : ''}" placeholder="Start" class="date-input ${subtask.isDriven ? 'bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-gray-400' : ''}" ${subtask.isDriven ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}" data-subtask-id="${subtask.id}" data-type="subtask-start" data-date="${subtask.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
                                  ${!subtask.isDriven ? iconHtml : ''}
                              </div>
                              <div class="date-input-container">
-                                <input type="text" value="${subtask.endDate ? formatDate(parseDate(subtask.endDate)) : ''}" placeholder="End" class="date-input" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}" data-subtask-id="${subtask.id}" data-type="subtask-end" data-date="${subtask.endDate || ''}" oninput="formatDateInput(event)" onblur="handleManualDateInput(event)" onkeydown="handleDateInputKeydown(event)">
+                                <input type="text" value="${subtask.endDate ? this.formatDate(this.parseDate(subtask.endDate)) : ''}" placeholder="End" class="date-input" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}" data-subtask-id="${subtask.id}" data-type="subtask-end" data-date="${subtask.endDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
                                 ${iconHtml}
                             </div>
-                        <button onclick="deleteSubtask(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold w-5 text-center flex-shrink-0">&times;</button>
+                        <button onclick="timelineApp.deleteSubtask(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold w-5 text-center flex-shrink-0">&times;</button>
                     </div>`;
             });
             return html + '</div>';
-        }
+        },
 
-        function renderLog(project) {
+        renderLog(project) {
             if (!project.logs || project.logs.length === 0) return '<p class="text-xs text-gray-500 dark:text-gray-400">No changes logged.</p>';
             let tableHtml = `<table class="w-full text-xs font-mono text-gray-700 dark:text-gray-300"><thead><tr class="border-b border-gray-200 dark:border-slate-700"><th class="text-left p-1 w-1/4">Timestamp</th><th class="text-left p-1 w-1/4">Item</th><th class="text-left p-1">Change</th><th class="text-left p-1">Reason</th></tr></thead><tbody>`;
             [...project.logs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).forEach(log => {
@@ -1209,33 +1431,32 @@
                 if (log.type === 'deletion') {
                     changeText = 'Deleted';
                 } else {
-                    changeText = `${log.from ? formatDate(parseDate(log.from)) : 'None'} -> ${formatDate(parseDate(log.to))}`;
+                    changeText = `${log.from ? this.formatDate(this.parseDate(log.from)) : 'None'} -> ${this.formatDate(this.parseDate(log.to))}`;
                 }
-                tableHtml += `<tr class="border-b border-gray-100 dark:border-slate-700/50"><td class="p-1 align-top">${formatLogTimestamp(new Date(log.timestamp))}</td><td class="p-1 align-top">${log.item}</td><td class="p-1 align-top">${changeText}</td><td class="p-1 align-top">${log.comment}</td></tr>`;
+                tableHtml += `<tr class="border-b border-gray-100 dark:border-slate-700/50"><td class="p-1 align-top">${this.formatLogTimestamp(new Date(log.timestamp))}</td><td class="p-1 align-top">${log.item}</td><td class="p-1 align-top">${changeText}</td><td class="p-1 align-top">${log.comment}</td></tr>`;
             });
             return tableHtml + '</tbody></table>';
-        }
+        },
 
-        function renderDeletedProjectsLog() {
+        renderDeletedProjectsLog() {
             const container = document.getElementById('deleted-projects-log-content');
-            const toggleBtn = document.getElementById('toggle-deleted-log-btn');
+            const toggleBtn = this.elements.toggleDeletedLogBtn;
             const chevron = document.getElementById('deleted-log-chevron');
 
-            if (!deletedProjectLogs || deletedProjectLogs.length === 0) {
+            if (!this.deletedProjectLogs || this.deletedProjectLogs.length === 0) {
                 container.innerHTML = '';
                 toggleBtn.classList.add('hidden');
                 return;
             }
 
             toggleBtn.classList.remove('hidden');
-            if(deletedLogCollapsed){
+            if(this.deletedLogCollapsed){
                 container.classList.add('hidden');
                 chevron.classList.add('-rotate-90');
             } else {
                 container.classList.remove('hidden');
                 chevron.classList.remove('-rotate-90');
             }
-
 
             let tableHtml = `<div class="bg-white dark:bg-slate-900 p-3 rounded-xl shadow-md border border-gray-200 dark:border-gray-800">
                 <table class="w-full text-xs font-mono text-gray-700 dark:text-gray-300">
@@ -1249,9 +1470,9 @@
                     </thead>
                     <tbody>`;
 
-            [...deletedProjectLogs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).forEach(log => {
+            [...this.deletedProjectLogs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).forEach(log => {
                 tableHtml += `<tr class="border-b border-gray-100 dark:border-slate-700/50">
-                                    <td class="p-1 align-top">${formatLogTimestamp(new Date(log.timestamp))}</td>
+                                    <td class="p-1 align-top">${this.formatLogTimestamp(new Date(log.timestamp))}</td>
                                     <td class="p-1 align-top">${log.item}</td>
                                     <td class="p-1 align-top">Deleted</td>
                                     <td class="p-1 align-top">${log.comment}</td>
@@ -1260,9 +1481,9 @@
 
             tableHtml += '</tbody></table></div>';
             container.innerHTML = tableHtml;
-        }
+        },
 
-        function drawChart(project) {
+        drawChart(project) {
             const container = d3.select(`#chart-${project.id}`);
             if (container.empty() || !project.startDate || !project.endDate) return;
             setTimeout(() => {
@@ -1270,11 +1491,10 @@
                 if (width <= 0) return;
                 container.selectAll("*").remove();
                 
-                // Add fullscreen button
                 container.append('button')
                     .html('<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 1v4m0 0h-4m4 0l-5-5" /></svg>')
                     .attr('class', 'absolute bottom-1 right-1 p-1.5 bg-gray-200 dark:bg-gray-700 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600')
-                    .on('click', () => showFullscreenChart(project.id));
+                    .on('click', () => this.showFullscreenChart(project.id));
                 
                 const margin = { top: 10, right: 20, bottom: 20, left: 40 },
                     chartWidth = width - margin.left - margin.right,
@@ -1282,11 +1502,11 @@
                 const svg = container.append("svg").attr("width", chartWidth + margin.left + margin.right).attr("height", height + margin.top + margin.bottom).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
                 const x = d3.scaleTime().range([0, chartWidth]),
                     y = d3.scaleLinear().range([height, 0]);
-                const startDate = parseDate(project.startDate),
-                    endDate = parseDate(project.endDate);
+                const startDate = this.parseDate(project.startDate),
+                    endDate = this.parseDate(project.endDate);
                 x.domain([startDate, endDate]);
                 y.domain([0, 100]);
-                svg.append("g").attr("class", "chart-grid").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x).ticks(5).tickFormat(formatDate));
+                svg.append("g").attr("class", "chart-grid").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x).ticks(5).tickFormat(this.formatDate));
                 svg.append("g").attr("class", "chart-grid").call(d3.axisLeft(y).ticks(5).tickFormat(d => `${d}%`));
 
                 const endDateChanges = project.logs
@@ -1298,7 +1518,7 @@
                 const uniquePriorEndDates = [...new Set(endDateChanges)].filter(d => d !== project.endDate);
 
                 uniquePriorEndDates.forEach(dateStr => {
-                    const date = parseDate(dateStr);
+                    const date = this.parseDate(dateStr);
                     if (date) {
                         svg.append("line")
                             .attr("class", "ghost-finish-line")
@@ -1323,12 +1543,12 @@
                 svg.append("line").attr("class", "finish-line").attr("x1", x(endDate)).attr("y1", 0).attr("x2", x(endDate)).attr("y2", height);
 
                 const allTasks = project.phases.flatMap(phase => phase.tasks).filter(task => task.effectiveEndDate);
-                const firstActivityDate = parseDate(getBoundaryDate(allTasks, 'earliest')) || startDate;
+                const firstActivityDate = this.parseDate(this.getBoundaryDate(allTasks, 'earliest')) || startDate;
                 const pathData = [{ date: firstActivityDate, progress: 0 }];
                 let cumulativeProgress = 0;
 
-                allTasks.sort((a,b) => parseDate(a.effectiveEndDate) - parseDate(b.effectiveEndDate)).forEach(task => {
-                    const dateForPoint = parseDate(task.effectiveEndDate);
+                allTasks.sort((a,b) => this.parseDate(a.effectiveEndDate) - this.parseDate(b.effectiveEndDate)).forEach(task => {
+                    const dateForPoint = this.parseDate(task.effectiveEndDate);
                     if (dateForPoint) {
                         cumulativeProgress += 100 / (allTasks.length || 1);
                         pathData.push({ date: dateForPoint, progress: cumulativeProgress, completed: task.completed, name: task.name });
@@ -1347,7 +1567,7 @@
 
                 const sortedPhases = [...project.phases]
                     .filter(p => p.effectiveEndDate)
-                    .sort((a, b) => parseDate(a.effectiveEndDate) - parseDate(b.effectiveEndDate));
+                    .sort((a, b) => this.parseDate(a.effectiveEndDate) - this.parseDate(b.effectiveEndDate));
 
                 const phaseMarkers = svg.selectAll(".phase-marker")
                     .data(sortedPhases)
@@ -1355,45 +1575,33 @@
                     .append("g")
                     .attr("class", "phase-marker")
                     .attr("transform", (d, i) => {
-                        const phaseEndDate = parseDate(d.effectiveEndDate);
-                        
-                        let tasksInPhaseOrBefore = allTasks.filter(t => parseDate(t.effectiveEndDate) <= phaseEndDate);
+                        const phaseEndDate = this.parseDate(d.effectiveEndDate);
+                        let tasksInPhaseOrBefore = allTasks.filter(t => this.parseDate(t.effectiveEndDate) <= phaseEndDate);
                         let phaseEndProgress = (tasksInPhaseOrBefore.length / (allTasks.length || 1)) * 100;
-
                         return `translate(${x(phaseEndDate)}, ${y(phaseEndProgress)})`;
                     });
 
-                phaseMarkers.append("circle")
-                    .attr("class", "phase-marker-circle");
-
-                phaseMarkers.append("text")
-                    .attr("class", "phase-marker-text")
-                    .text((d, i) => `P${i + 1}`);
-
+                phaseMarkers.append("circle").attr("class", "phase-marker-circle");
+                phaseMarkers.append("text").attr("class", "phase-marker-text").text((d, i) => `P${i + 1}`);
             }, 0);
-        }
+        },
 
-        function drawOverallLoadChart() {
+        drawOverallLoadChart() {
             const containerId = `overall-load-chart`;
             const container = d3.select(`#${containerId}`);
-            if (container.empty()) {
-                return;
-            }
+            if (container.empty()) return;
             container.selectAll("*").remove();
             
             const legendContainer = d3.select('#overall-load-legend');
-            legendContainer.html(''); // Clear old legend
+            legendContainer.html('');
 
-            // 1. Gather all tasks/subtasks from ALL projects
             const allTasks = [];
-            projects.forEach(project => {
+            this.projects.forEach(project => {
                 project.phases.forEach(phase => {
                     phase.tasks.forEach(task => {
                         if (task.subtasks && task.subtasks.length > 0) {
                             task.subtasks.forEach(subtask => {
-                                if (subtask.endDate) {
-                                    allTasks.push({ name: subtask.name, endDate: subtask.endDate, colorKey: project.name });
-                                }
+                                if (subtask.endDate) allTasks.push({ name: subtask.name, endDate: subtask.endDate, colorKey: project.name });
                             });
                         } else if (task.endDate) {
                             allTasks.push({ name: task.name, endDate: task.endDate, colorKey: project.name });
@@ -1403,31 +1611,27 @@
             });
 
             if (allTasks.length === 0) {
-                container.html(`<div class="flex items-center justify-center h-full text-gray-400">No tasks with due dates across any projects.</div>`);
+                container.html(`<div class="flex items-center justify-center h-full text-gray-400">No tasks with due dates.</div>`);
                 return;
             }
 
-            // 2. Group tasks by week
-            const tasksByWeek = d3.group(allTasks, d => d3.timeMonday(parseDate(d.endDate)));
-
-            // 3. Prepare data for d3.stack
+            const tasksByWeek = d3.group(allTasks, d => d3.timeMonday(this.parseDate(d.endDate)));
             const uniqueProjectNames = [...new Set(allTasks.map(t => t.colorKey))];
             const overallChartColor = d3.scaleOrdinal(d3.schemeTableau10).domain(uniqueProjectNames);
 
             const stackData = Array.from(tasksByWeek.entries())
-            .sort((a, b) => a[0] - b[0])
-            .map(([week, tasks]) => {
-                const weekData = { week: week };
-                uniqueProjectNames.forEach(name => {
-                    weekData[name] = tasks.filter(t => t.colorKey === name).length;
+                .sort((a, b) => a[0] - b[0])
+                .map(([week, tasks]) => {
+                    const weekData = { week: week };
+                    uniqueProjectNames.forEach(name => {
+                        weekData[name] = tasks.filter(t => t.colorKey === name).length;
+                    });
+                    return weekData;
                 });
-                return weekData;
-            });
 
             const stack = d3.stack().keys(uniqueProjectNames);
             const series = stack(stackData);
 
-            // 4. Draw the chart
             setTimeout(() => {
                 const width = container.node().getBoundingClientRect().width;
                 if (width <= 0) return;
@@ -1436,115 +1640,59 @@
                     chartWidth = width - margin.left - margin.right,
                     height = container.node().getBoundingClientRect().height - margin.top - margin.bottom;
 
-                const svg = container.append("svg")
-                    .attr("width", chartWidth + margin.left + margin.right)
-                    .attr("height", height + margin.top + margin.bottom)
-                    .append("g")
-                    .attr("transform", `translate(${margin.left},${margin.top})`);
+                const svg = container.append("svg").attr("width", chartWidth + margin.left + margin.right).attr("height", height + margin.top + margin.bottom)
+                    .append("g").attr("transform", `translate(${margin.left},${margin.top})`);
                     
-                const x = d3.scaleBand()
-                    .domain(stackData.map(d => d.week))
-                    .range([0, chartWidth])
-                    .padding(0.2);
-
+                const x = d3.scaleBand().domain(stackData.map(d => d.week)).range([0, chartWidth]).padding(0.2);
                 const yMax = d3.max(series, d => d3.max(d, d => d[1]));
-                const y = d3.scaleLinear()
-                    .domain([0, yMax > 0 ? yMax : 1]).nice()
-                    .range([height, 0]);
+                const y = d3.scaleLinear().domain([0, yMax > 0 ? yMax : 1]).nice().range([height, 0]);
                     
-                svg.append("g")
-                    .attr("class", "chart-grid")
-                    .attr("transform", `translate(0,${height})`)
-                    .call(d3.axisBottom(x).tickFormat(d3.timeFormat("%b %d")))
-                    .selectAll("text")
-                    .style("font-size", "10px")
-                    .attr("transform", "rotate(-45)")
-                    .style("text-anchor", "end");
+                svg.append("g").attr("class", "chart-grid").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x).tickFormat(d3.timeFormat("%b %d")))
+                    .selectAll("text").style("font-size", "10px").attr("transform", "rotate(-45)").style("text-anchor", "end");
 
-                svg.append("g")
-                    .attr("class", "chart-grid")
-                    .call(d3.axisLeft(y).ticks(Math.min(yMax, 10)).tickFormat(d3.format("d")));
+                svg.append("g").attr("class", "chart-grid").call(d3.axisLeft(y).ticks(Math.min(yMax, 10)).tickFormat(d3.format("d")));
 
                 let tooltip = d3.select("body").select(".chart-tooltip");
                 if (tooltip.empty()) {
                     tooltip = d3.select("body").append("div").attr("class", "chart-tooltip");
                 }
 
-                svg.append("g")
-                    .selectAll("g")
-                    .data(series)
-                    .enter().append("g")
-                    .attr("fill", d => overallChartColor(d.key))
-                    .selectAll("rect")
-                    .data(d => d)
-                    .enter().append("rect")
-                    .attr("x", d => x(d.data.week))
-                    .attr("y", d => y(d[1]))
-                    .attr("height", d => y(d[0]) - y(d[1]))
-                    .attr("width", x.bandwidth())
+                svg.append("g").selectAll("g").data(series).enter().append("g").attr("fill", d => overallChartColor(d.key))
+                    .selectAll("rect").data(d => d).enter().append("rect")
+                    .attr("x", d => x(d.data.week)).attr("y", d => y(d[1])).attr("height", d => y(d[0]) - y(d[1])).attr("width", x.bandwidth())
                     .on("mouseover", function(event, d) {
                         const seriesData = d3.select(this.parentNode).datum();
                         const projectName = seriesData.key;
                         const taskCount = d.data[projectName];
                         if (taskCount === 0) return;
                         const weekStart = d3.timeFormat("%b %d")(d.data.week);
-
-                        tooltip.style("visibility", "visible")
-                            .html(`<strong>${projectName}</strong><br>Week of ${weekStart}<br>Tasks Due: ${taskCount}`);
+                        tooltip.style("visibility", "visible").html(`<strong>${projectName}</strong><br>Week of ${weekStart}<br>Tasks Due: ${taskCount}`);
                     })
-                    .on("mousemove", function(event) {
-                        tooltip.style("top", (event.pageY - 10) + "px")
-                            .style("left", (event.pageX + 10) + "px");
-                    })
-                    .on("mouseout", function() {
-                        tooltip.style("visibility", "hidden");
-                    });
+                    .on("mousemove", (event) => { tooltip.style("top", (event.pageY - 10) + "px").style("left", (event.pageX + 10) + "px"); })
+                    .on("mouseout", () => { tooltip.style("visibility", "hidden"); });
 
-                // Add Legend
-                const legend = legendContainer.selectAll('.legend-item')
-                    .data(uniqueProjectNames)
-                    .enter()
-                    .append('div')
-                    .attr('class', 'flex items-center');
-
-                legend.append('div')
-                    .style('width', '12px')
-                    .style('height', '12px')
-                    .style('background-color', d => overallChartColor(d))
-                    .attr('class', 'mr-2 rounded-sm');
-
-                legend.append('span')
-                    .text(d => d);
-            }, 0)
-        }
+                const legend = legendContainer.selectAll('.legend-item').data(uniqueProjectNames).enter().append('div').attr('class', 'flex items-center');
+                legend.append('div').style('width', '12px').style('height', '12px').style('background-color', d => overallChartColor(d)).attr('class', 'mr-2 rounded-sm');
+                legend.append('span').text(d => d);
+            }, 0);
+        },
         
-        function renderUpcomingTasks() {
+        renderUpcomingTasks() {
             const container = document.getElementById('upcoming-tasks-container');
             container.innerHTML = '';
-
             const allItems = [];
-            projects.forEach(project => {
+            this.projects.forEach(project => {
                 project.phases.forEach(phase => {
                     phase.tasks.forEach(task => {
                         if (task.subtasks && task.subtasks.length > 0) {
                             task.subtasks.forEach(subtask => {
                                 if (subtask.endDate && !subtask.completed) {
-                                    allItems.push({
-                                        date: subtask.endDate,
-                                        path: `${project.name} &gt; ${phase.name} &gt; ${task.name}`,
-                                        name: subtask.name,
-                                        completed: subtask.completed
-                                    });
+                                    allItems.push({ date: subtask.endDate, path: `${project.name} &gt; ${phase.name} &gt; ${task.name}`, name: subtask.name, completed: subtask.completed });
                                 }
                             });
                         } else {
-                            if (task.effectiveEndDate && !task.completed) { // Use effectiveEndDate for standalone tasks
-                                allItems.push({
-                                    date: task.effectiveEndDate,
-                                    path: `${project.name} &gt; ${phase.name}`,
-                                    name: task.name,
-                                    completed: task.completed
-                                });
+                            if (task.effectiveEndDate && !task.completed) {
+                                allItems.push({ date: task.effectiveEndDate, path: `${project.name} &gt; ${phase.name}`, name: task.name, completed: task.completed });
                             }
                         }
                     });
@@ -1556,25 +1704,19 @@
                 return;
             }
 
-            // Sort items by date
-            allItems.sort((a, b) => parseDate(a.date) - parseDate(b.date));
-
+            allItems.sort((a, b) => this.parseDate(a.date) - this.parseDate(b.date));
             const groupedByDate = d3.group(allItems, d => d.date);
-            
             const today = new Date();
-            today.setHours(0, 0, 0, 0); // Normalize today's date
+            today.setHours(0, 0, 0, 0);
 
             let html = '';
-            const sortedDates = Array.from(groupedByDate.keys()).sort((a,b) => parseDate(a) - parseDate(b));
+            const sortedDates = Array.from(groupedByDate.keys()).sort((a,b) => this.parseDate(a) - this.parseDate(b));
 
             for (const dateStr of sortedDates) {
                 const items = groupedByDate.get(dateStr);
-                const dueDate = parseDate(dateStr);
-                
+                const dueDate = this.parseDate(dateStr);
                 const diffDays = Math.round((dueDate - today) / (1000 * 60 * 60 * 24));
-                
-                let dateLabel = '';
-                let headerColorClass = 'bg-gray-100 dark:bg-slate-800';
+                let dateLabel = '', headerColorClass = 'bg-gray-100 dark:bg-slate-800';
 
                 if (diffDays < 0) {
                     dateLabel = `${Math.abs(diffDays)} days ago`;
@@ -1588,196 +1730,107 @@
                     dateLabel = `in ${diffDays} days`;
                 }
 
-                html += `
-                    <div class="bg-white dark:bg-slate-900 rounded-xl shadow-md border border-gray-200 dark:border-gray-800">
+                html += `<div class="bg-white dark:bg-slate-900 rounded-xl shadow-md border border-gray-200 dark:border-gray-800">
                         <div class="p-3 border-b border-gray-200 dark:border-slate-700 ${headerColorClass} rounded-t-xl">
-                            <h3 class="font-bold">${formatDate(dueDate)} <span class="text-sm font-normal text-gray-500 dark:text-gray-400">(${dateLabel})</span></h3>
+                            <h3 class="font-bold">${this.formatDate(dueDate)} <span class="text-sm font-normal text-gray-500 dark:text-gray-400">(${dateLabel})</span></h3>
                         </div>
-                        <div class="p-3 space-y-2">
-                `;
-
+                        <div class="p-3 space-y-2">`;
                 items.forEach(item => {
                     const isOverdue = diffDays < 0 && !item.completed;
                     const completedClass = item.completed ? 'line-through opacity-60' : '';
                     const overdueClass = isOverdue ? 'text-red-600 dark:text-red-400 font-semibold' : '';
 
-                    html += `
-                        <div class="flex items-center text-sm ${completedClass}">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-                            </svg>
+                    html += `<div class="flex items-center text-sm ${completedClass}">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
                             <span class="text-gray-500 dark:text-gray-400 mr-2">${item.path} &gt;</span>
                             <span class="font-medium ${overdueClass}">${item.name}</span>
                             ${isOverdue ? '<span class="ml-2 text-xs font-bold text-red-500 bg-red-100 dark:bg-red-900/50 px-2 py-0.5 rounded-full">OVERDUE</span>' : ''}
-                        </div>
-                    `;
+                        </div>`;
                 });
-
-                html += `
-                        </div>
-                    </div>
-                `;
+                html += `</div></div>`;
             }
-
             container.innerHTML = html;
-        }
+        },
 
-        function showFullscreenChart(projectId) {
-            const project = projects.find(p => p.id === projectId);
+        showFullscreenChart(projectId) {
+            const project = this.projects.find(p => p.id === projectId);
             if (!project) return;
-            fullscreenModal.style.display = 'block';
-            drawFullscreenChart(project);
-        }
+            this.elements.fullscreenModal.style.display = 'block';
+            this.drawFullscreenChart(project);
+        },
 
-        function drawFullscreenChart(project) {
+        drawFullscreenChart(project) {
             const container = d3.select("#fullscreen-chart-container");
-            container.selectAll("svg").remove(); // Clear previous chart
-            d3.select("body").selectAll(".fullscreen-chart-tooltip").remove(); // Clear tooltips
+            container.selectAll("svg").remove(); 
+            d3.select("body").selectAll(".fullscreen-chart-tooltip").remove();
 
             const tooltip = d3.select("body").append("div").attr("class", "chart-tooltip fullscreen-chart-tooltip");
-
-            const width = container.node().getBoundingClientRect().width;
-            const height = container.node().getBoundingClientRect().height;
-            const margin = { top: 40, right: 50, bottom: 40, left: 60 };
-            const chartWidth = width - margin.left - margin.right;
-            const chartHeight = height - margin.top - margin.bottom;
-
-            const svg = container.append("svg")
-                .attr("width", width)
-                .attr("height", height)
-                .append("g")
-                .attr("transform", `translate(${margin.left},${margin.top})`);
-
-            const x = d3.scaleTime().range([0, chartWidth]);
-            const y = d3.scaleLinear().range([chartHeight, 0]);
-
-            const startDate = parseDate(project.startDate);
-            const endDate = parseDate(project.endDate);
+            const width = container.node().getBoundingClientRect().width, height = container.node().getBoundingClientRect().height;
+            const margin = { top: 40, right: 50, bottom: 40, left: 60 }, chartWidth = width - margin.left - margin.right, chartHeight = height - margin.top - margin.bottom;
+            const svg = container.append("svg").attr("width", width).attr("height", height).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+            const x = d3.scaleTime().range([0, chartWidth]), y = d3.scaleLinear().range([chartHeight, 0]);
+            const startDate = this.parseDate(project.startDate), endDate = this.parseDate(project.endDate);
             x.domain([startDate, endDate]);
             y.domain([0, 100]);
             
-            const timeDiff = endDate.getTime() - startDate.getTime();
-            const days = timeDiff / (1000 * 3600 * 24);
-
+            const timeDiff = endDate.getTime() - startDate.getTime(), days = timeDiff / (1000 * 3600 * 24);
             let tickInterval;
-            if (days > 365) {
-                tickInterval = d3.timeMonth.every(3);
-            } else if (days > 180) {
-                tickInterval = d3.timeMonth.every(1);
-            } else if (days > 60) {
-                tickInterval = d3.timeWeek.every(2);
-            } else {
-                 tickInterval = d3.timeWeek.every(1);
-            }
+            if (days > 365) tickInterval = d3.timeMonth.every(3);
+            else if (days > 180) tickInterval = d3.timeMonth.every(1);
+            else if (days > 60) tickInterval = d3.timeWeek.every(2);
+            else tickInterval = d3.timeWeek.every(1);
 
-
-            // More granular axis
-            svg.append("g")
-                .attr("class", "chart-grid")
-                .attr("transform", `translate(0,${chartHeight})`)
-                .call(d3.axisBottom(x).ticks(tickInterval).tickFormat(d3.timeFormat("%b %d")));
-
-            svg.append("g")
-                .attr("class", "chart-grid")
-                .call(d3.axisLeft(y).ticks(10).tickFormat(d => `${d}%`));
-            
-            svg.append("text")
-                .attr("x", chartWidth / 2)
-                .attr("y", 0 - (margin.top / 2))
-                .attr("text-anchor", "middle")
-                .attr("class", "text-lg font-bold fill-current text-gray-900 dark:text-white")
-                .text(`${project.name} - Progress Chart`);
-
-            // Planned line and finish line
+            svg.append("g").attr("class", "chart-grid").attr("transform", `translate(0,${chartHeight})`).call(d3.axisBottom(x).ticks(tickInterval).tickFormat(d3.timeFormat("%b %d")));
+            svg.append("g").attr("class", "chart-grid").call(d3.axisLeft(y).ticks(10).tickFormat(d => `${d}%`));
+            svg.append("text").attr("x", chartWidth / 2).attr("y", 0 - (margin.top / 2)).attr("text-anchor", "middle").attr("class", "text-lg font-bold fill-current text-gray-900 dark:text-white").text(`${project.name} - Progress Chart`);
             svg.append("line").attr("class", "planned-line").attr("x1", x(startDate)).attr("y1", y(0)).attr("x2", x(endDate)).attr("y2", y(100));
             svg.append("line").attr("class", "finish-line").attr("x1", x(endDate)).attr("y1", 0).attr("x2", x(endDate)).attr("y2", chartHeight);
 
-            // Today line
             const today = new Date();
             if (today >= startDate && today <= endDate) {
                 svg.append("line").attr("class", "today-line").attr("x1", x(today)).attr("y1", 0).attr("x2", x(today)).attr("y2", chartHeight);
             }
             
             const allTasksWithPhase = [];
-            project.phases.forEach(phase => {
-                phase.tasks.forEach(task => {
-                    if (task.effectiveEndDate) {
-                        allTasksWithPhase.push({ ...task, phaseName: phase.name });
-                    }
-                });
-            });
-
-            const firstActivityDate = parseDate(getBoundaryDate(allTasksWithPhase, 'earliest')) || startDate;
+            project.phases.forEach(phase => phase.tasks.forEach(task => { if (task.effectiveEndDate) allTasksWithPhase.push({ ...task, phaseName: phase.name }); }));
+            const firstActivityDate = this.parseDate(this.getBoundaryDate(allTasksWithPhase, 'earliest')) || startDate;
             const pathData = [{ date: firstActivityDate, progress: 0 }];
             let cumulativeProgress = 0;
 
-            allTasksWithPhase.sort((a,b) => parseDate(a.effectiveEndDate) - parseDate(b.effectiveEndDate)).forEach(task => {
-                const dateForPoint = parseDate(task.effectiveEndDate);
+            allTasksWithPhase.sort((a,b) => this.parseDate(a.effectiveEndDate) - this.parseDate(b.effectiveEndDate)).forEach(task => {
+                const dateForPoint = this.parseDate(task.effectiveEndDate);
                 if (dateForPoint) {
                     cumulativeProgress += 100 / (allTasksWithPhase.length || 1);
-                    pathData.push({ 
-                        date: dateForPoint, 
-                        progress: cumulativeProgress, 
-                        completed: task.completed, 
-                        name: task.name,
-                        phaseName: task.phaseName,
-                        percentComplete: Math.round(task.progress)
-                    });
+                    pathData.push({ date: dateForPoint, progress: cumulativeProgress, completed: task.completed, name: task.name, phaseName: task.phaseName, percentComplete: Math.round(task.progress) });
                 }
             });
             
             const line = d3.line().x(d => x(d.date)).y(d => y(d.progress));
-            
             const totalDuration = endDate.getTime() - startDate.getTime();
             const getPlannedProgress = date => totalDuration <= 0 ? 0 : Math.min(100, (date.getTime() - startDate.getTime()) / totalDuration * 100);
             
-            // Draw path segments
             for (let i = 0; i < pathData.length - 1; i++) {
                 const segment = [pathData[i], pathData[i+1]], endPoint = segment[1];
                 const colorClass = endPoint.date > endDate ? 'stroke-red-500' : (endPoint.progress >= getPlannedProgress(endPoint.date) ? 'stroke-green-500' : 'stroke-red-500');
                 svg.append("path").datum(segment).attr("class", `${endPoint.completed ? 'actual-line' : 'projected-line'} ${colorClass}`).attr("d", line);
             }
 
-            // Draw points
-            svg.selectAll(".task-point")
-                .data(pathData.slice(1))
-                .enter().append("circle")
-                .attr("class", "task-point actual-point")
-                .attr("cx", d => x(d.date))
-                .attr("cy", d => y(d.progress))
-                .attr("fill", d => d.date > endDate ? '#ef4444' : (d.progress >= getPlannedProgress(d.date) ? '#22c55e' : '#ef4444'));
+            svg.selectAll(".task-point").data(pathData.slice(1)).enter().append("circle").attr("class", "task-point actual-point")
+                .attr("cx", d => x(d.date)).attr("cy", d => y(d.progress)).attr("fill", d => d.date > endDate ? '#ef4444' : (d.progress >= getPlannedProgress(d.date) ? '#22c55e' : '#ef4444'));
 
-            const labels = svg.selectAll(".task-label-container")
-                .data(pathData.slice(1))
-                .enter().append("foreignObject")
-                .attr("class", "task-label-container")
-                .attr("width", 180) 
-                .attr("height", 60);
+            const labels = svg.selectAll(".task-label-container").data(pathData.slice(1)).enter().append("foreignObject").attr("class", "task-label-container").attr("width", 180).attr("height", 60);
 
             labels.each(function(d) {
                 const fo = d3.select(this);
-                fo.append("xhtml:div")
-                    .attr("class", "p-2 rounded-md text-xs bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 h-full")
-                    .html(`<div class="font-bold text-blue-500 truncate">${d.phaseName}</div><strong class="truncate">${d.name}</strong><br>${formatDate(d.date)} - ${d.percentComplete}%`);
+                fo.append("xhtml:div").attr("class", "p-2 rounded-md text-xs bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 h-full")
+                    .html(`<div class="font-bold text-blue-500 truncate">${d.phaseName}</div><strong class="truncate">${d.name}</strong><br>${timelineApp.formatDate(d.date)} - ${d.percentComplete}%`);
 
-                const pointX = x(d.date);
-                const pointY = y(d.progress);
-                const foWidth = 180;
-                const foHeight = 60;
+                const pointX = x(d.date), pointY = y(d.progress), foWidth = 180, foHeight = 60;
+                let foX = pointX + 10, foY = pointY - (foHeight / 2);
 
-                let foX = pointX + 10;
-                let foY = pointY - (foHeight / 2);
-
-                if (foX + foWidth > chartWidth) {
-                    foX = pointX - foWidth - 10;
-                }
-                 if (foY < 0) {
-                    foY = 0;
-                }
-                if (foY + foHeight > chartHeight) {
-                    foY = chartHeight - foHeight;
-                }
-
+                if (foX + foWidth > chartWidth) foX = pointX - foWidth - 10;
+                if (foY < 0) foY = 0;
+                if (foY + foHeight > chartHeight) foY = chartHeight - foHeight;
                 fo.attr("x", foX).attr("y", foY);
             });
 
@@ -1786,104 +1839,82 @@
                 labels.each(function(d2, j) {
                     if (i >= j) return;
                     const otherLabel = d3.select(this);
-                    
                     const currentBox = {x: parseFloat(currentLabel.attr("x")), y: parseFloat(currentLabel.attr("y")), width: 180, height: 60};
                     const otherBox = {x: parseFloat(otherLabel.attr("x")), y: parseFloat(otherLabel.attr("y")), width: 180, height: 60};
-
-                    if (
-                        currentBox.x < otherBox.x + otherBox.width &&
-                        currentBox.x + currentBox.width > otherBox.x &&
-                        currentBox.y < otherBox.y + otherBox.height &&
-                        currentBox.height + currentBox.y > otherBox.y
-                    ) {
+                    if (currentBox.x < otherBox.x + otherBox.width && currentBox.x + currentBox.width > otherBox.x && currentBox.y < otherBox.y + otherBox.height && currentBox.height + currentBox.y > otherBox.y) {
                         const newY = currentBox.y + currentBox.height + 2;
-                         if (newY + otherBox.height <= chartHeight) {
-                            otherLabel.attr("y", newY);
-                        }
+                         if (newY + otherBox.height <= chartHeight) otherLabel.attr("y", newY);
                     }
                 });
             });
-        }
+        },
 
-        function showDependencyTooltip(event, itemId) {
+        showDependencyTooltip(event, itemId) {
             const allItems = new Map();
-            projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
+            this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
             const item = allItems.get(itemId);
-            if (!item || ((!item.dependents || item.dependents.length === 0) && (!item.dependencies || item.dependencies.length === 0))) {
-                return;
-            }
+            if (!item || ((!item.dependents || item.dependents.length === 0) && (!item.dependencies || item.dependencies.length === 0))) return;
 
-            // Find the ultimate root of the dependency chain
             let rootItem = item;
             let visited = new Set();
             while (rootItem.dependencies && rootItem.dependencies.length > 0 && !visited.has(rootItem.id)) {
                 visited.add(rootItem.id);
                 const parentId = rootItem.dependencies[0];
                 const parentItem = allItems.get(parentId);
-                if (!parentItem || visited.has(parentId)) break; // Cycle detected or parent not found
+                if (!parentItem || visited.has(parentId)) break;
                 rootItem = parentItem;
             }
 
-            const treeHtml = buildDependencyTree(rootItem.id, itemId, allItems);
-            dependencyTooltip.innerHTML = treeHtml;
-            dependencyTooltip.classList.remove('hidden');
+            const treeHtml = this.buildDependencyTree(rootItem.id, itemId, allItems);
+            this.elements.dependencyTooltip.innerHTML = treeHtml;
+            this.elements.dependencyTooltip.classList.remove('hidden');
 
             const rect = event.target.getBoundingClientRect();
+            let top = rect.bottom + window.scrollY + 5, left = rect.left + window.scrollX;
+
+            this.elements.dependencyTooltip.style.top = `${top}px`;
+            this.elements.dependencyTooltip.style.left = `${left}px`;
             
-            let top = rect.bottom + window.scrollY + 5;
-            let left = rect.left + window.scrollX;
+            const tooltipRect = this.elements.dependencyTooltip.getBoundingClientRect();
+            if (tooltipRect.right > window.innerWidth) this.elements.dependencyTooltip.style.left = `${window.innerWidth - tooltipRect.width - 10}px`;
+            if (tooltipRect.bottom > window.innerHeight) this.elements.dependencyTooltip.style.top = `${top - tooltipRect.height - rect.height - 10}px`;
+        },
 
-            dependencyTooltip.style.top = `${top}px`;
-            dependencyTooltip.style.left = `${left}px`;
-            
-            const tooltipRect = dependencyTooltip.getBoundingClientRect();
-            if (tooltipRect.right > window.innerWidth) {
-                dependencyTooltip.style.left = `${window.innerWidth - tooltipRect.width - 10}px`;
-            }
-             if (tooltipRect.bottom > window.innerHeight) {
-                dependencyTooltip.style.top = `${top - tooltipRect.height - rect.height - 10}px`;
-            }
-        }
+        hideDependencyTooltip() {
+            this.elements.dependencyTooltip.classList.add('hidden');
+        },
 
-        function hideDependencyTooltip() {
-            dependencyTooltip.classList.add('hidden');
-        }
-
-        function buildDependencyTree(itemId, highlightedId, allItems, visited = new Set()) {
-            if (visited.has(itemId)) return ''; // Prevent infinite loops
+        buildDependencyTree(itemId, highlightedId, allItems, visited = new Set()) {
+            if (visited.has(itemId)) return ''; 
             visited.add(itemId);
 
             const item = allItems.get(itemId);
             if (!item) return '';
 
             let highlightClass = item.id === highlightedId ? 'highlight' : '';
-            
             let childrenHtml = '';
             if (item.dependents && item.dependents.length > 0) {
                 childrenHtml += '<div class="node-children">';
                 item.dependents.forEach(childId => {
-                    childrenHtml += buildDependencyTree(childId, highlightedId, allItems, visited);
+                    childrenHtml += this.buildDependencyTree(childId, highlightedId, allItems, visited);
                 });
                 childrenHtml += '</div>';
             }
 
-            return `
-                <div class="dependency-tree-node">
-                    <div class="node-content ${highlightClass}">
-                        ${item.name}
-                    </div>
-                    ${childrenHtml}
-                </div>
-            `;
-        }
+            return `<div class="dependency-tree-node">
+                        <div class="node-content ${highlightClass}">${item.name}</div>
+                        ${childrenHtml}
+                    </div>`;
+        },
 
-        function formatDateInput(event) { let value = event.target.value.replace(/\D/g, ''); if (value.length > 2) value = value.substring(0, 2) + '/' + value.substring(2); if (value.length > 5) value = value.substring(0, 5) + '/' + value.substring(5, 7); event.target.value = value; }
-        function handleManualDateInput(event) {
+        formatDateInput(event) { let value = event.target.value.replace(/\D/g, ''); if (value.length > 2) value = value.substring(0, 2) + '/' + value.substring(2); if (value.length > 5) value = value.substring(0, 5) + '/' + value.substring(5, 7); event.target.value = value; },
+        
+        handleManualDateInput(event) {
             const input = event.target, dateStr = input.value;
-            const revert = () => { input.value = input.dataset.date ? formatDate(parseDate(input.dataset.date)) : ''; };
+            const revert = () => { input.value = input.dataset.date ? this.formatDate(this.parseDate(input.dataset.date)) : ''; };
             if (dateStr && !/^\d{2}\/\d{2}\/\d{2}$/.test(dateStr)) { revert(); return; }
             if (!dateStr) {
-                updateDate({ type: input.dataset.type, projectId: parseInt(input.dataset.projectId), phaseId: parseInt(input.dataset.phaseId), taskId: parseInt(input.dataset.taskId), subtaskId: parseInt(input.dataset.subtaskId), element: input }, null);
+                this.updateDate({ type: input.dataset.type, projectId: parseInt(input.dataset.projectId), phaseId: parseInt(input.dataset.phaseId), taskId: parseInt(input.dataset.taskId), subtaskId: parseInt(input.dataset.subtaskId), element: input }, null);
                 return;
             }
             const [month, day, year] = dateStr.split('/').map(p => parseInt(p, 10));
@@ -1893,133 +1924,117 @@
             const context = { type: input.dataset.type, projectId: parseInt(input.dataset.projectId), phaseId: parseInt(input.dataset.phaseId), taskId: parseInt(input.dataset.taskId), subtaskId: parseInt(input.dataset.subtaskId), element: input };
             if (input.dataset.type.startsWith('new-project')) { input.dataset.date = newDate; return; }
             if (oldDate && oldDate !== newDate) {
-                pendingDateChange = { context, newDate };
-                reasonModalTitle.textContent = 'Reason for Date Change';
-                reasonModalDetails.textContent = `Changing date from ${formatDate(parseDate(oldDate))} to ${formatDate(parseDate(newDate))}.`;
-                reasonModal.classList.remove('hidden');
-                reasonCommentTextarea.focus();
+                this.pendingDateChange = { context, newDate };
+                this.elements.reasonModalTitle.textContent = 'Reason for Date Change';
+                this.elements.reasonModalDetails.textContent = `Changing date from ${this.formatDate(this.parseDate(oldDate))} to ${this.formatDate(this.parseDate(newDate))}.`;
+                this.elements.reasonModal.classList.remove('hidden');
+                this.elements.reasonCommentTextarea.focus();
             }
-            else if (!oldDate && newDate) { updateDate(context, newDate); }
-        }
+            else if (!oldDate && newDate) { this.updateDate(context, newDate); }
+        },
         
-        function handleDateInputKeydown(event) {
-            if (event.key !== 'Enter') return;
-            event.preventDefault();
-            event.target.blur();
-        }
+        handleDateInputKeydown(event) { if (event.key === 'Enter') { event.preventDefault(); event.target.blur(); } },
 
-        function makeEditable(element, updateFunction, ...args) {
-            if (dependencyMode) return;
-
+        makeEditable(element, updateFunction, ...args) {
+            if (this.dependencyMode) return;
             const originalText = element.innerText;
             const input = document.createElement('input');
             input.type = 'text';
             input.value = originalText;
             input.className = 'inline-input';
-
-            if (document.documentElement.classList.contains('dark')) {
-                input.style.backgroundColor = '#1e293b';
-                input.style.color = '#e2e8f0';
-                input.style.border = '1px solid #334155';
-            } else {
-                input.style.backgroundColor = '#ffffff';
-                input.style.color = '#1e293b';
-                input.style.border = '1px solid #e2e8f0';
-            }
-
             element.replaceWith(input);
             input.focus();
-
             input.addEventListener('blur', () => {
                 const newText = input.value.trim();
                 if (newText && newText !== originalText) {
-                    window[updateFunction](...args, newText);
+                    this[updateFunction](...args, newText);
                 }
-                renderProjects();
+                this.renderProjects();
             });
-
             input.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') input.blur();
                 if (e.key === 'Escape') { input.value = originalText; input.blur(); }
             });
-        }
+        },
         
-        function showAddSubtaskInput(taskId) {
+        showAddSubtaskInput(taskId) {
             const form = document.getElementById(`add-subtask-form-${taskId}`);
             if (form) {
                 form.classList.remove('hidden');
                 form.querySelector('input').focus();
             }
-        }
+        },
         
-        function addProject() {
-            const name = newProjectNameInput.value.trim(); if (!name) return;
+        addProject() {
+            const name = this.elements.newProjectNameInput.value.trim(); if (!name) return;
             const startDateInput = document.getElementById('new-project-start-date'), endDateInput = document.getElementById('new-project-end-date');
             const startDate = startDateInput.dataset.date || null, endDate = endDateInput.dataset.date || null;
-            projects.push({ id: Date.now(), name, startDate, endDate, originalStartDate: startDate, originalEndDate: endDate, collapsed: false, phases: [], logs: [] });
-            saveState(); newProjectNameInput.value = ''; startDateInput.value = ''; endDateInput.value = ''; delete startDateInput.dataset.date; delete endDateInput.dataset.date; renderProjects();
-        }
+            this.projects.push({ id: Date.now(), name, startDate, endDate, originalStartDate: startDate, originalEndDate: endDate, collapsed: false, phases: [], logs: [] });
+            this.saveState(); 
+            this.elements.newProjectNameInput.value = ''; 
+            startDateInput.value = ''; endDateInput.value = ''; delete startDateInput.dataset.date; delete endDateInput.dataset.date; 
+            this.renderProjects();
+        },
 
-        function addPhase(projectId) {
+        addPhase(projectId) {
             const nameInput = document.getElementById(`new-phase-name-${projectId}`), name = nameInput.value.trim(); if (!name) return;
-            const project = projects.find(p => p.id === projectId); if (project) { project.phases.push({ id: Date.now(), name, collapsed: false, tasks: [], dependencies: [], dependents: [] }); saveState(); renderProjects(); }
-        }
+            const project = this.projects.find(p => p.id === projectId); 
+            if (project) { project.phases.push({ id: Date.now(), name, collapsed: false, tasks: [], dependencies: [], dependents: [] }); this.saveState(); this.renderProjects(); }
+        },
 
-        function addTask(projectId, phaseId) {
+        addTask(projectId, phaseId) {
             const nameInput = document.getElementById(`new-task-name-${phaseId}`), name = nameInput.value.trim(); if (!name) return;
-            const phase = projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId); if (phase) { phase.tasks.push({ id: Date.now(), name, startDate: null, endDate: null, completed: false, subtasks: [], dependencies: [], dependents: [] }); saveState(); renderProjects(); }
-        }
+            const phase = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId); 
+            if (phase) { phase.tasks.push({ id: Date.now(), name, startDate: null, endDate: null, completed: false, subtasks: [], dependencies: [], dependents: [] }); this.saveState(); this.renderProjects(); }
+        },
 
-        function addSubtask(projectId, phaseId, taskId) {
+        addSubtask(projectId, phaseId, taskId) {
             const nameInput = document.getElementById(`new-subtask-name-${taskId}`), name = nameInput.value.trim(); if (!name) return;
-            const task = projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId); if (task) { if (!task.subtasks) task.subtasks = []; task.subtasks.push({ id: Date.now(), name, startDate: null, endDate: null, completed: false, dependencies: [], dependents: [] }); nameInput.value = ''; saveState(); renderProjects(); }
-        }
-        function moveTask(projectId, fromPhaseId, toPhaseId, taskId) {
-            const project = projects.find(p => p.id === projectId);
+            const task = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId); 
+            if (task) { if (!task.subtasks) task.subtasks = []; task.subtasks.push({ id: Date.now(), name, startDate: null, endDate: null, completed: false, dependencies: [], dependents: [] }); nameInput.value = ''; this.saveState(); this.renderProjects(); }
+        },
+        moveTask(projectId, fromPhaseId, toPhaseId, taskId) {
+            const project = this.projects.find(p => p.id === projectId);
             if (!project) return;
-
-            const fromPhase = project.phases.find(p => p.id === fromPhaseId);
-            const toPhase = project.phases.find(p => p.id === toPhaseId);
+            const fromPhase = project.phases.find(p => p.id === fromPhaseId), toPhase = project.phases.find(p => p.id === toPhaseId);
             if (!fromPhase || !toPhase) return;
-
             const taskIndex = fromPhase.tasks.findIndex(t => t.id === taskId);
             if (taskIndex === -1) return;
-
             const [taskToMove] = fromPhase.tasks.splice(taskIndex, 1);
             toPhase.tasks.push(taskToMove);
-            saveState();
-            renderProjects();
-        }
+            this.saveState();
+            this.renderProjects();
+        },
 
-        function toggleMoveTaskDropdown(event, projectId, phaseId, taskId) {
+        toggleMoveTaskDropdown(event, projectId, phaseId, taskId) {
             event.stopPropagation();
             const dropdown = document.getElementById(`move-task-dropdown-${taskId}`);
             const isVisible = dropdown.classList.contains('show');
             document.querySelectorAll('.move-task-dropdown').forEach(d => d.classList.remove('show'));
 
             if (!isVisible) {
-                const project = projects.find(p => p.id === projectId);
+                const project = this.projects.find(p => p.id === projectId);
                 if (!project) return;
                 let optionsHtml = '';
                 project.phases.forEach(phase => {
                     if (phase.id === phaseId) {
                         optionsHtml += `<div class="move-task-dropdown-item disabled dark:text-gray-500">${phase.name} (current)</div>`;
                     } else {
-                        optionsHtml += `<div class="move-task-dropdown-item dark:hover:bg-slate-600" onclick="moveTask(${projectId}, ${phaseId}, ${phase.id}, ${taskId})">${phase.name}</div>`;
+                        optionsHtml += `<div class="move-task-dropdown-item dark:hover:bg-slate-600" onclick="timelineApp.moveTask(${projectId}, ${phaseId}, ${phase.id}, ${taskId})">${phase.name}</div>`;
                     }
                 });
                 dropdown.innerHTML = optionsHtml;
                 dropdown.classList.add('show');
             }
-        }
+        },
 
-        function updateProjectName(projectId, newName) { const p = projects.find(p => p.id === projectId); if (p) { p.name = newName; saveState(); } }
-        function updatePhaseName(projectId, phaseId, newName) { const p = projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId); if (p) { p.name = newName; saveState(); } }
-        function updateTaskName(projectId, phaseId, taskId, newName) { const t = projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId); if (t) { t.name = newName; saveState(); } }
-        function updateSubtaskName(projectId, phaseId, taskId, subtaskId, newName) { const s = projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId)?.subtasks.find(st => st.id === subtaskId); if (s) { s.name = newName; saveState(); } }
+        updateProjectName(projectId, newName) { const p = this.projects.find(p => p.id === projectId); if (p) { p.name = newName; this.saveState(); } },
+        updatePhaseName(projectId, phaseId, newName) { const p = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId); if (p) { p.name = newName; this.saveState(); } },
+        updateTaskName(projectId, phaseId, taskId, newName) { const t = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId); if (t) { t.name = newName; this.saveState(); } },
+        updateSubtaskName(projectId, phaseId, taskId, subtaskId, newName) { const s = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId)?.subtasks.find(st => st.id === subtaskId); if (s) { s.name = newName; this.saveState(); } },
 
-        function updateDate(context, value, comment = null) {
-            const { projectId, phaseId, taskId, subtaskId, type } = context; const project = projects.find(p => p.id === projectId); if (!project) return; let targetItem, dateField, itemName;
+        updateDate(context, value, comment = null) {
+            const { projectId, phaseId, taskId, subtaskId, type } = context; const project = this.projects.find(p => p.id === projectId); if (!project) return; let targetItem, dateField, itemName;
             if (type.startsWith('project')) { targetItem = project; dateField = type.endsWith('start') ? 'startDate' : 'endDate'; itemName = `Project '${project.name}' ${dateField.replace('Date','')} date`; }
             else {
                 const phase = project.phases.find(ph => ph.id === phaseId); if (!phase) return; const task = phase.tasks.find(t => t.id === taskId); if (!task) return; itemName = `Task '${task.name}'`;
@@ -2027,15 +2042,15 @@
                 else if (type.startsWith('subtask')) { const subtask = task.subtasks.find(st => st.id === subtaskId); if (!subtask) return; targetItem = subtask; dateField = type.endsWith('start') ? 'startDate' : 'endDate'; itemName = `Subtask '${subtask.name}' ${dateField.replace('Date','')} date`; }
             }
             if (targetItem && dateField) { const oldDate = targetItem[dateField]; if (comment) { if (!project.logs) project.logs = []; project.logs.push({ timestamp: new Date().toISOString(), item: itemName, from: oldDate, to: value, comment }); } targetItem[dateField] = value; }
-            saveState(); renderProjects();
-        }
+            this.saveState(); this.renderProjects();
+        },
 
-        function toggleTaskComplete(projectId, phaseId, taskId) { const t = projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId); if (t) { t.completed = !t.completed; saveState(); renderProjects(); } }
-        function toggleSubtaskComplete(projectId, phaseId, taskId, subtaskId) { const s = projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId)?.subtasks.find(st => st.id === subtaskId); if (s) { s.completed = !s.completed; saveState(); renderProjects(); } }
+        toggleTaskComplete(projectId, phaseId, taskId) { const t = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId); if (t) { t.completed = !t.completed; this.saveState(); this.renderProjects(); } },
+        toggleSubtaskComplete(projectId, phaseId, taskId, subtaskId) { const s = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId)?.subtasks.find(st => st.id === subtaskId); if (s) { s.completed = !s.completed; this.saveState(); this.renderProjects(); } },
         
-        function removeAllDependencies(itemId) {
+        removeAllDependencies(itemId) {
             const allItems = new Map();
-            projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
+            this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
             
             const itemToRemove = allItems.get(itemId);
             if (!itemToRemove) return;
@@ -2051,393 +2066,639 @@
                 if(dependent && dependent.dependencies) { dependent.dependencies = dependent.dependencies.filter(id => id !== itemId); }
             });
             itemToRemove.dependents = [];
-        }
+        },
         
-        function deleteProject(projectId) {
-            const project = projects.find(p => p.id === projectId);
+        deleteProject(projectId) {
+            const project = this.projects.find(p => p.id === projectId);
             if (project) {
-                project.phases.forEach(ph => { removeAllDependencies(ph.id); ph.tasks.forEach(t => { removeAllDependencies(t.id); if(t.subtasks) t.subtasks.forEach(st => removeAllDependencies(st.id)); }); });
-                pendingDeletion = { type: 'project', logContext: { projectId }, deleteFn: () => { projects = projects.filter(p => p.id !== projectId); }, itemName: `Project '${project.name}'` };
-                reasonModalTitle.textContent = 'Reason for Deletion';
-                reasonModalDetails.textContent = `You are about to delete the project: "${project.name}".`;
-                reasonModal.classList.remove('hidden');
-                reasonCommentTextarea.focus();
+                project.phases.forEach(ph => { this.removeAllDependencies(ph.id); ph.tasks.forEach(t => { this.removeAllDependencies(t.id); if(t.subtasks) t.subtasks.forEach(st => this.removeAllDependencies(st.id)); }); });
+                this.pendingDeletion = { type: 'project', logContext: { projectId }, deleteFn: () => { this.projects = this.projects.filter(p => p.id !== projectId); }, itemName: `Project '${project.name}'` };
+                this.elements.reasonModalTitle.textContent = 'Reason for Deletion';
+                this.elements.reasonModalDetails.textContent = `You are about to delete the project: "${project.name}".`;
+                this.elements.reasonModal.classList.remove('hidden');
+                this.elements.reasonCommentTextarea.focus();
             }
-        }
+        },
 
-        function deletePhase(projectId, phaseId) {
-            const project = projects.find(p => p.id === projectId);
+        deletePhase(projectId, phaseId) {
+            const project = this.projects.find(p => p.id === projectId);
             const phase = project?.phases.find(ph => ph.id === phaseId);
             if (phase) {
-                removeAllDependencies(phaseId);
-                phase.tasks.forEach(t => { removeAllDependencies(t.id); if(t.subtasks) t.subtasks.forEach(st => removeAllDependencies(st.id)); });
-                pendingDeletion = { type: 'phase', logContext: { projectId }, deleteFn: () => { project.phases = project.phases.filter(ph => ph.id !== phaseId); }, itemName: `Phase '${phase.name}' from project '${project.name}'` };
-                reasonModalTitle.textContent = 'Reason for Deletion';
-                reasonModalDetails.textContent = `You are about to delete the phase: "${phase.name}".`;
-                reasonModal.classList.remove('hidden');
-                reasonCommentTextarea.focus();
+                this.removeAllDependencies(phaseId);
+                phase.tasks.forEach(t => { this.removeAllDependencies(t.id); if(t.subtasks) t.subtasks.forEach(st => this.removeAllDependencies(st.id)); });
+                this.pendingDeletion = { type: 'phase', logContext: { projectId }, deleteFn: () => { project.phases = project.phases.filter(ph => ph.id !== phaseId); }, itemName: `Phase '${phase.name}' from project '${project.name}'` };
+                this.elements.reasonModalTitle.textContent = 'Reason for Deletion';
+                this.elements.reasonModalDetails.textContent = `You are about to delete the phase: "${phase.name}".`;
+                this.elements.reasonModal.classList.remove('hidden');
+                this.elements.reasonCommentTextarea.focus();
             }
-        }
+        },
 
-        function deleteTask(projectId, phaseId, taskId) {
-            const project = projects.find(p => p.id === projectId);
+        deleteTask(projectId, phaseId, taskId) {
+            const project = this.projects.find(p => p.id === projectId);
             const phase = project?.phases.find(ph => ph.id === phaseId);
             const task = phase?.tasks.find(t => t.id === taskId);
             if (task) {
-                removeAllDependencies(taskId);
-                if(task.subtasks) task.subtasks.forEach(st => removeAllDependencies(st.id));
-                pendingDeletion = { type: 'task', logContext: { projectId }, deleteFn: () => { phase.tasks = phase.tasks.filter(t => t.id !== taskId); }, itemName: `Task '${task.name}' from phase '${phase.name}'` };
-                reasonModalTitle.textContent = 'Reason for Deletion';
-                reasonModalDetails.textContent = `You are about to delete the task: "${task.name}".`;
-                reasonModal.classList.remove('hidden');
-                reasonCommentTextarea.focus();
+                this.removeAllDependencies(taskId);
+                if(task.subtasks) task.subtasks.forEach(st => this.removeAllDependencies(st.id));
+                this.pendingDeletion = { type: 'task', logContext: { projectId }, deleteFn: () => { phase.tasks = phase.tasks.filter(t => t.id !== taskId); }, itemName: `Task '${task.name}' from phase '${phase.name}'` };
+                this.elements.reasonModalTitle.textContent = 'Reason for Deletion';
+                this.elements.reasonModalDetails.textContent = `You are about to delete the task: "${task.name}".`;
+                this.elements.reasonModal.classList.remove('hidden');
+                this.elements.reasonCommentTextarea.focus();
             }
-        }
+        },
 
-        function deleteSubtask(projectId, phaseId, taskId, subtaskId) {
-            const project = projects.find(p => p.id === projectId);
+        deleteSubtask(projectId, phaseId, taskId, subtaskId) {
+            const project = this.projects.find(p => p.id === projectId);
             const task = project?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId);
             const subtask = task?.subtasks.find(st => st.id === subtaskId);
             if (subtask) {
-                removeAllDependencies(subtaskId);
-                pendingDeletion = { type: 'subtask', logContext: { projectId }, deleteFn: () => { task.subtasks = task.subtasks.filter(st => st.id !== subtaskId); }, itemName: `Subtask '${subtask.name}' from task '${task.name}'` };
-                reasonModalTitle.textContent = 'Reason for Deletion';
-                reasonModalDetails.textContent = `You are about to delete the subtask: "${subtask.name}".`;
-                reasonModal.classList.remove('hidden');
-                reasonCommentTextarea.focus();
+                this.removeAllDependencies(subtaskId);
+                this.pendingDeletion = { type: 'subtask', logContext: { projectId }, deleteFn: () => { task.subtasks = task.subtasks.filter(st => st.id !== subtaskId); }, itemName: `Subtask '${subtask.name}' from task '${task.name}'` };
+                this.elements.reasonModalTitle.textContent = 'Reason for Deletion';
+                this.elements.reasonModalDetails.textContent = `You are about to delete the subtask: "${subtask.name}".`;
+                this.elements.reasonModal.classList.remove('hidden');
+                this.elements.reasonCommentTextarea.focus();
             }
-        }
+        },
         
-        function toggleProjectCollapse(projectId) {
-            const p = projects.find(p => p.id === projectId);
+        toggleProjectCollapse(projectId) {
+            const p = this.projects.find(p => p.id === projectId);
             if (p) {
                 p.collapsed = !p.collapsed;
-                saveState();
+                this.saveState();
                 document.getElementById(`project-body-${projectId}`).classList.toggle('hidden');
                 document.getElementById(`chevron-${projectId}`).classList.toggle('-rotate-90');
-                if (!p.collapsed && p.startDate && p.endDate) {
-                    drawChart(p);
-                }
+                if (!p.collapsed && p.startDate && p.endDate) this.drawChart(p);
             }
-        }
+        },
 
-        function toggleTaskCollapse(projectId, phaseId, taskId) {
-            const task = projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId);
+        toggleTaskCollapse(projectId, phaseId, taskId) {
+            const task = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId);
             if (task) {
                 task.collapsed = task.collapsed === undefined ? false : !task.collapsed;
-                saveState();
+                this.saveState();
                 document.getElementById(`subtasks-container-${taskId}`).classList.toggle('hidden');
                 document.getElementById(`task-chevron-${taskId}`).classList.toggle('-rotate-90');
             }
-        }
+        },
 
-        function showMainTab(tabName) {
-            document.getElementById(`main-tab-panel-projects`).classList.add('hidden');
-            document.getElementById(`main-tab-panel-overall-load`).classList.add('hidden');
-            document.getElementById(`main-tab-panel-upcoming`).classList.add('hidden');
+        showMainTab(tabName) {
+            ['projects', 'list', 'overall-load', 'upcoming'].forEach(name => {
+                document.getElementById(`main-tab-panel-${name}`).classList.add('hidden');
+                document.getElementById(`main-tab-btn-${name}`).classList.remove('active');
+            });
+
             document.getElementById(`main-tab-panel-${tabName}`).classList.remove('hidden');
-
-            document.getElementById(`main-tab-btn-projects`).classList.remove('active');
-            document.getElementById(`main-tab-btn-overall-load`).classList.remove('active');
-            document.getElementById(`main-tab-btn-upcoming`).classList.remove('active');
             document.getElementById(`main-tab-btn-${tabName}`).classList.add('active');
 
-            if (tabName === 'overall-load') {
-                drawOverallLoadChart();
-            } else if (tabName === 'upcoming') {
-                renderUpcomingTasks();
-            }
-        }
+            if (tabName === 'overall-load') this.drawOverallLoadChart();
+            else if (tabName === 'upcoming') this.renderUpcomingTasks();
+            else if (tabName === 'list') punchListApp.init();
+        },
 
 
-        function toggleLog(projectId) { document.getElementById(`log-container-${projectId}`).classList.toggle('hidden'); document.getElementById(`log-chevron-${projectId}`).classList.toggle('-rotate-90'); }
-        function togglePhaseCollapse(projectId, phaseId) { const phase = projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId); if (phase) { phase.collapsed = !phase.collapsed; saveState(); document.getElementById(`tasks-container-${phaseId}`).classList.toggle('hidden'); document.getElementById(`phase-chevron-${phaseId}`).classList.toggle('-rotate-90'); } }
+        toggleLog(projectId) { document.getElementById(`log-container-${projectId}`).classList.toggle('hidden'); document.getElementById(`log-chevron-${projectId}`).classList.toggle('-rotate-90'); },
+        togglePhaseCollapse(projectId, phaseId) { const phase = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId); if (phase) { phase.collapsed = !phase.collapsed; this.saveState(); document.getElementById(`tasks-container-${phaseId}`).classList.toggle('hidden'); document.getElementById(`phase-chevron-${phaseId}`).classList.toggle('-rotate-90'); } },
 
-        function toggleDeletedLog() {
-            deletedLogCollapsed = !deletedLogCollapsed;
-            renderDeletedProjectsLog();
-        }
+        toggleDeletedLog() {
+            this.deletedLogCollapsed = !this.deletedLogCollapsed;
+            this.renderDeletedProjectsLog();
+        },
 
-        function applyTheme() { 
+        applyTheme() { 
             if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                 document.documentElement.classList.add('dark');
-                lightIcon.classList.remove('hidden');
-                darkIcon.classList.add('hidden');
+                this.elements.lightIcon.classList.remove('hidden');
+                this.elements.darkIcon.classList.add('hidden');
             } else {
                 document.documentElement.classList.remove('dark');
-                darkIcon.classList.remove('hidden');
-                lightIcon.classList.add('hidden');
+                this.elements.darkIcon.classList.remove('hidden');
+                this.elements.lightIcon.classList.add('hidden');
             }
-        }
+        },
         
-        function initializeSharedDatePicker() {
+        initializeSharedDatePicker() {
             const dummy = document.createElement('input'); dummy.style.display = 'none'; document.body.appendChild(dummy);
-            sharedPicker = flatpickr(dummy, {
-                dateFormat: "Y-m-d", onOpen: () => datepickerBackdrop.classList.remove('hidden'), onClose: () => datepickerBackdrop.classList.add('hidden'),
+            this.sharedPicker = flatpickr(dummy, {
+                dateFormat: "Y-m-d", 
+                onOpen: () => this.elements.datepickerBackdrop.classList.remove('hidden'), 
+                onClose: () => this.elements.datepickerBackdrop.classList.add('hidden'),
                 onChange: (selectedDates, dateStr, instance) => {
-                    if (!currentPickerContext) return;
-                    const newDate = instance.formatDate(selectedDates[0], "Y-m-d"), { type, oldDate, element } = currentPickerContext;
-                    if (type.startsWith('new-project')) { element.value = formatDate(parseDate(newDate)); element.dataset.date = newDate; instance.close(); return; }
+                    if (!this.currentPickerContext) return;
+                    const newDate = instance.formatDate(selectedDates[0], "Y-m-d"), { type, oldDate, element } = this.currentPickerContext;
+                    if (type.startsWith('new-project')) { element.value = this.formatDate(this.parseDate(newDate)); element.dataset.date = newDate; instance.close(); return; }
                     if (oldDate && oldDate !== newDate) {
-                        pendingDateChange = { context: currentPickerContext, newDate };
-                        reasonModalTitle.textContent = 'Reason for Date Change';
-                        reasonModalDetails.textContent = `Changing date from ${formatDate(parseDate(oldDate))} to ${formatDate(parseDate(newDate))}.`;
-                        reasonModal.classList.remove('hidden');
-                        reasonCommentTextarea.focus();
+                        this.pendingDateChange = { context: this.currentPickerContext, newDate };
+                        this.elements.reasonModalTitle.textContent = 'Reason for Date Change';
+                        this.elements.reasonModalDetails.textContent = `Changing date from ${this.formatDate(this.parseDate(oldDate))} to ${this.formatDate(this.parseDate(newDate))}.`;
+                        this.elements.reasonModal.classList.remove('hidden');
+                        this.elements.reasonCommentTextarea.focus();
                         instance.close();
                     }
-                    else if (!oldDate) { updateDate(currentPickerContext, newDate); instance.close(); } else { instance.close(); }
+                    else if (!oldDate) { this.updateDate(this.currentPickerContext, newDate); instance.close(); } else { instance.close(); }
                 },
                 onReady: [function() { const button = document.createElement("button"); button.className = "flatpickr-today-button"; button.textContent = "Today"; button.addEventListener("click", (e) => { this.setDate(new Date(), true); e.preventDefault(); }); this.calendarContainer.appendChild(button); }]
             });
             document.body.removeChild(dummy);
-        }
+        },
 
-        function handleDateTrigger(trigger) {
+        handleDateTrigger(trigger) {
             if (!trigger) return;
             const { projectId, phaseId, taskId, subtaskId, type } = trigger.dataset;
-            currentPickerContext = { type, projectId: parseInt(projectId), phaseId: parseInt(phaseId), taskId: parseInt(taskId), subtaskId: parseInt(subtaskId), element: trigger, oldDate: trigger.dataset.date || null };
+            this.currentPickerContext = { type, projectId: parseInt(projectId), phaseId: parseInt(phaseId), taskId: parseInt(taskId), subtaskId: parseInt(subtaskId), element: trigger, oldDate: trigger.dataset.date || null };
             let defaultDate = trigger.dataset.date || new Date();
             if (type && type.endsWith('-end')) {
                 let startDate;
-                if (subtaskId) startDate = projects.find(p=>p.id===parseInt(projectId))?.phases.find(p=>p.id===parseInt(phaseId))?.tasks.find(t=>t.id===parseInt(taskId))?.subtasks.find(s=>s.id===parseInt(subtaskId))?.startDate;
-                else if (taskId) startDate = projects.find(p=>p.id===parseInt(projectId))?.phases.find(p=>p.id===parseInt(phaseId))?.tasks.find(t=>t.id===parseInt(taskId))?.startDate;
-                else if (projectId) startDate = projects.find(p=>p.id===parseInt(projectId))?.startDate;
+                if (subtaskId) startDate = this.projects.find(p=>p.id===parseInt(projectId))?.phases.find(p=>p.id===parseInt(phaseId))?.tasks.find(t=>t.id===parseInt(taskId))?.subtasks.find(s=>s.id===parseInt(subtaskId))?.startDate;
+                else if (taskId) startDate = this.projects.find(p=>p.id===parseInt(projectId))?.phases.find(p=>p.id===parseInt(phaseId))?.tasks.find(t=>t.id===parseInt(taskId))?.startDate;
+                else if (projectId) startDate = this.projects.find(p=>p.id===parseInt(projectId))?.startDate;
                 if (startDate) defaultDate = startDate;
             }
-            sharedPicker.set('defaultDate', defaultDate); sharedPicker.open();
-        }
+            this.sharedPicker.set('defaultDate', defaultDate); this.sharedPicker.open();
+        },
 
-        saveReasonBtn.addEventListener('click', () => {
-            const comment = reasonCommentTextarea.value.trim();
+        handleSaveReason() {
+            const comment = this.elements.reasonCommentTextarea.value.trim();
             if (!comment) {
-                reasonCommentTextarea.classList.add('border-red-500', 'ring-red-500');
-                setTimeout(() => reasonCommentTextarea.classList.remove('border-red-500', 'ring-red-500'), 2000);
+                this.elements.reasonCommentTextarea.classList.add('border-red-500', 'ring-red-500');
+                setTimeout(() => this.elements.reasonCommentTextarea.classList.remove('border-red-500', 'ring-red-500'), 2000);
                 return;
             }
 
-            if (pendingDateChange) {
-                updateDate(pendingDateChange.context, pendingDateChange.newDate, comment);
-            } else if (pendingDeletion) {
-                const { type, logContext, deleteFn, itemName } = pendingDeletion;
+            if (this.pendingDateChange) {
+                this.updateDate(this.pendingDateChange.context, this.pendingDateChange.newDate, comment);
+            } else if (this.pendingDeletion) {
+                const { type, logContext, deleteFn, itemName } = this.pendingDeletion;
 
                 if (type === 'project') {
-                     deletedProjectLogs.push({
-                        timestamp: new Date().toISOString(),
-                        item: itemName,
-                        type: 'deletion',
-                        comment: comment
-                    });
+                     this.deletedProjectLogs.push({ timestamp: new Date().toISOString(), item: itemName, type: 'deletion', comment: comment });
                 } else {
-                    const project = projects.find(p => p.id === logContext.projectId);
+                    const project = this.projects.find(p => p.id === logContext.projectId);
                     if (project) {
                         if (!project.logs) project.logs = [];
-                        project.logs.push({
-                            timestamp: new Date().toISOString(),
-                            item: itemName,
-                            type: 'deletion',
-                            comment: comment
-                        });
+                        project.logs.push({ timestamp: new Date().toISOString(), item: itemName, type: 'deletion', comment: comment });
                     }
                 }
-                
                 deleteFn();
-                saveState();
-                renderProjects();
+                this.saveState();
+                this.renderProjects();
             }
 
-            reasonModal.classList.add('hidden');
-            reasonCommentTextarea.value = '';
-            pendingDateChange = null;
-            pendingDeletion = null;
-        });
+            this.elements.reasonModal.classList.add('hidden');
+            this.elements.reasonCommentTextarea.value = '';
+            this.pendingDateChange = null;
+            this.pendingDeletion = null;
+        },
 
-        cancelReasonBtn.addEventListener('click', () => {
-            reasonModal.classList.add('hidden');
-            reasonCommentTextarea.value = '';
-            renderProjects();
-            pendingDateChange = null;
-            pendingDeletion = null;
-        });
+        handleCancelReason() {
+            this.elements.reasonModal.classList.add('hidden');
+            this.elements.reasonCommentTextarea.value = '';
+            this.renderProjects();
+            this.pendingDateChange = null;
+            this.pendingDeletion = null;
+        },
 
-        function handleCircleClick(itemId) {
+        handleCircleClick(itemId) {
             const allItems = new Map();
-            projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
+            this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
             const item = allItems.get(itemId);
             if (item.dependencies && item.dependencies.length > 0) {
-                pendingClearDependencies = itemId;
-                confirmModalText.textContent = 'Do you want to clear the parents for this item?';
-                confirmModal.classList.remove('hidden');
+                this.pendingClearDependencies = itemId;
+                this.elements.confirmModalText.textContent = 'Do you want to clear the parents for this item?';
+                this.elements.confirmModal.classList.remove('hidden');
             }
-        }
+        },
         
-        cancelConfirmBtn.addEventListener('click', () => {
-            confirmModal.classList.add('hidden');
-            pendingClearDependencies = null;
-        });
-        
-        confirmActionBtn.addEventListener('click', () => {
-            if (pendingClearDependencies) {
-                clearDependencies(pendingClearDependencies);
-            }
-            confirmModal.classList.add('hidden');
-            pendingClearDependencies = null;
-        });
-        
-        function clearDependencies(itemId) {
+        clearDependencies(itemId) {
             const allItems = new Map();
-            projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
-            
+            this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
             const itemToClear = allItems.get(itemId);
             if (!itemToClear || !itemToClear.dependencies) return;
-            
-            // Remove this item from its parents' dependents list
             itemToClear.dependencies.forEach(parentId => {
                 const parent = allItems.get(parentId);
                 if (parent && parent.dependents) {
                     parent.dependents = parent.dependents.filter(id => id !== itemId);
                 }
             });
-            
             itemToClear.dependencies = [];
             itemToClear.isDriven = false;
-            
-            saveState();
-            renderProjects();
-        }
+            this.saveState();
+            this.renderProjects();
+        },
 
-        function startDependencyMode(itemId) {
+        startDependencyMode(itemId) {
             const allItems = new Map();
-            projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
-            firstSelectedItem = allItems.get(itemId);
-            dependencyMode = true;
-            dependencyBanner.classList.remove('hidden');
-            renderProjects();
-        }
+            this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
+            this.firstSelectedItem = allItems.get(itemId);
+            this.dependencyMode = true;
+            this.elements.dependencyBanner.classList.remove('hidden');
+            this.renderProjects();
+        },
         
-        function handleDependencyClick(target) {
-             if (!dependencyMode || !firstSelectedItem) return;
-
+        handleDependencyClick(target) {
+             if (!this.dependencyMode || !this.firstSelectedItem) return;
             const itemId = parseInt(target.dataset.id);
-            if (firstSelectedItem.id === itemId) return;
+            if (this.firstSelectedItem.id === itemId) return;
             const allItems = new Map();
-            projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
-            const secondItem = allItems.get(itemId); // The new dependent
-            const firstItem = firstSelectedItem; // The new parent
+            this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
+            const secondItem = allItems.get(itemId), firstItem = this.firstSelectedItem;
 
-            // A (first) is the parent, B (second) is the dependent.
-            // Check for circular dependency: B cannot be a parent of A.
-            let current = secondItem;
-            let visited = new Set();
+            let current = secondItem, visited = new Set();
             while(current) {
                 if (current.id === firstItem.id) {
                     alert("Cannot create a circular dependency.");
-                    dependencyMode = false;
-                    firstSelectedItem = null;
-                    dependencyBanner.classList.add('hidden');
-                    renderProjects();
-                    return;
+                    this.dependencyMode = false; this.firstSelectedItem = null; this.elements.dependencyBanner.classList.add('hidden'); this.renderProjects(); return;
                 }
                 if (!current.dependencies || current.dependencies.length === 0 || visited.has(current.id)) break;
                 visited.add(current.id);
-                // Since we have a single parent, we can just grab the first one
                 current = allItems.get(current.dependencies[0]);
             }
 
-            // --- NEW LOGIC: Enforce single parent ---
-            // If the dependent (secondItem) already has a parent, remove the old relationship
             if (secondItem.dependencies && secondItem.dependencies.length > 0) {
                 const oldParentId = secondItem.dependencies[0];
                 const oldParent = allItems.get(oldParentId);
                 if (oldParent && oldParent.dependents) {
-                    // Remove secondItem from the old parent's list of kids
                     oldParent.dependents = oldParent.dependents.filter(dependentId => dependentId !== secondItem.id);
                 }
             }
 
-            // Set the new parent for the dependent
             secondItem.dependencies = [firstItem.id];
-
-            // Add the dependent to the new parent's list of kids
             if (!firstItem.dependents) firstItem.dependents = [];
-            if (!firstItem.dependents.includes(secondItem.id)) {
-                firstItem.dependents.push(secondItem.id);
-            }
-            // --- END NEW LOGIC ---
+            if (!firstItem.dependents.includes(secondItem.id)) firstItem.dependents.push(secondItem.id);
             
-            dependencyMode = false;
-            firstSelectedItem = null;
-            dependencyBanner.classList.add('hidden');
-            saveState();
-            renderProjects();
+            this.dependencyMode = false; this.firstSelectedItem = null; this.elements.dependencyBanner.classList.add('hidden');
+            this.saveState(); this.renderProjects();
         }
+    };
 
-        document.addEventListener('DOMContentLoaded', () => {
-            themeToggleBtn.addEventListener('click', () => { document.documentElement.classList.toggle('dark'); localStorage.setItem('color-theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light'); applyTheme(); renderProjects(); showMainTab('projects'); });
-            exportBtn.addEventListener('click', () => { const a = document.createElement('a'); a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projects, null, 2)); a.download = "timeline-projects.json"; document.body.appendChild(a); a.click(); a.remove(); });
-            importBtn.addEventListener('click', () => importFileInput.click());
-            importFileInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (e) => { try { const imported = JSON.parse(e.target.result); if (Array.isArray(imported)) { projects = imported; saveState(); renderProjects(); } } catch (err) { console.error(err); } }; reader.readAsText(file); e.target.value = null; });
-            pdfBtn.addEventListener('click', () => {
-                const originalCollapsedState = projects.map(p => ({id: p.id, collapsed: p.collapsed, phases: p.phases.map(ph => ({id: ph.id, collapsed: ph.collapsed}))}));
-                projects.forEach(p => { p.collapsed = false; p.phases.forEach(ph => ph.collapsed = false); });
-                renderProjects();
+    const punchListApp = {
+        STORAGE_KEY: 'timelinePunchListData',
+        taskList: null,
+        initialized: false,
+
+        init() {
+            if (this.initialized) return;
+            this.taskList = document.getElementById('punch-list-container');
+            if (!this.taskList) return;
+
+            this.loadList();
+            this.addEventListeners();
+            this.initialized = true;
+        },
+
+        addEventListeners() {
+            this.taskList.addEventListener('input', (e) => {
+                const target = e.target;
+                if (!target?.classList.contains('task-label')) return;
+                this.handleMarkdown.call(this, e);
+                // Save is called within handleMarkdown after DOM updates
+            });
+            
+             document.addEventListener('focusin', this.updateActiveTaskHighlight.bind(this));
+             document.addEventListener('click', this.updateActiveTaskHighlight.bind(this));
+             this.taskList.addEventListener('change', e => {
+                if (e.target.type === 'checkbox') this.updateCheckboxState(e.target);
+             });
+             this.taskList.addEventListener('keydown', this.handleKeyboard.bind(this));
+        },
+        
+        getList() {
+            try {
+                const raw = localStorage.getItem(this.STORAGE_KEY);
+                return raw ? JSON.parse(raw) : [];
+            } catch { return []; }
+        },
+        
+        saveList() {
+          if (!this.taskList) return;
+          const items = [...this.taskList.querySelectorAll('.task-item')];
+          const dataToSave = items.map(li => {
+              const label = li.querySelector('.task-label');
+              if (!label) return null;
+              const text = label.innerText;
+              let type = 'text';
+              if (label.classList.contains('header-1')) type = 'header-1';
+              else if (label.classList.contains('header-2')) type = 'header-2';
+              else if (label.classList.contains('note-block')) type = 'note';
+              else if (li.querySelector('input[type="checkbox"]')) type = 'checkbox';
+
+              const highlightClass = ['highlight-yellow', 'highlight-blue', 'highlight-purple', 'highlight-red']
+                .find(cls => label.classList.contains(cls));
+              
+              return { text, type, indent: this.getIndentLevel(li), checked: li.classList.contains('checked'), highlight: highlightClass || null };
+          }).filter(Boolean);
+          localStorage.setItem(this.STORAGE_KEY, JSON.stringify(dataToSave));
+        },
+
+        loadList() {
+            const listData = this.getList();
+            this.taskList.innerHTML = '';
+            let wrapper = null;
+            listData.forEach(task => {
+                const li = this.createTaskElement(task);
+                const label = li.querySelector('.task-label');
+                const isHeader2 = label && label.classList.contains('header-2');
+                if (isHeader2 && this.getIndentLevel(li) === 0) {
+                    wrapper = document.createElement('div');
+                    wrapper.className = 'project-wrapper';
+                    this.taskList.appendChild(wrapper);
+                }
+                (wrapper || this.taskList).appendChild(li);
+            });
+            this.ensureAtLeastOneTask();
+            this.addPasteListeners();
+            this.updateActiveTaskHighlight();
+        },
+
+        createTaskElement({ text = '', type = 'text', indent = 0, checked = false, highlight = null } = {}) {
+          const li = document.createElement('li');
+          li.className = 'task-item';
+          if (indent > 0) li.classList.add(`indent-${indent}`);
+          if (checked) li.classList.add('checked');
+
+          if (type === 'checkbox') {
+              const input = document.createElement('input');
+              input.type = 'checkbox';
+              input.className = 'custom-checkbox';
+              input.checked = checked;
+              li.appendChild(input);
+          }
+          const span = document.createElement('span');
+          span.className = 'task-label';
+          span.contentEditable = true;
+          span.spellcheck = false;
+          span.innerText = text;
+          
+          if(type === 'header-1') span.classList.add('header-1');
+          else if(type === 'header-2') span.classList.add('header-2');
+          else if(type === 'note') span.classList.add('note-block');
+          if(highlight) span.classList.add(highlight);
+
+          li.appendChild(span);
+          return li;
+        },
+
+        ensureAtLeastOneTask() {
+            if (this.taskList.children.length === 0 || this.taskList.querySelectorAll('.task-item').length === 0) {
+                const task = this.createTaskElement();
+                this.taskList.appendChild(task);
                 setTimeout(() => {
-                    window.print();
-                    projects.forEach(p => {
-                        const originalProject = originalCollapsedState.find(op => op.id === p.id);
-                        p.collapsed = originalProject.collapsed;
-                        p.phases.forEach(ph => {
-                            const originalPhase = originalProject.phases.find(oph => oph.id === ph.id);
-                            ph.collapsed = originalPhase.collapsed;
-                        });
-                    });
-                    renderProjects();
-                }, 100);
-            });
+                    const label = task.querySelector('.task-label');
+                    this.ensureTextNode(label);
+                    label.focus();
+                }, 0);
+            }
+        },
 
-            initializeSharedDatePicker();
-            document.querySelector('.container').addEventListener('click', (e) => { 
-                const icon = e.target.closest('.date-input-icon-wrapper'); 
-                if (icon) { 
-                    const input = icon.parentElement.querySelector('.date-input'); 
-                    if (input && !input.disabled) handleDateTrigger(input);
-                    return;
+        handleKeyboard(e) {
+            const active = document.activeElement;
+            if (!active?.classList.contains('task-label') || !this.taskList.contains(active)) return;
+
+            const li = active.closest('.task-item');
+            const key = e.key.toLowerCase();
+            const sel = window.getSelection();
+            const caretOffset = sel.rangeCount > 0 ? sel.getRangeAt(0).startOffset : 0;
+            
+            const isShortcut = (key, { ctrl = true, alt = false, shift = false } = {}) => {
+              const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+              const ctrlKey = isMac ? e.metaKey : e.ctrlKey;
+              return (ctrlKey === ctrl && e.altKey === alt && e.shiftKey === shift && e.key.toLowerCase() === key.toLowerCase());
+            }
+            
+            const highlightMap = {
+                '1': 'highlight-yellow', '2': 'highlight-blue',
+                '3': 'highlight-purple', '4': 'highlight-red'
+            };
+            if (['1', '2', '3', '4'].includes(e.key) && isShortcut(e.key, { ctrl: true, alt: true, shift: false })) {
+                e.preventDefault();
+                const label = li.querySelector('.task-label');
+                if (!label) return;
+                const currentClass = highlightMap[e.key];
+                const allHighlightClasses = Object.values(highlightMap);
+                if (label.classList.contains(currentClass)) {
+                    label.classList.remove(currentClass);
+                } else {
+                    allHighlightClasses.forEach(cls => label.classList.remove(cls));
+                    label.classList.add(currentClass);
                 }
-                if (dependencyMode) {
-                    const candidate = e.target.closest('.dependency-candidate');
-                    if (candidate) handleDependencyClick(candidate);
+                this.saveList();
+                setTimeout(() => this.setCaretPosition(label, caretOffset), 0);
+                return;
+            }
+
+
+            if (key === 'tab') {
+                e.preventDefault();
+                const currentIndent = this.getIndentLevel(li);
+                const newIndent = e.shiftKey ? Math.max(0, currentIndent - 1) : Math.min(4, currentIndent + 1);
+                if (currentIndent !== newIndent) {
+                    li.className = 'task-item ' + (li.classList.contains('checked') ? 'checked ' : '') + (newIndent > 0 ? `indent-${newIndent}` : '');
+                    this.regroupProjects();
+                    this.saveList();
+                    setTimeout(() => this.setCaretPosition(active, caretOffset), 0);
                 }
-                if (!e.target.closest('.move-task-btn') && !e.target.closest('.move-task-dropdown')) {
-                    document.querySelectorAll('.move-task-dropdown').forEach(d => d.classList.remove('show'));
-                }
-            });
-            addProjectBtn.addEventListener('click', addProject);
-            undoBtn.addEventListener('click', undo);
-            redoBtn.addEventListener('click', redo);
-            document.getElementById('toggle-deleted-log-btn').addEventListener('click', toggleDeletedLog);
-            closeFullscreenBtn.addEventListener('click', () => {
-                fullscreenModal.style.display = 'none';
-                d3.select("body").selectAll(".fullscreen-chart-tooltip").remove();
-            });
-            document.addEventListener('keydown', (e) => {
-                if(e.key === 'Escape') {
-                    if (dependencyMode) {
-                        dependencyMode = false;
-                        firstSelectedItem = null;
-                        dependencyBanner.classList.add('hidden');
-                        renderProjects();
+            } else if (key === 'enter' && !e.shiftKey) {
+                e.preventDefault();
+                const newTask = this.createTaskElement({ indent: this.getIndentLevel(li) });
+                this.insertAfter(li, newTask);
+                this.regroupProjects();
+                this.saveList();
+                setTimeout(() => {
+                    const newLabel = newTask.querySelector('.task-label');
+                    this.ensureTextNode(newLabel);
+                    newLabel?.focus();
+                }, 0);
+            } else if (key === 'enter' && e.shiftKey) {
+                 e.preventDefault();
+                 const checkbox = li.querySelector('input[type="checkbox"]');
+                 if(checkbox) {
+                    checkbox.checked = !checkbox.checked;
+                    this.updateCheckboxState(checkbox);
+                 }
+            } else if (key === 'backspace') {
+                const selection = window.getSelection();
+                if (selection.anchorOffset === 0 && selection.isCollapsed && active.innerText.trim() !== '') {
+                    const currentIndent = this.getIndentLevel(li);
+                    if (currentIndent > 0) {
+                        e.preventDefault();
+                        const newIndent = currentIndent - 1;
+                        li.className = 'task-item ' + (li.classList.contains('checked') ? 'checked ' : '') + (newIndent > 0 ? `indent-${newIndent}` : '');
+                        this.regroupProjects();
+                        this.saveList();
+                        setTimeout(() => this.setCaretPosition(active, caretOffset), 0);
+                        return;
                     }
-                    if (fullscreenModal.style.display === 'block') {
-                         fullscreenModal.style.display = 'none';
-                         d3.select("body").selectAll(".fullscreen-chart-tooltip").remove();
+                }
+
+                if (active.innerText.trim() === '' && this.taskList.querySelectorAll('.task-item').length > 1) {
+                    e.preventDefault();
+                    const prev = li.previousElementSibling || li.closest('.project-wrapper')?.previousElementSibling;
+                    li.remove();
+                    this.regroupProjects();
+                    this.saveList();
+                    if (prev) {
+                        const prevLabel = prev.querySelector('.task-label:last-of-type') || prev.querySelector('.task-label');
+                        this.placeCursorAtEnd(prevLabel);
+                    } else {
+                        this.ensureAtLeastOneTask();
                     }
                 }
-            });
-            applyTheme();
-            loadProjects();
-            renderProjects();
-            updateUndoRedoButtons();
+            } else if ((key === 'arrowup' || key === 'arrowdown') && e.shiftKey) {
+                e.preventDefault();
+                key === 'arrowup' ? this.moveTask(li, 'up') : this.moveTask(li, 'down');
+            } else if (key === 'arrowup' || key === 'arrowdown') {
+                e.preventDefault();
+                const allItems = [...this.taskList.querySelectorAll('.task-item')];
+                const index = allItems.findIndex(item => item === li);
+                const nextIndex = key === 'arrowup' ? index - 1 : index + 1;
+                if (nextIndex >= 0 && nextIndex < allItems.length) {
+                    const nextLabel = allItems[nextIndex].querySelector('.task-label');
+                    setTimeout(() => this.setCaretPosition(nextLabel, caretOffset), 0);
+                }
+            }
+        },
+
+        handleMarkdown(e) {
+            const target = e.target;
+            const match = target.innerText.match(/^(\#{1,2}|\-|\>)\s/);
+            if (!match) return;
+
+            const [fullMatch, prefix] = match;
+            const rest = target.innerText.substring(fullMatch.length);
+
+            setTimeout(() => {
+                const li = target.closest('.task-item');
+                const indent = this.getIndentLevel(li);
+                let newType = 'text';
+                
+                if (prefix.trim() === '-') newType = 'checkbox';
+                else if (prefix.trim() === '#') newType = 'header-2';
+                else if (prefix.trim() === '##') newType = 'header-1';
+                else if (prefix.trim() === '>') newType = 'note';
+                
+                const newElement = this.createTaskElement({ text: rest, type: newType, indent });
+                li.replaceWith(newElement);
+                this.regroupProjects();
+                const newLabel = newElement.querySelector('.task-label');
+                this.placeCursorAtEnd(newLabel);
+                this.saveList();
+            }, 0);
+        },
+        
+        updateCheckboxState(checkbox) {
+            const li = checkbox.closest('li');
+            li.classList.toggle('checked', checkbox.checked);
+
+            if (checkbox.checked) {
+                li.classList.add('task-slide-out');
+                setTimeout(() => {
+                    li.classList.remove('task-slide-out');
+                    const container = li.closest('.project-wrapper') || this.taskList;
+                    container.appendChild(li);
+                    this.saveList();
+                }, 150);
+            } else {
+                this.saveList();
+            }
+        },
+        
+        moveTask(li, direction) {
+            const allItems = [...this.taskList.querySelectorAll('.task-item')];
+            const currentIndex = allItems.indexOf(li);
+            if (currentIndex === -1) return;
+            const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+            if (targetIndex < 0 || targetIndex >= allItems.length) return;
+
+            const targetItem = allItems[targetIndex];
+            const parent = li.parentNode;
+
+            if (direction === 'up') {
+                parent.insertBefore(li, targetItem);
+            } else {
+                this.insertAfter(targetItem, li);
+            }
+            this.regroupProjects();
+            this.saveList();
+            setTimeout(() => li.querySelector('.task-label')?.focus(), 0);
+        },
+
+        getIndentLevel: el => {
+            const cls = [...el.classList].find(c => c.startsWith('indent-'));
+            return cls ? parseInt(cls.split('-')[1]) : 0;
+        },
+
+        insertAfter: (referenceNode, newNode) => referenceNode.parentNode.insertBefore(newNode, referenceNode.nextSibling),
+
+        regroupProjects() {
+            const allItems = [...this.taskList.querySelectorAll('.task-item')];
+            this.taskList.innerHTML = '';
+            let currentWrapper = null;
+            for (let i = 0; i < allItems.length; i++) {
+                const li = allItems[i];
+                const isHeader2 = li.querySelector('.task-label')?.classList.contains('header-2');
+                if (this.getIndentLevel(li) === 0 && isHeader2) {
+                    currentWrapper = document.createElement('div');
+                    currentWrapper.className = 'project-wrapper';
+                    this.taskList.appendChild(currentWrapper);
+                }
+                 (currentWrapper || this.taskList).appendChild(li);
+            }
+        },
+        
+        addPasteListeners() {
+            this.taskList.querySelectorAll('.task-label').forEach(label => label.addEventListener('paste', (e) => {
+                e.preventDefault();
+                const text = e.clipboardData.getData('text/plain');
+                document.execCommand('insertText', false, text);
+            }));
+        },
+        
+        updateActiveTaskHighlight() {
+            if (!this.taskList) return;
+            this.taskList.querySelectorAll('.task-item').forEach(el => el.classList.remove('active'));
+            const active = document.activeElement?.closest('.task-item');
+            if (active && this.taskList.contains(active)) active.classList.add('active');
+        },
+        
+        ensureTextNode: element => { if (element && !element.firstChild) element.appendChild(document.createTextNode("")); },
+        
+        setCaretPosition(el, offset = 0) {
+            if (!el) return;
+            el.focus();
+            const range = document.createRange();
+            const sel = window.getSelection();
+            if (el.childNodes.length > 0) {
+              range.setStart(el.childNodes[0], Math.min(offset, el.childNodes[0].length || 0));
+              range.collapse(true);
+              sel.removeAllRanges();
+              sel.addRange(range);
+            }
+        },
+
+        placeCursorAtEnd(element) {
+            if (!element) return;
+            element.focus();
+            const range = document.createRange();
+            const sel = window.getSelection();
+            range.selectNodeContents(element);
+            range.collapse(false);
+            sel.removeAllRanges();
+            sel.addRange(range);
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        timelineApp.init();
+        // Global keydown listener for punch list logic when its tab is active
+        document.addEventListener('keydown', (e) => {
+            const listPanel = document.getElementById('main-tab-panel-list');
+            if (!listPanel.classList.contains('hidden')) {
+                punchListApp.handleKeyboard(e);
+            }
         });
+    });
     </script>
 </body>
 </html>
