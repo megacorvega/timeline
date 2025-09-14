@@ -36,7 +36,7 @@ const timelineApp = {
         this.loadTabData();
         this.renderTabs();
         this.addEventListeners();
-        this.applyTheme();
+        this.applyTheme(); // Changed from applyTheme()
         this.loadProjects();
         this.renderProjects();
         this.showMainTab(this.activeTab, false);
@@ -49,7 +49,8 @@ const timelineApp = {
             projectsContainer: document.getElementById('projects-container'),
             addProjectBtn: document.getElementById('add-project-btn'),
             newProjectNameInput: document.getElementById('new-project-name'),
-            themeToggleBtn: document.getElementById('theme-toggle'),
+            themeSelect: document.getElementById('theme-select'),
+            darkModeToggle: document.getElementById('dark-mode-toggle'),
             darkIcon: document.getElementById('theme-toggle-dark-icon'),
             lightIcon: document.getElementById('theme-toggle-light-icon'),
             importBtn: document.getElementById('import-btn'),
@@ -84,12 +85,15 @@ const timelineApp = {
     },
 
     addEventListeners() {
-        this.elements.themeToggleBtn.addEventListener('click', () => { 
-            document.documentElement.classList.toggle('dark'); 
-            localStorage.setItem('color-theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light'); 
-            this.applyTheme(); 
-            this.renderProjects(); 
+        this.elements.themeSelect.addEventListener('change', (e) => {
+            document.documentElement.setAttribute('data-theme', e.target.value);
+            localStorage.setItem('timeline-theme-name', e.target.value);
+            this.renderProjects(); // Re-render to apply theme to charts
         });
+        this.elements.darkModeToggle.addEventListener('click', () => {
+            this.setDarkMode(!document.documentElement.classList.contains('dark'));
+        });
+
         this.elements.exportBtn.addEventListener('click', () => { 
             const a = document.createElement('a'); 
             a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.projects, null, 2)); 
@@ -170,6 +174,8 @@ const timelineApp = {
         this.elements.shortcutsBtn.addEventListener('click', this.toggleShortcutsModal.bind(this));
         this.elements.closeShortcutsBtn.addEventListener('click', this.toggleShortcutsModal.bind(this));
         this.elements.shortcutsModalBackdrop.addEventListener('click', this.toggleShortcutsModal.bind(this));
+
+        window.addEventListener('resize', () => this.updateTabIndicator());
 
         document.addEventListener('keydown', (e) => {
             if (e.key === '?') {
@@ -467,26 +473,26 @@ const timelineApp = {
 
         sortedProjects.forEach((project) => {
             const projectCard = document.createElement('div');
-            projectCard.className = `project-card bg-white dark:bg-slate-900 p-3 rounded-xl shadow-md border border-gray-200 dark:border-gray-800`;
+            projectCard.className = `project-card p-3 rounded-xl`;
             let completionIcon = project.overallProgress >= 100 ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>` : '';
 
             projectCard.innerHTML = `
                 <div class="flex justify-between items-center mb-3">
                     <div class="flex items-center gap-2 flex-grow min-w-0">
                         ${completionIcon}
-                        <button onclick="timelineApp.toggleProjectCollapse(${project.id})" class="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 flex-shrink-0">
-                            <svg id="chevron-${project.id}" class="w-5 h-5 text-gray-500 chevron ${project.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+                        <button onclick="timelineApp.toggleProjectCollapse(${project.id})" class="p-1 rounded-full hover-bg-secondary flex-shrink-0">
+                            <svg id="chevron-${project.id}" class="w-5 h-5 text-tertiary chevron ${project.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                         </button>
                         <h3 class="text-xl font-bold truncate editable-text" onclick="timelineApp.makeEditable(this, 'updateProjectName', ${project.id})">${project.name}</h3>
-                        <span class="text-sm font-medium text-gray-500 flex-shrink-0">${Math.round(project.overallProgress)}%</span>
+                        <span class="text-sm font-medium text-secondary flex-shrink-0">${Math.round(project.overallProgress)}%</span>
                     </div>
-                    <div class="flex items-center gap-2 text-sm text-gray-500 flex-shrink-0">
+                    <div class="flex items-center gap-2 text-sm text-secondary flex-shrink-0">
                         <div class="date-input-container">
-                            <input type="text" value="${project.startDate ? this.formatDate(this.parseDate(project.startDate)) : ''}" placeholder="Start Date" class="date-input text-gray-900 dark:text-white" data-project-id="${project.id}" data-type="project-start" data-date="${project.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
+                            <input type="text" value="${project.startDate ? this.formatDate(this.parseDate(project.startDate)) : ''}" placeholder="Start Date" class="date-input" data-project-id="${project.id}" data-type="project-start" data-date="${project.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
                             <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
                         </div>
                         <div class="date-input-container">
-                            <input type="text" value="${project.endDate ? this.formatDate(this.parseDate(project.endDate)) : ''}" placeholder="End Date" class="date-input text-gray-900 dark:text-white" data-project-id="${project.id}" data-type="project-end" data-date="${project.endDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
+                            <input type="text" value="${project.endDate ? this.formatDate(this.parseDate(project.endDate)) : ''}" placeholder="End Date" class="date-input" data-project-id="${project.id}" data-type="project-end" data-date="${project.endDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
                             <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
                         </div>
                     </div>
@@ -496,11 +502,11 @@ const timelineApp = {
                     <div id="chart-${project.id}" class="w-full h-48 mb-3 relative"></div>
                     <div id="phases-${project.id}" class="space-y-1"></div>
                     <div class="mt-3">
-                        <button onclick="timelineApp.toggleLog(${project.id})" class="text-xs font-semibold text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-1">
+                        <button onclick="timelineApp.toggleLog(${project.id})" class="text-xs font-semibold text-tertiary hover-text-primary flex items-center gap-1">
                             <svg id="log-chevron-${project.id}" class="w-4 h-4 chevron -rotate-90" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                             Change Log
                         </button>
-                        <div id="log-container-${project.id}" class="hidden mt-2 p-2 bg-gray-50 dark:bg-slate-800/50 rounded-md">${this.renderLog(project)}</div>
+                        <div id="log-container-${project.id}" class="hidden mt-2 p-2 log-container-bg rounded-md">${this.renderLog(project)}</div>
                     </div>
                 </div>
             `;
@@ -551,8 +557,8 @@ const timelineApp = {
         sortedPhases.forEach(phase => {
             const hasTasks = phase.tasks && phase.tasks.length > 0;
             const toggleButton = hasTasks ?
-                `<button onclick="timelineApp.togglePhaseCollapse(${project.id}, ${phase.id})" class="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 flex-shrink-0">
-                    <svg id="phase-chevron-${phase.id}" class="w-4 h-4 text-gray-500 chevron ${phase.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+                `<button onclick="timelineApp.togglePhaseCollapse(${project.id}, ${phase.id})" class="p-1 rounded-full hover-bg-tertiary flex-shrink-0">
+                    <svg id="phase-chevron-${phase.id}" class="w-4 h-4 text-tertiary chevron ${phase.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                 </button>` : `<div class="w-6 h-6 flex-shrink-0"></div>`; 
 
             const depClass = this.dependencyMode && this.firstSelectedItem?.id !== phase.id ? 'dependency-candidate' : '';
@@ -571,30 +577,30 @@ const timelineApp = {
             }
 
             html += `
-                <div class="bg-gray-100 dark:bg-slate-800/50 rounded-lg p-2 phase-row ${depClass} ${selectedClass}" data-id="${phase.id}" data-type="phase" data-project-id="${project.id}">
+                <div class="phase-row rounded-lg p-2 ${depClass} ${selectedClass}" data-id="${phase.id}" data-type="phase" data-project-id="${project.id}">
                     <div class="flex items-center gap-3 item-main-row">
                         ${toggleButton}
                          ${drivenDot}
-                        <div class="text-xs font-bold text-gray-500 dark:text-gray-400 w-10 text-center flex-shrink-0">${Math.round(phase.progress || 0)}%</div>
+                        <div class="text-xs font-bold text-secondary w-10 text-center flex-shrink-0">${Math.round(phase.progress || 0)}%</div>
                         <div class="duration-scale-container" title="Duration Progress">
                             <div class="duration-scale-bar ${durationBarColorClass}" style="width: ${durationProgress}%;"></div>
                         </div>
                         <span class="font-semibold flex-grow editable-text" onclick="timelineApp.makeEditable(this, 'updatePhaseName', ${project.id}, ${phase.id})">${phase.name}</span>
                         ${this.getDependencyIcon(phase)}
-                        <div class="flex items-center gap-2 text-sm text-gray-500">
-                            <div class="date-input-container"><input type="text" value="${phase.effectiveStartDate ? this.formatDate(this.parseDate(phase.effectiveStartDate)) : ''}" placeholder="Start" readonly class="date-input bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-gray-400" disabled></div>
-                            <div class="date-input-container"><input type="text" value="${phase.effectiveEndDate ? this.formatDate(this.parseDate(phase.effectiveEndDate)) : ''}" placeholder="End" readonly class="date-input bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-gray-400" disabled></div>
+                        <div class="flex items-center gap-2 text-sm text-secondary">
+                            <div class="date-input-container"><input type="text" value="${phase.effectiveStartDate ? this.formatDate(this.parseDate(phase.effectiveStartDate)) : ''}" placeholder="Start" readonly class="date-input date-input-disabled" disabled></div>
+                            <div class="date-input-container"><input type="text" value="${phase.effectiveEndDate ? this.formatDate(this.parseDate(phase.effectiveEndDate)) : ''}" placeholder="End" readonly class="date-input date-input-disabled" disabled></div>
                         </div>
                         <button onclick="timelineApp.deletePhase(${project.id}, ${phase.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold">&times;</button>
                     </div>
-                    <div id="tasks-container-${phase.id}" class="pl-12 mt-2 space-y-1 pt-2 border-t border-gray-200 dark:border-slate-700/50 ${phase.collapsed ? 'hidden' : ''}">${this.renderTaskList(project.id, phase.id, phase.tasks)}</div>
+                    <div id="tasks-container-${phase.id}" class="pl-12 mt-2 space-y-1 pt-2 border-t border-primary ${phase.collapsed ? 'hidden' : ''}">${this.renderTaskList(project.id, phase.id, phase.tasks)}</div>
                 </div>`;
         });
          html += `
             <div class="mt-2 pl-4">
                  <div class="flex items-center gap-2">
-                    <input type="text" id="new-phase-name-${project.id}" placeholder="Add a new phase..." class="flex-grow w-full px-2 py-1 border border-gray-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-sm h-[28px]" onkeydown="if(event.key==='Enter') timelineApp.addPhase(${project.id})">
-                    <button onclick="timelineApp.addPhase(${project.id})" class="bg-gray-200 dark:bg-gray-700 font-semibold rounded-md text-sm btn-sm">Add</button>
+                    <input type="text" id="new-phase-name-${project.id}" placeholder="Add a new phase..." class="flex-grow w-full px-2 py-1 input-primary rounded-md text-sm h-[28px]" onkeydown="if(event.key==='Enter') timelineApp.addPhase(${project.id})">
+                    <button onclick="timelineApp.addPhase(${project.id})" class="btn-secondary font-semibold rounded-md text-sm btn-sm">Add</button>
                 </div>
             </div>`;
         phaseContainer.innerHTML = html;
@@ -606,10 +612,10 @@ const timelineApp = {
         const iconHtml = `<div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>`;
         sortedTasks.forEach(task => {
             const hasSubtasks = task.subtasks && task.subtasks.length > 0;
-            let taskControlHtml = hasSubtasks ? `<div class="text-xs font-bold text-gray-500 dark:text-gray-400 w-10 text-center flex-shrink-0">${Math.round(task.progress || 0)}%</div>` : `<input type="checkbox" class="custom-checkbox" onchange="timelineApp.toggleTaskComplete(${projectId}, ${phaseId}, ${task.id})" ${task.completed ? 'checked' : ''}>`;
+            let taskControlHtml = hasSubtasks ? `<div class="text-xs font-bold text-secondary w-10 text-center flex-shrink-0">${Math.round(task.progress || 0)}%</div>` : `<input type="checkbox" class="custom-checkbox" onchange="timelineApp.toggleTaskComplete(${projectId}, ${phaseId}, ${task.id})" ${task.completed ? 'checked' : ''}>`;
             const toggleButton = hasSubtasks ? 
-                `<button onclick="timelineApp.toggleTaskCollapse(${projectId}, ${phaseId}, ${task.id})" class="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 flex-shrink-0">
-                    <svg id="task-chevron-${task.id}" class="w-4 h-4 text-gray-500 chevron ${task.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+                `<button onclick="timelineApp.toggleTaskCollapse(${projectId}, ${phaseId}, ${task.id})" class="p-1 rounded-full hover-bg-tertiary flex-shrink-0">
+                    <svg id="task-chevron-${task.id}" class="w-4 h-4 text-tertiary chevron ${task.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                 </button>` : `<div class="w-6 h-6 flex-shrink-0"></div>`;
             const depClass = this.dependencyMode && this.firstSelectedItem?.id !== task.id ? 'dependency-candidate' : '';
             const selectedClass = this.firstSelectedItem?.id === task.id ? 'dependency-selected' : '';
@@ -626,11 +632,10 @@ const timelineApp = {
                 durationBarColorClass = 'bg-yellow-500';
             }
             const isDriven = hasSubtasks || task.isDriven;
-            const drivenClasses = 'bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-gray-400';
-            const editableClasses = 'text-gray-900 dark:text-white';
+            const dateInputClasses = isDriven ? 'date-input-disabled' : '';
 
             html += `
-                <div class="bg-gray-50 dark:bg-slate-800/50 rounded-lg px-2 py-1 task-row ${depClass} ${selectedClass}" data-id="${task.id}" data-type="task" data-project-id="${projectId}" data-phase-id="${phaseId}">
+                <div class="task-row rounded-lg px-2 py-1 ${depClass} ${selectedClass}" data-id="${task.id}" data-type="task" data-project-id="${projectId}" data-phase-id="${phaseId}">
                     <div class="flex items-center gap-3 item-main-row">
                          ${toggleButton}
                         ${drivenDot}
@@ -640,38 +645,38 @@ const timelineApp = {
                         </div>
                         <div class="flex-grow flex items-center gap-2">
                             <span class="font-medium editable-text" onclick="timelineApp.makeEditable(this, 'updateTaskName', ${projectId}, ${phaseId}, ${task.id})">${task.name}</span>
-                            <button onclick="timelineApp.showAddSubtaskInput(${task.id})" class="add-subtask-btn items-center gap-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-semibold rounded-md px-2 py-1 flex-shrink-0">
+                            <button onclick="timelineApp.showAddSubtaskInput(${task.id})" class="add-subtask-btn items-center gap-1 text-xs btn-secondary font-semibold rounded-md px-2 py-1 flex-shrink-0">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
                                 <span>Subtask</span>
                             </button>
                             <div class="relative">
-                                <button onclick="timelineApp.toggleMoveTaskDropdown(event, ${projectId}, ${phaseId}, ${task.id})" class="move-task-btn items-center gap-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-semibold rounded-md px-2 py-1 flex-shrink-0">
+                                <button onclick="timelineApp.toggleMoveTaskDropdown(event, ${projectId}, ${phaseId}, ${task.id})" class="move-task-btn items-center gap-1 text-xs btn-secondary font-semibold rounded-md px-2 py-1 flex-shrink-0">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
                                     <span>Move</span>
                                 </button>
-                                <div id="move-task-dropdown-${task.id}" class="move-task-dropdown dark:bg-slate-700 border dark:border-slate-600"></div>
+                                <div id="move-task-dropdown-${task.id}" class="move-task-dropdown"></div>
                             </div>
                         </div>
                         ${this.getDependencyIcon(task)}
-                        <div class="flex items-center gap-2 text-sm text-gray-500">
+                        <div class="flex items-center gap-2 text-sm text-secondary">
                             <div class="date-input-container">
-                                <input type="text" value="${task.effectiveStartDate ? this.formatDate(this.parseDate(task.effectiveStartDate)) : ''}" placeholder="Start" class="date-input ${isDriven ? drivenClasses : editableClasses}" ${isDriven ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-start" data-date="${task.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
+                                <input type="text" value="${task.effectiveStartDate ? this.formatDate(this.parseDate(task.effectiveStartDate)) : ''}" placeholder="Start" class="date-input ${dateInputClasses}" ${isDriven ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-start" data-date="${task.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
                                 ${!isDriven ? iconHtml : ''}
                             </div>
                             <div class="date-input-container">
-                                <input type="text" value="${task.effectiveEndDate ? this.formatDate(this.parseDate(task.effectiveEndDate)) : ''}" placeholder="End" class="date-input ${isDriven ? drivenClasses : editableClasses}" ${isDriven ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-end" data-date="${task.endDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
+                                <input type="text" value="${task.effectiveEndDate ? this.formatDate(this.parseDate(task.effectiveEndDate)) : ''}" placeholder="End" class="date-input ${dateInputClasses}" ${isDriven ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-end" data-date="${task.endDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
                                 ${!isDriven ? iconHtml : ''}
                             </div>
                         </div>
                         <button onclick="timelineApp.deleteTask(${projectId}, ${phaseId}, ${task.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold">&times;</button>
                     </div>
-                    <div id="subtasks-container-${task.id}" class="pl-12 mt-2 space-y-2 pt-2 border-t border-gray-200 dark:border-slate-700/50 ${task.collapsed || !hasSubtasks ? 'hidden' : ''}">
+                    <div id="subtasks-container-${task.id}" class="pl-12 mt-2 space-y-2 pt-2 border-t border-primary ${task.collapsed || !hasSubtasks ? 'hidden' : ''}">
                         ${this.renderSubtaskList(projectId, phaseId, task.id, task.subtasks || [])}
                     </div>
                     <div id="add-subtask-form-${task.id}" class="hidden ml-12 mt-2">
                          <div class="flex items-center gap-2">
-                            <input type="text" id="new-subtask-name-${task.id}" placeholder="Add subtask..." class="flex-grow w-full px-2 py-1 border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-xs h-[28px]" onkeydown="if(event.key==='Enter') timelineApp.addSubtask(${projectId}, ${phaseId}, ${task.id})">
-                            <button onclick="timelineApp.addSubtask(${projectId}, ${phaseId}, ${task.id})" class="bg-gray-200 dark:bg-gray-700 font-semibold rounded-md text-xs btn-sm">Add</button>
+                            <input type="text" id="new-subtask-name-${task.id}" placeholder="Add subtask..." class="flex-grow w-full px-2 py-1 input-primary rounded-md text-xs h-[28px]" onkeydown="if(event.key==='Enter') timelineApp.addSubtask(${projectId}, ${phaseId}, ${task.id})">
+                            <button onclick="timelineApp.addSubtask(${projectId}, ${phaseId}, ${task.id})" class="btn-secondary font-semibold rounded-md text-xs btn-sm">Add</button>
                          </div>
                     </div>
                 </div>`;
@@ -679,8 +684,8 @@ const timelineApp = {
         html += `
             <div>
                 <div class="flex items-center gap-2">
-                    <input type="text" id="new-task-name-${phaseId}" placeholder="Add a new task..." class="flex-grow w-full px-2 py-1 border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-xs h-[28px]" onkeydown="if(event.key==='Enter') timelineApp.addTask(${projectId}, ${phaseId})">
-                    <button onclick="timelineApp.addTask(${projectId}, ${phaseId})" class="bg-gray-200 dark:bg-gray-700 font-semibold rounded-md text-xs btn-sm">Add</button>
+                    <input type="text" id="new-task-name-${phaseId}" placeholder="Add a new task..." class="flex-grow w-full px-2 py-1 input-primary rounded-md text-xs h-[28px]" onkeydown="if(event.key==='Enter') timelineApp.addTask(${projectId}, ${phaseId})">
+                    <button onclick="timelineApp.addTask(${projectId}, ${phaseId})" class="btn-secondary font-semibold rounded-md text-xs btn-sm">Add</button>
                 </div>
             </div>`;
         return html;
@@ -706,6 +711,7 @@ const timelineApp = {
             } else if (durationProgress > 75) {
                 durationBarColorClass = 'bg-yellow-500';
             }
+            const dateInputClasses = subtask.isDriven ? 'date-input-disabled' : '';
 
             html += `
                 <div class="flex items-center gap-3 subtask-row ${depClass} ${selectedClass}" data-id="${subtask.id}" data-type="subtask" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}">
@@ -714,10 +720,10 @@ const timelineApp = {
                     <div class="duration-scale-container" title="Duration Progress">
                         <div class="duration-scale-bar ${durationBarColorClass}" style="width: ${durationProgress}%;"></div>
                     </div>
-                    <span class="text-sm text-gray-700 dark:text-gray-300 flex-grow ${subtask.completed ? 'line-through opacity-60' : ''} editable-text" onclick="timelineApp.makeEditable(this, 'updateSubtaskName', ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})">${subtask.name}</span>
+                    <span class="text-sm flex-grow ${subtask.completed ? 'line-through opacity-60' : ''} editable-text" onclick="timelineApp.makeEditable(this, 'updateSubtaskName', ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})">${subtask.name}</span>
                     ${this.getDependencyIcon(subtask)}
                     <div class="date-input-container">
-                            <input type="text" value="${subtask.startDate ? this.formatDate(this.parseDate(subtask.startDate)) : ''}" placeholder="Start" class="date-input ${subtask.isDriven ? 'bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-gray-400' : ''}" ${subtask.isDriven ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}" data-subtask-id="${subtask.id}" data-type="subtask-start" data-date="${subtask.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
+                            <input type="text" value="${subtask.startDate ? this.formatDate(this.parseDate(subtask.startDate)) : ''}" placeholder="Start" class="date-input ${dateInputClasses}" ${subtask.isDriven ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}" data-subtask-id="${subtask.id}" data-type="subtask-start" data-date="${subtask.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
                              ${!subtask.isDriven ? iconHtml : ''}
                          </div>
                          <div class="date-input-container">
@@ -731,8 +737,8 @@ const timelineApp = {
     },
 
     renderLog(project) {
-        if (!project.logs || project.logs.length === 0) return '<p class="text-xs text-gray-500 dark:text-gray-400">No changes logged.</p>';
-        let tableHtml = `<table class="w-full text-xs font-mono text-gray-700 dark:text-gray-300"><thead><tr class="border-b border-gray-200 dark:border-slate-700"><th class="text-left p-1 w-1/4">Timestamp</th><th class="text-left p-1 w-1/4">Item</th><th class="text-left p-1">Change</th><th class="text-left p-1">Reason</th></tr></thead><tbody>`;
+        if (!project.logs || project.logs.length === 0) return '<p class="text-xs text-secondary">No changes logged.</p>';
+        let tableHtml = `<table class="w-full text-xs font-mono"><thead><tr class="border-b border-primary"><th class="text-left p-1 w-1/4">Timestamp</th><th class="text-left p-1 w-1/4">Item</th><th class="text-left p-1">Change</th><th class="text-left p-1">Reason</th></tr></thead><tbody>`;
         [...project.logs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).forEach(log => {
             let changeText = '';
             if (log.type === 'deletion') {
@@ -740,7 +746,7 @@ const timelineApp = {
             } else {
                 changeText = `${log.from ? this.formatDate(this.parseDate(log.from)) : 'None'} -> ${this.formatDate(this.parseDate(log.to))}`;
             }
-            tableHtml += `<tr class="border-b border-gray-100 dark:border-slate-700/50"><td class="p-1 align-top">${this.formatLogTimestamp(new Date(log.timestamp))}</td><td class="p-1 align-top">${log.item}</td><td class="p-1 align-top">${changeText}</td><td class="p-1 align-top">${log.comment}</td></tr>`;
+            tableHtml += `<tr class="border-b border-secondary"><td class="p-1 align-top">${this.formatLogTimestamp(new Date(log.timestamp))}</td><td class="p-1 align-top">${log.item}</td><td class="p-1 align-top">${changeText}</td><td class="p-1 align-top">${log.comment}</td></tr>`;
         });
         return tableHtml + '</tbody></table>';
     },
@@ -765,10 +771,10 @@ const timelineApp = {
             chevron.classList.remove('-rotate-90');
         }
 
-        let tableHtml = `<div class="bg-white dark:bg-slate-900 p-3 rounded-xl shadow-md border border-gray-200 dark:border-gray-800">
-            <table class="w-full text-xs font-mono text-gray-700 dark:text-gray-300">
+        let tableHtml = `<div class="project-card p-3">
+            <table class="w-full text-xs font-mono">
                 <thead>
-                    <tr class="border-b border-gray-200 dark:border-slate-700">
+                    <tr class="border-b border-primary">
                         <th class="text-left p-1 w-1/4">Timestamp</th>
                         <th class="text-left p-1 w-1/4">Item</th>
                         <th class="text-left p-1">Change</th>
@@ -778,7 +784,7 @@ const timelineApp = {
                 <tbody>`;
 
         [...this.deletedProjectLogs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).forEach(log => {
-            tableHtml += `<tr class="border-b border-gray-100 dark:border-slate-700/50">
+            tableHtml += `<tr class="border-b border-secondary">
                                 <td class="p-1 align-top">${this.formatLogTimestamp(new Date(log.timestamp))}</td>
                                 <td class="p-1 align-top">${log.item}</td>
                                 <td class="p-1 align-top">Deleted</td>
@@ -800,7 +806,7 @@ const timelineApp = {
             
             container.append('button')
                 .html('<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 1v4m0 0h-4m4 0l-5-5" /></svg>')
-                .attr('class', 'absolute bottom-1 right-1 p-1.5 bg-gray-200 dark:bg-gray-700 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600')
+                .attr('class', 'absolute bottom-1 right-1 p-1.5 btn-secondary rounded-full')
                 .on('click', () => this.showFullscreenChart(project.id));
             
             const margin = { top: 10, right: 20, bottom: 20, left: 40 },
@@ -1007,7 +1013,7 @@ const timelineApp = {
         });
 
         if (allItems.length === 0) {
-            container.innerHTML = `<div class="bg-white dark:bg-slate-900 p-4 rounded-xl shadow-md border border-gray-200 dark:border-gray-800 text-center text-gray-500">No upcoming tasks with due dates.</div>`;
+            container.innerHTML = `<div class="upcoming-card p-4 rounded-xl shadow-md text-center text-secondary">No upcoming tasks with due dates.</div>`;
             return;
         }
 
@@ -1041,9 +1047,9 @@ const timelineApp = {
                 dateLabel = `in ${diffDays} days`;
             }
 
-            html += `<div class="bg-white dark:bg-slate-900 rounded-xl shadow-md border border-gray-200 dark:border-gray-800">
-                    <div class="p-3 border-b border-gray-200 dark:border-slate-700 ${headerColorClass} rounded-t-xl">
-                        <h3 class="font-bold">${this.formatDate(dueDate)} <span class="text-sm font-normal text-gray-500 dark:text-gray-400">(${dateLabel})</span></h3>
+            html += `<div class="upcoming-card rounded-xl shadow-md">
+                    <div class="p-3 border-b border-primary ${headerColorClass} rounded-t-xl">
+                        <h3 class="font-bold">${this.formatDate(dueDate)} <span class="text-sm font-normal text-tertiary">(${dateLabel})</span></h3>
                     </div>
                     <div class="p-3 space-y-2">`;
             items.forEach(item => {
@@ -1052,8 +1058,8 @@ const timelineApp = {
                 const overdueClass = isOverdue ? 'text-red-600 dark:text-red-400 font-semibold' : '';
 
                 html += `<div class="flex items-center text-sm ${completedClass}">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
-                        <span class="text-gray-500 dark:text-gray-400 mr-2">${item.path} &gt;</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2 text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+                        <span class="text-secondary mr-2">${item.path} &gt;</span>
                         <span class="font-medium ${overdueClass}">${item.name}</span>
                         ${isOverdue ? '<span class="ml-2 text-xs font-bold text-red-500 bg-red-100 dark:bg-red-900/50 px-2 py-0.5 rounded-full">OVERDUE</span>' : ''}
                     </div>`;
@@ -1093,7 +1099,7 @@ const timelineApp = {
 
         svg.append("g").attr("class", "chart-grid").attr("transform", `translate(0,${chartHeight})`).call(d3.axisBottom(x).ticks(tickInterval).tickFormat(d3.timeFormat("%b %d")));
         svg.append("g").attr("class", "chart-grid").call(d3.axisLeft(y).ticks(10).tickFormat(d => `${d}%`));
-        svg.append("text").attr("x", chartWidth / 2).attr("y", 0 - (margin.top / 2)).attr("text-anchor", "middle").attr("class", "text-lg font-bold fill-current text-gray-900 dark:text-white").text(`${project.name} - Progress Chart`);
+        svg.append("text").attr("x", chartWidth / 2).attr("y", 0 - (margin.top / 2)).attr("text-anchor", "middle").attr("class", "text-lg font-bold chart-title").text(`${project.name} - Progress Chart`);
         svg.append("line").attr("class", "planned-line").attr("x1", x(startDate)).attr("y1", y(0)).attr("x2", x(endDate)).attr("y2", y(100));
         svg.append("line").attr("class", "finish-line").attr("x1", x(endDate)).attr("y1", 0).attr("x2", x(endDate)).attr("y2", chartHeight);
 
@@ -1133,7 +1139,7 @@ const timelineApp = {
 
         labels.each(function(d) {
             const fo = d3.select(this);
-            fo.append("xhtml:div").attr("class", "p-2 rounded-md text-xs bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 h-full")
+            fo.append("xhtml:div").attr("class", "p-2 rounded-md text-xs chart-label-card")
                 .html(`<div class="font-bold text-blue-500 truncate">${d.phaseName}</div><strong class="truncate">${d.name}</strong><br>${timelineApp.formatDate(d.date)} - ${d.percentComplete}%`);
 
             const pointX = x(d.date), pointY = y(d.progress), foWidth = 180, foHeight = 60;
@@ -1329,9 +1335,9 @@ const timelineApp = {
             let optionsHtml = '';
             project.phases.forEach(phase => {
                 if (phase.id === phaseId) {
-                    optionsHtml += `<div class="move-task-dropdown-item disabled dark:text-gray-500">${phase.name} (current)</div>`;
+                    optionsHtml += `<div class="move-task-dropdown-item disabled">${phase.name} (current)</div>`;
                 } else {
-                    optionsHtml += `<div class="move-task-dropdown-item dark:hover:bg-slate-600" onclick="timelineApp.moveTask(${projectId}, ${phaseId}, ${phase.id}, ${taskId})">${phase.name}</div>`;
+                    optionsHtml += `<div class="move-task-dropdown-item" onclick="timelineApp.moveTask(${projectId}, ${phaseId}, ${phase.id}, ${taskId})">${phase.name}</div>`;
                 }
             });
             dropdown.innerHTML = optionsHtml;
@@ -1460,6 +1466,7 @@ const timelineApp = {
             this.activeTab = tabName;
             localStorage.setItem('timelineActiveTab', tabName);
         }
+        this.updateTabIndicator();
 
         ['projects', 'list', 'overall-load', 'upcoming'].forEach(name => {
             const panel = document.getElementById(`main-tab-panel-${name}`);
@@ -1472,6 +1479,8 @@ const timelineApp = {
         const activeBtn = document.getElementById(`main-tab-btn-${tabName}`);
         if (activePanel) activePanel.classList.remove('hidden');
         if (activeBtn) activeBtn.classList.add('active');
+        
+        this.updateTabIndicator();
         
         // Conditional rendering based on the new active tab
         if (tabName === 'projects') {
@@ -1500,15 +1509,34 @@ const timelineApp = {
     },
 
     applyTheme() { 
-        if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        const savedTheme = localStorage.getItem('timeline-theme-name') || 'default';
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const savedMode = localStorage.getItem('timeline-theme-mode');
+        
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        this.elements.themeSelect.value = savedTheme;
+
+        if (savedMode === 'dark' || (savedMode === null && prefersDark)) {
+            this.setDarkMode(true);
+        } else {
+            this.setDarkMode(false);
+        }
+        this.renderProjects();
+    },
+
+    setDarkMode(isDark) {
+        if (isDark) {
             document.documentElement.classList.add('dark');
             this.elements.lightIcon.classList.remove('hidden');
             this.elements.darkIcon.classList.add('hidden');
+            localStorage.setItem('timeline-theme-mode', 'dark');
         } else {
             document.documentElement.classList.remove('dark');
             this.elements.darkIcon.classList.remove('hidden');
             this.elements.lightIcon.classList.add('hidden');
+            localStorage.setItem('timeline-theme-mode', 'light');
         }
+        this.renderProjects(); // Re-render to apply theme to charts
     },
     
     initializeSharedDatePicker() {
@@ -1683,6 +1711,10 @@ const timelineApp = {
     
     renderTabs() {
         this.elements.mainTabs.innerHTML = '';
+        const glider = document.createElement('div');
+        glider.className = 'glider';
+        this.elements.mainTabs.appendChild(glider);
+
         const tabNames = {
             projects: 'Projects',
             list: 'List',
@@ -1692,13 +1724,27 @@ const timelineApp = {
         this.tabOrder.forEach(tabKey => {
             const button = document.createElement('button');
             button.id = `main-tab-btn-${tabKey}`;
-            button.className = 'tab-button text-base';
+            button.className = 'tab-button';
             button.textContent = tabNames[tabKey];
             button.dataset.tabName = tabKey;
             button.setAttribute('draggable', true);
             button.onclick = () => this.showMainTab(tabKey);
             this.elements.mainTabs.appendChild(button);
         });
+        this.showMainTab(this.activeTab, false);
+    },
+
+    updateTabIndicator() {
+        setTimeout(() => {
+            const container = this.elements.mainTabs;
+            if (!container) return;
+            const activeTab = container.querySelector('.tab-button.active');
+            const glider = container.querySelector('.glider');
+            if (!glider || !activeTab) return;
+
+            glider.style.width = `${activeTab.offsetWidth}px`;
+            glider.style.left = `${activeTab.offsetLeft}px`;
+        }, 50); // Small delay to ensure layout is calculated
     },
 
     addDragAndDropListeners() {
@@ -1728,7 +1774,8 @@ const timelineApp = {
             });
 
             if (afterElement == null) {
-                const lastChild = tabsContainer.lastElementChild;
+                // Find the last tab-button, not the glider
+                const lastChild = tabsContainer.querySelector('.tab-button:last-of-type');
                 if(lastChild) lastChild.classList.add('drag-over-right');
             } else {
                 afterElement.classList.add('drag-over-left');
