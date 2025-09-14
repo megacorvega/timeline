@@ -121,14 +121,14 @@ const punchListApp = {
         const sel = window.getSelection();
         const caretOffset = sel.rangeCount > 0 ? sel.getRangeAt(0).startOffset : 0;
 
-        if (this.isShortcut(e, 'arrowup', { alt: true, shift: true })) {
+        if (this.isShortcut(e, 'arrowup', { shift: true, alt: false })) {
             e.preventDefault();
             const wrapper = li.closest('.project-wrapper');
             if (wrapper) this.moveProjectWrapper(wrapper, 'up', label);
             return;
         }
 
-        if (this.isShortcut(e, 'arrowdown', { alt: true, shift: true })) {
+        if (this.isShortcut(e, 'arrowdown', { shift: true, alt: false })) {
             e.preventDefault();
             const wrapper = li.closest('.project-wrapper');
             if (wrapper) this.moveProjectWrapper(wrapper, 'down', label);
@@ -202,7 +202,7 @@ const punchListApp = {
 
         if (key === 'backspace') {
             const cursorAtStart = sel.anchorOffset === 0 && sel.isCollapsed;
-            if (active.innerText.trim() === '' && this.taskList.querySelectorAll('.task-item').length > 1) {
+            if (active.innerText.trim() === '') {
                 e.preventDefault();
                 const prev = li.previousElementSibling || li.closest('.project-wrapper')?.previousElementSibling;
                 li.remove();
@@ -346,31 +346,49 @@ const punchListApp = {
     moveTask(li, direction) {
         const allItems = [...this.taskList.querySelectorAll('.task-item')];
         const currentIndex = allItems.indexOf(li);
+        if (currentIndex === -1) return;
+
         const label = li.querySelector('.task-label');
         const sel = window.getSelection();
-        let caretOffset = sel.rangeCount > 0 ? sel.getRangeAt(0).startOffset : 0;
+        const caretOffset = sel.rangeCount > 0 ? sel.getRangeAt(0).startOffset : 0;
+        const parentIndent = this.getIndentLevel(li);
+
+        // 1. Find the task and all its children (more indented items that follow)
+        const taskGroup = [li];
+        for (let i = currentIndex + 1; i < allItems.length; i++) {
+            const item = allItems[i];
+            if (this.getIndentLevel(item) > parentIndent) {
+                taskGroup.push(item);
+            } else {
+                break;
+            }
+        }
+
+        const fragment = document.createDocumentFragment();
+        taskGroup.forEach(item => fragment.appendChild(item));
 
         if (direction === 'up') {
-            if (currentIndex <= 0) return;
-            const prev = allItems[currentIndex - 1];
-            prev.parentElement.insertBefore(li, prev);
-        } else { // down
-            if (currentIndex >= allItems.length - 1) return;
-            const indent = this.getIndentLevel(li);
-            let groupEndIndex = currentIndex;
-            for (let i = currentIndex + 1; i < allItems.length; i++) {
-                if (this.getIndentLevel(allItems[i]) > indent) {
-                    groupEndIndex = i;
+            const prevItemIndex = currentIndex - 1;
+            if (prevItemIndex < 0) return; // Already at the top
+            const targetItem = allItems[prevItemIndex];
+            targetItem.parentElement.insertBefore(fragment, targetItem);
+        } else { // 'down'
+            const groupEndIndex = currentIndex + taskGroup.length - 1;
+            const nextItemIndex = groupEndIndex + 1;
+            if (nextItemIndex >= allItems.length) return; // Already at the bottom
+
+            // Find the end of the next sibling's group to insert after
+            const nextSibling = allItems[nextItemIndex];
+            const nextSiblingIndent = this.getIndentLevel(nextSibling);
+            let insertAfterTarget = nextSibling;
+            for (let i = nextItemIndex + 1; i < allItems.length; i++) {
+                if (this.getIndentLevel(allItems[i]) > nextSiblingIndent) {
+                    insertAfterTarget = allItems[i];
                 } else {
                     break;
                 }
             }
-            const nextSibling = allItems[groupEndIndex + 1];
-            if (nextSibling) {
-                 this.insertAfter(nextSibling, li);
-            } else {
-                 li.parentElement.appendChild(li);
-            }
+            this.insertAfter(insertAfterTarget, fragment);
         }
         
         this.regroupProjects();
