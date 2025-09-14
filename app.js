@@ -75,7 +75,11 @@ const timelineApp = {
             undoBtn: document.getElementById('undo-btn'),
             redoBtn: document.getElementById('redo-btn'),
             toggleDeletedLogBtn: document.getElementById('toggle-deleted-log-btn'),
-            mainTabs: document.getElementById('main-tabs')
+            mainTabs: document.getElementById('main-tabs'),
+            shortcutsBtn: document.getElementById('shortcuts-btn'),
+            shortcutsModal: document.getElementById('shortcuts-modal'),
+            shortcutsModalBackdrop: document.getElementById('shortcuts-modal-backdrop'),
+            closeShortcutsBtn: document.getElementById('close-shortcuts-btn')
         };
     },
 
@@ -161,8 +165,24 @@ const timelineApp = {
             this.elements.confirmModal.classList.add('hidden');
             this.pendingClearDependencies = null;
         });
+        
+        // Shortcuts Modal Listeners
+        this.elements.shortcutsBtn.addEventListener('click', this.toggleShortcutsModal.bind(this));
+        this.elements.closeShortcutsBtn.addEventListener('click', this.toggleShortcutsModal.bind(this));
+        this.elements.shortcutsModalBackdrop.addEventListener('click', this.toggleShortcutsModal.bind(this));
+
         document.addEventListener('keydown', (e) => {
+            if (e.key === '?') {
+                 if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA' && document.activeElement.contentEditable !== 'true') {
+                    e.preventDefault();
+                    this.toggleShortcutsModal();
+                }
+            }
             if(e.key === 'Escape') {
+                if (!this.elements.shortcutsModal.classList.contains('hidden')) {
+                    this.toggleShortcutsModal();
+                    return; 
+                }
                 if (this.dependencyMode) {
                     this.dependencyMode = false;
                     this.firstSelectedItem = null;
@@ -1750,6 +1770,10 @@ const timelineApp = {
                 return closest;
             }
         }, { offset: Number.NEGATIVE_INFINITY }).element;
+    },
+
+    toggleShortcutsModal() {
+        this.elements.shortcutsModal.classList.toggle('hidden');
     }
 };
 
@@ -1763,4 +1787,3 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
-
