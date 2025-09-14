@@ -451,7 +451,9 @@ body {
     color: #6b7280; /* gray-500 */
     border-bottom: 2px solid transparent;
     cursor: pointer;
-    transition: color 0.2s, border-color 0.2s;
+    transition: color 0.2s, border-color 0.2s, background-color 0.2s;
+    border-top-left-radius: 0.375rem;
+    border-top-right-radius: 0.375rem;
 }
 .dark .tab-button {
     color: #9ca3af; /* gray-400 */
@@ -471,6 +473,20 @@ body {
     color: #3b82f6; /* blue-500 */
     border-bottom-color: #3b82f6; /* blue-500 */
 }
+.tab-button.dragging {
+    opacity: 0.5;
+    background-color: #e0e7ff;
+}
+.dark .tab-button.dragging {
+    background-color: #312e81;
+}
+.tab-button.drag-over-left {
+    border-left: 2px solid #2563eb;
+}
+.tab-button.drag-over-right {
+    border-right: 2px solid #2563eb;
+}
+
 
 /* Punch List Styles */
 #main-tab-panel-list .punch-list-container {
@@ -541,16 +557,16 @@ body {
 }
 
 #main-tab-panel-list .header-2 { /* # Project Title */
-  background-color: #3b82f6; /* blue-500 */
-  color: white;
-  padding: 6px 12px;
-  font-weight: 700;
-  font-size: 16px;
-  border-radius: 6px;
+    background-color: #e5e7eb; /* gray-200 */
+    color: #374151; /* gray-700 */
+    padding: 6px 12px;
+    font-weight: 700;
+    font-size: 16px;
+    border-radius: 6px;
 }
 .dark #main-tab-panel-list .header-2 {
-  background-color: #60a5fa; /* blue-400 */
-  color: #020617; /* slate-950 */
+    background-color: #4b5563; /* gray-600 */
+    color: #f3f4f6; /* gray-100 */
 }
 
 #main-tab-panel-list .note-block {
@@ -601,23 +617,41 @@ body {
 
 /* Highlight Colors applied to the entire line */
 #main-tab-panel-list .task-item:has(.task-label.highlight-yellow) { 
-    background-color: #fef9c3; /* yellow-100 */
-    color: #92400e; /* yellow-800 */
+    background-color: #fef08a; /* yellow-200 */
+    color: #854d0e; /* yellow-700 */
     border-radius: 4px; 
 }
 #main-tab-panel-list .task-item:has(.task-label.highlight-red)    { 
-    background-color: #fee2e2; /* red-100 */
+    background-color: #fecaca; /* red-200 */
     color: #991b1b; /* red-800 */
     border-radius: 4px; 
 }
+#main-tab-panel-list .task-item:has(.task-label.highlight-blue) {
+    background-color: #bfdbfe; /* blue-200 */
+    color: #1e40af; /* blue-800 */
+    border-radius: 4px;
+}
+#main-tab-panel-list .task-item:has(.task-label.highlight-purple) {
+    background-color: #e9d5ff; /* purple-200 */
+    color: #6b21a8; /* purple-800 */
+    border-radius: 4px;
+}
 
 .dark #main-tab-panel-list .task-item:has(.task-label.highlight-yellow) { 
-    background-color: #362f1b;
-    color: #fef08a; 
+    background-color: #3f3c1a;
+    color: #fde047; 
 }
 .dark #main-tab-panel-list .task-item:has(.task-label.highlight-red) { 
-    background-color: #3d2323;
-    color: #fecaca;
+    background-color: #4c1d1d;
+    color: #fca5a5;
+}
+.dark #main-tab-panel-list .task-item:has(.task-label.highlight-blue) { 
+    background-color: #1e3a8a;
+    color: #93c5fd;
+}
+.dark #main-tab-panel-list .task-item:has(.task-label.highlight-purple) { 
+    background-color: #3b0764;
+    color: #c4b5fd;
 }
 
 
@@ -636,4 +670,3 @@ body {
     transform: translateX(0);
   }
 }
-
