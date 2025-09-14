@@ -14,16 +14,32 @@ const timelineApp = {
     pendingClearDependencies: null,
     deletedLogCollapsed: true,
     taskLoadChartColor: d3.scaleOrdinal(d3.schemeTableau10),
+    activeTab: 'projects',
+    tabOrder: ['projects', 'list', 'overall-load', 'upcoming'],
 
     // --- DOM ELEMENTS ---
     elements: {},
 
+    isShortcut(event, key, { ctrl = false, alt = false, shift = false } = {}) {
+        const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+        const ctrlKey = isMac ? event.metaKey : event.ctrlKey;
+        return (
+            ctrlKey === ctrl &&
+            event.altKey === alt &&
+            event.shiftKey === shift &&
+            event.key.toLowerCase() === key.toLowerCase()
+        );
+    },
+
     init() {
         this.cacheDOMElements();
+        this.loadTabData();
+        this.renderTabs();
         this.addEventListeners();
         this.applyTheme();
         this.loadProjects();
         this.renderProjects();
+        this.showMainTab(this.activeTab, false);
         this.updateUndoRedoButtons();
         this.initializeSharedDatePicker();
     },
@@ -58,7 +74,8 @@ const timelineApp = {
             closeFullscreenBtn: document.getElementById('close-fullscreen-btn'),
             undoBtn: document.getElementById('undo-btn'),
             redoBtn: document.getElementById('redo-btn'),
-            toggleDeletedLogBtn: document.getElementById('toggle-deleted-log-btn')
+            toggleDeletedLogBtn: document.getElementById('toggle-deleted-log-btn'),
+            mainTabs: document.getElementById('main-tabs')
         };
     },
 
@@ -157,7 +174,27 @@ const timelineApp = {
                      d3.select("body").selectAll(".fullscreen-chart-tooltip").remove();
                 }
             }
+
+            if (this.isShortcut(e, 'arrowleft', { ctrl: true, alt: true }) || this.isShortcut(e, 'arrowright', { ctrl: true, alt: true })) {
+                e.preventDefault();
+                const direction = e.key.toLowerCase() === 'arrowleft' ? -1 : 1;
+                const currentIndex = this.tabOrder.indexOf(this.activeTab);
+                if (currentIndex === -1) return;
+        
+                let newIndex = currentIndex + direction;
+        
+                if (newIndex < 0) {
+                    newIndex = this.tabOrder.length - 1;
+                } else if (newIndex >= this.tabOrder.length) {
+                    newIndex = 0;
+                }
+                
+                const newTabName = this.tabOrder[newIndex];
+                this.showMainTab(newTabName);
+                document.getElementById(`main-tab-btn-${newTabName}`).focus();
+            }
         });
+        this.addDragAndDropListeners();
     },
     
     // --- DATA & UTILS ---
@@ -457,10 +494,9 @@ const timelineApp = {
         });
         this.renderDeletedProjectsLog();
          // Re-render active main tab if it's not the project tab
-        const activeTabBtn = document.querySelector('#main-tabs .tab-button.active');
-        if (activeTabBtn && activeTabBtn.id === 'main-tab-btn-overall-load') {
+        if (this.activeTab === 'overall-load') {
             this.drawOverallLoadChart();
-        } else if (activeTabBtn && activeTabBtn.id === 'main-tab-btn-upcoming') {
+        } else if (this.activeTab === 'upcoming') {
             this.renderUpcomingTasks();
         }
     },
@@ -977,6 +1013,10 @@ const timelineApp = {
                 headerColorClass = 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200';
             } else if (diffDays === 1) {
                 dateLabel = 'Tomorrow';
+                headerColorClass = 'bg-orange-200 dark:bg-orange-900/50 text-orange-800 dark:text-orange-300';
+            } else if (diffDays > 1 && diffDays <= 7) {
+                dateLabel = `in ${diffDays} days`;
+                headerColorClass = 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200';
             } else {
                 dateLabel = `in ${diffDays} days`;
             }
@@ -1395,18 +1435,39 @@ const timelineApp = {
         }
     },
 
-    showMainTab(tabName) {
+    showMainTab(tabName, save = true) {
+        if (save) {
+            this.activeTab = tabName;
+            localStorage.setItem('timelineActiveTab', tabName);
+        }
+
         ['projects', 'list', 'overall-load', 'upcoming'].forEach(name => {
-            document.getElementById(`main-tab-panel-${name}`).classList.add('hidden');
-            document.getElementById(`main-tab-btn-${name}`).classList.remove('active');
+            const panel = document.getElementById(`main-tab-panel-${name}`);
+            const btn = document.getElementById(`main-tab-btn-${name}`);
+            if (panel) panel.classList.add('hidden');
+            if (btn) btn.classList.remove('active');
         });
 
-        document.getElementById(`main-tab-panel-${tabName}`).classList.remove('hidden');
-        document.getElementById(`main-tab-btn-${tabName}`).classList.add('active');
-
-        if (tabName === 'overall-load') this.drawOverallLoadChart();
-        else if (tabName === 'upcoming') this.renderUpcomingTasks();
-        else if (tabName === 'list') punchListApp.init();
+        const activePanel = document.getElementById(`main-tab-panel-${tabName}`);
+        const activeBtn = document.getElementById(`main-tab-btn-${tabName}`);
+        if (activePanel) activePanel.classList.remove('hidden');
+        if (activeBtn) activeBtn.classList.add('active');
+        
+        // Conditional rendering based on the new active tab
+        if (tabName === 'projects') {
+            // Re-draw charts whenever the projects tab becomes visible to ensure they render
+            this.projects.forEach(project => {
+                if (!project.collapsed && project.startDate && project.endDate) {
+                    this.drawChart(project);
+                }
+            });
+        } else if (tabName === 'overall-load') {
+            this.drawOverallLoadChart();
+        } else if (tabName === 'upcoming') {
+            this.renderUpcomingTasks();
+        } else if (tabName === 'list') {
+            punchListApp.init();
+        }
     },
 
 
@@ -1581,6 +1642,114 @@ const timelineApp = {
         
         this.dependencyMode = false; this.firstSelectedItem = null; this.elements.dependencyBanner.classList.add('hidden');
         this.saveState(); this.renderProjects();
+    },
+
+    // --- TAB MANAGEMENT ---
+    loadTabData() {
+        const savedTab = localStorage.getItem('timelineActiveTab');
+        if (savedTab) this.activeTab = savedTab;
+
+        const savedOrder = localStorage.getItem('timelineTabOrder');
+        if (savedOrder) {
+            try {
+                const parsedOrder = JSON.parse(savedOrder);
+                // Basic validation
+                if(Array.isArray(parsedOrder) && parsedOrder.length === this.tabOrder.length && parsedOrder.every(t => this.tabOrder.includes(t))) {
+                    this.tabOrder = parsedOrder;
+                }
+            } catch(e) { console.error("Could not parse tab order", e); }
+        }
+    },
+    
+    renderTabs() {
+        this.elements.mainTabs.innerHTML = '';
+        const tabNames = {
+            projects: 'Projects',
+            list: 'List',
+            'overall-load': 'Task Load',
+            upcoming: 'Upcoming'
+        };
+        this.tabOrder.forEach(tabKey => {
+            const button = document.createElement('button');
+            button.id = `main-tab-btn-${tabKey}`;
+            button.className = 'tab-button text-base';
+            button.textContent = tabNames[tabKey];
+            button.dataset.tabName = tabKey;
+            button.setAttribute('draggable', true);
+            button.onclick = () => this.showMainTab(tabKey);
+            this.elements.mainTabs.appendChild(button);
+        });
+    },
+
+    addDragAndDropListeners() {
+        const tabsContainer = this.elements.mainTabs;
+        let draggedItem = null;
+
+        tabsContainer.addEventListener('dragstart', (e) => {
+            draggedItem = e.target;
+            setTimeout(() => {
+                e.target.classList.add('dragging');
+            }, 0);
+        });
+
+        tabsContainer.addEventListener('dragend', (e) => {
+            draggedItem?.classList.remove('dragging');
+            draggedItem = null;
+            document.querySelectorAll('.drag-over-left, .drag-over-right').forEach(el => {
+                el.classList.remove('drag-over-left', 'drag-over-right');
+            });
+        });
+
+        tabsContainer.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            const afterElement = this.getDragAfterElement(tabsContainer, e.clientX);
+            document.querySelectorAll('.drag-over-left, .drag-over-right').forEach(el => {
+                el.classList.remove('drag-over-left', 'drag-over-right');
+            });
+
+            if (afterElement == null) {
+                const lastChild = tabsContainer.lastElementChild;
+                if(lastChild) lastChild.classList.add('drag-over-right');
+            } else {
+                afterElement.classList.add('drag-over-left');
+            }
+        });
+
+        tabsContainer.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if(!draggedItem) return;
+            
+            const afterElement = this.getDragAfterElement(tabsContainer, e.clientX);
+            const draggedTab = draggedItem.dataset.tabName;
+            const newOrder = [...this.tabOrder];
+            newOrder.splice(newOrder.indexOf(draggedTab), 1);
+
+            if (afterElement == null) {
+                newOrder.push(draggedTab);
+            } else {
+                const referenceTab = afterElement.dataset.tabName;
+                const index = newOrder.indexOf(referenceTab);
+                newOrder.splice(index, 0, draggedTab);
+            }
+
+            this.tabOrder = newOrder;
+            localStorage.setItem('timelineTabOrder', JSON.stringify(this.tabOrder));
+            this.renderTabs();
+            this.showMainTab(this.activeTab, false);
+        });
+    },
+
+    getDragAfterElement(container, x) {
+        const draggableElements = [...container.querySelectorAll('.tab-button:not(.dragging)')];
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = x - box.left - box.width / 2;
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
     }
 };
 
@@ -1589,8 +1758,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Global keydown listener for punch list logic when its tab is active
     document.addEventListener('keydown', (e) => {
         const listPanel = document.getElementById('main-tab-panel-list');
-        if (!listPanel.classList.contains('hidden')) {
+        if (listPanel && !listPanel.classList.contains('hidden')) {
             punchListApp.handleKeyboard(e);
         }
     });
 });
+
