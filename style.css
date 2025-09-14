@@ -670,3 +670,46 @@ body {
     transform: translateX(0);
   }
 }
+
+/* Shortcuts Modal Styles */
+#shortcuts-modal .shortcut-category {
+    font-size: 0.75rem; /* text-xs */
+    font-weight: 700; /* font-bold */
+    text-transform: uppercase;
+    color: #64748b; /* slate-500 */
+    margin-bottom: 0.5rem; /* mb-2 */
+    border-bottom: 1px solid #e2e8f0; /* border-slate-200 */
+    padding-bottom: 0.25rem; /* pb-1 */
+}
+.dark #shortcuts-modal .shortcut-category {
+    color: #94a3b8; /* slate-400 */
+    border-bottom-color: #334155; /* slate-700 */
+}
+
+#shortcuts-modal .shortcut-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0; /* py-2 */
+}
+
+#shortcuts-modal .shortcut-key {
+    background-color: #f1f5f9; /* slate-100 */
+    border: 1px solid #e2e8f0; /* slate-200 */
+    border-radius: 0.25rem; /* rounded */
+    padding: 0.125rem 0.5rem; /* px-2 py-0.5 */
+    font-family: 'Cascadia Code', monospace;
+    font-size: 0.8em;
+    color: #334155; /* slate-700 */
+    margin-left: 0.25rem;
+}
+.dark #shortcuts-modal .shortcut-key {
+    background-color: #334155; /* slate-700 */
+    border-color: #475569; /* slate-600 */
+    color: #f1f5f9; /* slate-100 */
+}
+
+#close-shortcuts-btn {
+    font-size: 2rem;
+    line-height: 1;
+}
