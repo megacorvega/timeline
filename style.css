@@ -26,7 +26,7 @@ html.dark[data-theme="default"] {
     --text-primary: #f1f5f9; /* slate-100 */
     --text-secondary: #94a3b8; /* slate-400 */
     --text-tertiary: #94a3b8; /* slate-400 */
-    --accent-primary: #64748b; /* slate-500 */
+    --accent-primary: #94a3b8; /* slate-400 -- Changed for visibility */
     --accent-text: #f1f5f9; /* slate-100 */
     --shadow-color: rgba(0,0,0,0.2);
     --title-primary: #f1f5f9;
@@ -162,6 +162,7 @@ body {
     font-family: 'Inter', sans-serif;
     background-color: var(--bg-page);
     color: var(--text-primary);
+    cursor: default;
 }
 .header-bg {
     background-color: var(--bg-page);
@@ -313,6 +314,10 @@ body {
 .date-input-disabled {
     background-color: var(--bg-secondary);
     color: var(--text-secondary);
+    cursor: default;
+}
+.date-input[readonly] {
+    cursor: default;
 }
 
 .date-input-icon-wrapper {
@@ -412,6 +417,9 @@ body {
     font-size: inherit;
     width: 100%;
 }
+.editable-text {
+    cursor: pointer;
+}
 .duration-scale-container {
     width: 60px;
     height: 8px;
@@ -424,6 +432,11 @@ body {
     height: 100%;
     border-radius: 4px;
     transition: width 0.3s ease-in-out;
+}
+
+/* Softer dividers for task/subtask lists */
+.phase-row .border-t, .task-row .border-t {
+    border-color: color-mix(in srgb, var(--border-primary) 50%, transparent);
 }
 
 
@@ -859,4 +872,3 @@ body {
     border-radius: 6px;
     padding: 4px;
 }
-
