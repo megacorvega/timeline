@@ -162,7 +162,6 @@ body {
     font-family: 'Inter', sans-serif;
     background-color: var(--bg-page);
     color: var(--text-primary);
-    cursor: default;
 }
 .header-bg {
     background-color: var(--bg-page);
@@ -314,10 +313,7 @@ body {
 .date-input-disabled {
     background-color: var(--bg-secondary);
     color: var(--text-secondary);
-    cursor: default;
-}
-.date-input[readonly] {
-    cursor: default;
+    cursor: not-allowed;
 }
 
 .date-input-icon-wrapper {
@@ -547,7 +543,6 @@ body {
 }
 .move-task-dropdown-item.disabled {
     cursor: not-allowed;
-    color: var(--text-secondary);
 }
 
 
@@ -627,10 +622,11 @@ body {
     text-align: center;
     background: transparent;
     border: none;
-    padding: 0.5rem 1.25rem;
+    padding: 0.375rem 1rem;
     border-radius: 9999px;
     cursor: pointer;
     font-weight: 500;
+    font-size: 0.875rem;
     color: var(--text-secondary);
     transition: color 0.3s ease-in-out;
     white-space: nowrap;
@@ -872,3 +868,4 @@ body {
     border-radius: 6px;
     padding: 4px;
 }
+
