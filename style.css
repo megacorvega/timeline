@@ -692,6 +692,11 @@ button:not(:disabled),
   position: relative;
   transition: background-color 0.2s;
 }
+
+#main-tab-panel-list .task-item > *:first-child:not(.header-1):not(.header-2) {
+    margin-left: 4px;
+}
+
 #main-tab-panel-list .task-item.active {
   outline: 1px solid var(--accent-primary);
   border-radius: 4px;
@@ -757,8 +762,8 @@ button:not(:disabled),
 #main-tab-panel-list .indent-4 { margin-left: 96px; }
 
 #main-tab-panel-list .project-wrapper {
-  background-color: var(--bg-primary);
-  border: 1px solid var(--border-primary);
+  background-color: var(--bg-page);
+  border: none;
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 16px;
