@@ -27,7 +27,7 @@ html.dark[data-theme="default"] {
     --text-secondary: #94a3b8; /* slate-400 */
     --text-tertiary: #94a3b8; /* slate-400 */
     --accent-primary: #94a3b8; /* slate-400 -- Changed for visibility */
-    --accent-text: #f1f5f9; /* slate-100 */
+    --accent-text: #0f172a; /* FIX: Was #f1f5f9. Changed to a dark color for high contrast on buttons. */
     --shadow-color: rgba(0,0,0,0.2);
     --title-primary: #f1f5f9;
     --title-secondary: #64748b;
@@ -43,7 +43,7 @@ html[data-theme="dracula"] {
     --text-secondary: #6272a4;
     --text-tertiary: #6272a4;
     --accent-primary: #bd93f9;
-    --accent-text: #f8f8f2;
+    --accent-text: #282a36; /* FIX: Was #f8f8f2. Changed to dark text for contrast against the light purple accent. */
     --shadow-color: rgba(0,0,0,0.07);
     --title-primary: #282a36;
     --title-secondary: #bd93f9;
@@ -82,7 +82,7 @@ html[data-theme="solarized"] {
 html.dark[data-theme="solarized"] {
     --bg-page: #002b36;
     --bg-primary: #073642;
-    --bg-secondary: #586e75;
+    --bg-secondary: #002b36; /* FIX: Was #586e75. Changed to be darker to improve text contrast on phase rows. */
     --bg-tertiary: rgba(88, 110, 117, 0.5);
     --border-primary: rgba(88, 110, 117, 0.5);
     --text-primary: #93a1a1;
@@ -105,7 +105,7 @@ html[data-theme="monokai"] {
     --text-secondary: #75715E;
     --text-tertiary: #75715E;
     --accent-primary: #FD971F;
-    --accent-text: #ffffff;
+    --accent-text: #272822; /* FIX: Was #ffffff. Changed to dark text for contrast against the orange accent. */
     --shadow-color: rgba(0,0,0,0.07);
     --title-primary: #272822;
     --title-secondary: #A6E22E;
@@ -136,7 +136,7 @@ html[data-theme="nord"] {
     --text-secondary: #4C566A;
     --text-tertiary: #4C566A;
     --accent-primary: #5E81AC;
-    --accent-text: #ECEFF4;
+    --accent-text: #2E3440; /* FIX: Was #ECEFF4. Changed to dark text for contrast against the muted blue accent. */
     --shadow-color: rgba(0,0,0,0.07);
     --title-primary: #2E3440;
     --title-secondary: #81A1C1;
@@ -281,6 +281,17 @@ button:not(:disabled),
 .flatpickr-day:hover { background: var(--bg-secondary); }
 .flatpickr-day.selected { background: var(--accent-primary); color: var(--accent-text); border-color: var(--accent-primary); }
 .flatpickr-day.today { border-color: var(--accent-primary); }
+
+/* FIX: Ensure calendar header elements are legible in dark mode */
+.dark .flatpickr-month,
+.dark span.flatpickr-weekday {
+    color: var(--text-primary) !important;
+}
+.dark .flatpickr-months .flatpickr-prev-month svg,
+.dark .flatpickr-months .flatpickr-next-month svg {
+    fill: var(--text-primary) !important;
+}
+
 .flatpickr-month, .flatpickr-weekday, .flatpickr-weekdays, .numInput, .arrowUp, .arrowDown {
     color: var(--text-primary);
 }
@@ -811,7 +822,7 @@ button:not(:disabled),
 
 .dark #main-tab-panel-list .task-item:has(.task-label.highlight-yellow) { 
     background-color: #3f3c1a;
-    color: #fde047; 
+    color: #fefce8; /* FIX: Was #fde047. Increased lightness for better contrast. */
 }
 .dark #main-tab-panel-list .task-item:has(.task-label.highlight-red) { 
     background-color: #4c1d1d;
