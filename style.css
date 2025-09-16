@@ -609,31 +609,54 @@ button:not(:disabled),
     height: 100%;
     background-color: var(--bg-page);
     z-index: 1000;
-    display: none;
-    padding: 2rem;
+    display: none; /* Set to 'flex' by JS to show */
+    flex-direction: column;
+    padding: 1.5rem;
     box-sizing: border-box;
 }
-#fullscreen-chart-container {
-    width: 100%;
-    height: 100%;
-    position: relative;
+
+#fullscreen-modal .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    flex-shrink: 0;
 }
-#close-fullscreen-btn {
-    position: absolute;
-    top: -1rem;
-    right: -1rem;
-    background: var(--bg-secondary);
-    color: var(--text-primary);
+
+#fullscreen-modal .header h1 {
+    font-size: 1.875rem;
+    font-weight: 700;
+}
+
+#fullscreen-modal #close-fullscreen-btn {
+    background-color: var(--bg-secondary);
     border: none;
+    color: var(--text-primary);
+    width: 2.5rem;
+    height: 2.5rem;
     border-radius: 50%;
-    width: 32px;
-    height: 32px;
-    font-size: 20px;
-    font-weight: bold;
+    font-size: 1.5rem;
+    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: background-color 0.2s ease;
+    position: static;
 }
+
+#fullscreen-modal #close-fullscreen-btn:hover {
+    background-color: var(--bg-tertiary);
+}
+
+#fullscreen-modal .chart-panel {
+    flex-grow: 1;
+    background-color: var(--bg-primary);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    overflow: auto;
+    border: 1px solid var(--border-primary);
+}
+
 .chart-tooltip {
     position: absolute;
     visibility: hidden;
@@ -898,6 +921,62 @@ button:not(:disabled),
     opacity: 1;
 }
 
+/* --- Gantt Chart Styles --- */
+.gantt-tooltip {
+    position: absolute;
+    visibility: hidden;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    padding: 0.75rem;
+    font-size: 0.875rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 1001;
+    transition: opacity 0.2s, visibility 0.2s;
+    opacity: 0;
+}
+.gantt-y-axis .domain {
+    stroke: none;
+}
+.gantt-y-axis .tick line {
+    stroke: none;
+}
+.gantt-y-axis .tick text {
+    font-size: 14px;
+    fill: var(--text-primary);
+    cursor: default;
+    text-anchor: end;
+}
+.gantt-y-axis .tick text.indent-1 { 
+    font-weight: 700;
+}
+.gantt-y-axis .tick text.indent-2 { font-size: 13px; fill: var(--text-secondary); }
+.gantt-y-axis .tick text.indent-3 { font-size: 12px; font-style: italic; fill: var(--text-secondary); }
+
+.gantt-bar-group { cursor: pointer; }
+.gantt-bar-bg {
+    fill: var(--bg-tertiary);
+    transition: fill 0.2s;
+    opacity: 0.5;
+}
+.gantt-bar-progress {
+    transition: fill 0.2s;
+    opacity: 0.7;
+}
+.gantt-bar-group:hover .gantt-bar-bg {
+    fill: color-mix(in srgb, var(--bg-tertiary) 70%, #fff);
+}
+.gantt-bar-group:hover .gantt-bar-progress {
+    fill: color-mix(in srgb, var(--accent-primary) 70%, #fff);
+}
+.phase-divider-line {
+    stroke: var(--bg-tertiary);
+    stroke-width: 1;
+    stroke-dasharray: 3, 3;
+}
+
 /* --- Days Left Pill --- */
 .days-left-pill {
     background-color: var(--bg-tertiary);
@@ -1026,3 +1105,4 @@ button:not(:disabled),
     color: var(--text-secondary);
     cursor: not-allowed;
 }
+
