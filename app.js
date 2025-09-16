@@ -1422,7 +1422,28 @@ const timelineApp = {
             .attr("height", yGantt.bandwidth()).attr("rx", 5);
 
         // --- PROGRESS LINES ---
-        svg.append("line").attr("class", "planned-line").attr("x1", x(startDate)).attr("y1", yProgress(0)).attr("x2", x(endDate)).attr("y2", yProgress(100));
+        const scopedPhases = [...project.phases]
+            .filter(p => p.startDate && p.endDate)
+            .sort((a, b) => this.parseDate(a.startDate) - this.parseDate(b.startDate));
+        const scopePathData = [];
+        if (scopedPhases.length > 0) {
+            scopePathData.push({ date: this.parseDate(scopedPhases[0].startDate), progress: 0 });
+            scopedPhases.forEach((phase, i) => {
+                const progressPerPhase = 100 / scopedPhases.length;
+                const cumulativeProgress = (i + 1) * progressPerPhase;
+                scopePathData.push({ date: this.parseDate(phase.endDate), progress: cumulativeProgress });
+            });
+        }
+        if (scopePathData.length > 1) {
+            const scopeLine = d3.line().x(d => x(d.date)).y(d => yProgress(d.progress));
+            svg.append("path")
+                .datum(scopePathData)
+                .attr("class", "planned-line")
+                .attr("d", scopeLine)
+                .style("fill", "none");
+        } else {
+            svg.append("line").attr("class", "planned-line").attr("x1", x(startDate)).attr("y1", yProgress(0)).attr("x2", x(endDate)).attr("y2", yProgress(100));
+        }
 
         const allTasks = project.phases.flatMap(p => p.tasks.flatMap(t => (t.subtasks && t.subtasks.length > 0) ? t.subtasks : [t]))
             .filter(item => item.effectiveEndDate || item.endDate)
@@ -2205,4 +2226,3 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
-
