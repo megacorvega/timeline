@@ -1004,8 +1004,15 @@ button:not(:disabled),
     padding: 4px;
     border-radius: 6px;
     color: var(--text-tertiary);
-    transition: background-color 0.2s, color 0.2s;
+    transition: background-color 0.2s, color 0.2s, opacity 0.2s;
+    opacity: 0;
 }
+
+.project-header:hover .lock-toggle-btn,
+.phase-row:hover .lock-toggle-btn {
+    opacity: 1;
+}
+
 .lock-toggle-btn:hover:not(:disabled) {
     background-color: var(--bg-tertiary);
     color: var(--text-primary);
@@ -1019,4 +1026,3 @@ button:not(:disabled),
     color: var(--text-secondary);
     cursor: not-allowed;
 }
-
