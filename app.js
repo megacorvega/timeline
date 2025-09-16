@@ -355,6 +355,23 @@ const timelineApp = {
         return (elapsed / totalDuration) * 100;
     },
 
+    getDaysLeft(endDateStr) {
+        if (!endDateStr) return { text: '-', tooltip: 'No end date', isOverdue: false, days: null, className: '' };
+        const end = this.parseDate(endDateStr);
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+
+        const diffTime = end - now;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays < 0) {
+            return { text: `${Math.abs(diffDays)}`, tooltip: `${Math.abs(diffDays)} days overdue`, isOverdue: true, days: diffDays, className: 'days-left-pill-overdue' };
+        } else if (diffDays === 0) {
+            return { text: '0', tooltip: 'Due today', isOverdue: false, days: 0, className: 'days-left-pill-due-today' };
+        }
+        return { text: `${diffDays}`, tooltip: `${diffDays} days left`, isOverdue: false, days: diffDays, className: '' };
+    },
+
     calculateRollups() {
         this.projects.forEach(p => {
             p.phases.forEach(phase => {
@@ -477,16 +494,48 @@ const timelineApp = {
             let completionIcon = project.overallProgress >= 100 ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>` : '';
 
             const durationProgress = this.getDurationProgress(project.startDate, project.endDate);
-            let durationBarColorClass = 'bg-blue-500';
+            const daysLeftInfo = this.getDaysLeft(project.endDate);
+            const overallProgress = Math.round(project.overallProgress);
+
+            let progressColor = 'var(--green)';
+            let tooltipText = '';
+
+            const isBehind = overallProgress < durationProgress && !daysLeftInfo.isOverdue;
+            
             if (project.overallProgress >= 100) {
-                durationBarColorClass = 'bg-green-500';
-            } else if (durationProgress === 100) {
-                durationBarColorClass = 'bg-red-500';
-            } else if (durationProgress > 90) {
-                durationBarColorClass = 'bg-orange-500';
-            } else if (durationProgress > 75) {
-                durationBarColorClass = 'bg-yellow-500';
+                 progressColor = 'var(--green)';
+                 tooltipText = `<b>Status: Complete</b><br>Finished with ${daysLeftInfo.days !== null ? Math.abs(daysLeftInfo.days) : '0'} days to spare.`;
+            } else if (daysLeftInfo.isOverdue) {
+                progressColor = 'var(--red)';
+                tooltipText = `<b>Status: Overdue</b><br>The deadline has passed, and only ${overallProgress}% of work is complete.`;
+            } else if (isBehind) {
+                progressColor = 'var(--amber)';
+                 tooltipText = `<b>Status: Behind</b><br>Only ${overallProgress}% of work is complete, but ${Math.round(durationProgress)}% of time has passed.`;
+            } else if (overallProgress > durationProgress) {
+                progressColor = 'var(--green)';
+                tooltipText = `<b>Status: Ahead</b><br>${overallProgress}% of work is complete in only ${Math.round(durationProgress)}% of the allotted time.`;
+            } else { // on track
+                progressColor = 'var(--blue)';
+                 tooltipText = `<b>Status: On Track</b><br>${overallProgress}% of work is complete in ${Math.round(durationProgress)}% of the allotted time.`;
             }
+
+            const pacingBarHTML = `
+                <div class="duration-scale-container tooltip">
+                    <span class="tooltip-text">${tooltipText}</span>
+                    <div class="relative h-2 w-full rounded-full" style="background-color: var(--bg-tertiary);">
+                        <!-- Time Elapsed is represented by the grey bar underneath -->
+                        <div class="absolute h-2 top-0 left-0 rounded-full" style="background-color: var(--bg-tertiary); width: ${durationProgress}%; z-index: 1;"></div>
+                        <!-- Progress -->
+                        <div class="absolute h-2 top-0 left-0 rounded-full" style="background-color: ${progressColor}; width: ${overallProgress}%; z-index: 2;"></div>
+                    </div>
+                </div>
+            `;
+            
+            const daysLeftPillHTML = `
+                <div class="days-left-pill ${daysLeftInfo.className}" title="${daysLeftInfo.tooltip}">
+                    ${daysLeftInfo.text}
+                </div>
+            `;
 
             projectCard.innerHTML = `
                 <div class="flex justify-between items-center mb-3">
@@ -496,10 +545,8 @@ const timelineApp = {
                             <svg id="chevron-${project.id}" class="w-5 h-5 text-tertiary chevron ${project.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                         </button>
                         <h3 class="text-xl font-bold truncate editable-text" onclick="timelineApp.makeEditable(this, 'updateProjectName', ${project.id})">${project.name}</h3>
-                        <div class="duration-scale-container w-24 flex-shrink-0" title="Duration Progress">
-                             <div class="duration-scale-bar ${durationBarColorClass}" style="width: ${durationProgress}%;"></div>
-                        </div>
-                        <span class="text-sm font-medium text-secondary flex-shrink-0">${Math.round(project.overallProgress)}%</span>
+                        ${pacingBarHTML}
+                        ${daysLeftPillHTML}
                     </div>
                     <div class="flex items-center gap-2 text-sm text-secondary flex-shrink-0">
                         <div class="date-input-container">
