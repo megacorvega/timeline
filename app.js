@@ -358,22 +358,36 @@ const timelineApp = {
         return (elapsed / totalDuration) * 100;
     },
 
+    countWeekdays(startDate, endDate) {
+        let count = 0;
+        const curDate = new Date(startDate.getTime());
+        while (curDate <= endDate) {
+            const dayOfWeek = curDate.getDay();
+            if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                count++;
+            }
+            curDate.setDate(curDate.getDate() + 1);
+        }
+        return count;
+    },
+
     getDaysLeft(endDateStr) {
         if (!endDateStr) return { text: '-', tooltip: 'No end date', isOverdue: false, days: null, className: '' };
         const end = this.parseDate(endDateStr);
         const now = new Date();
         now.setHours(0, 0, 0, 0);
 
-        const diffTime = end - now;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-        if (diffDays < 0) {
-            return { text: `${Math.abs(diffDays)}`, tooltip: `${Math.abs(diffDays)} days overdue`, isOverdue: true, days: diffDays, className: 'days-left-pill-overdue' };
-        } else if (diffDays === 0) {
-            return { text: '0', tooltip: 'Due today', isOverdue: false, days: 0, className: 'days-left-pill-due-today' };
+        if (end < now) {
+            const daysOverdue = this.countWeekdays(end, now);
+            return { text: `${daysOverdue}`, tooltip: `${daysOverdue} weekdays overdue`, isOverdue: true, days: -daysOverdue, className: 'days-left-pill-overdue' };
+        } else if (end.getTime() === now.getTime()) {
+             return { text: '0', tooltip: 'Due today', isOverdue: false, days: 0, className: 'days-left-pill-due-today' };
+        } else {
+            const daysLeft = this.countWeekdays(now, end);
+            return { text: `${daysLeft}`, tooltip: `${daysLeft} weekdays left`, isOverdue: false, days: daysLeft, className: '' };
         }
-        return { text: `${diffDays}`, tooltip: `${diffDays} days left`, isOverdue: false, days: diffDays, className: '' };
     },
+
 
     getScopedPlannedProgress(date, scopePathData, project) {
         if (!scopePathData || scopePathData.length < 2) {
@@ -457,61 +471,38 @@ const timelineApp = {
                 });
             });
         });
-
+    
         allItems.forEach(item => item.isDriven = false);
-
+    
         for (let i = 0; i < allItems.size; i++) {
             allItems.forEach(item => {
                 if (item.dependencies && item.dependencies.length > 0) {
                     const parentId = item.dependencies[0];
                     const parent = allItems.get(parentId);
-
+    
                     if (parent) {
                         const parentEndDateValue = parent.effectiveEndDate || parent.endDate;
                         if (parentEndDateValue) {
                             const parentEndDate = this.parseDate(parentEndDateValue);
                             const newStartDate = new Date(parentEndDate);
-
-                            const oldEffectiveStartDate = item.effectiveStartDate ? this.parseDate(item.effectiveStartDate) : null;
-                            const oldEffectiveEndDate = item.effectiveEndDate ? this.parseDate(item.effectiveEndDate) : null;
+    
+                            // Maintain duration
+                            const oldStartDate = item.startDate ? this.parseDate(item.startDate) : null;
+                            const oldEndDate = item.endDate ? this.parseDate(item.endDate) : null;
                             let duration = null;
-
-                            if (oldEffectiveStartDate && oldEffectiveEndDate) {
-                                duration = oldEffectiveEndDate.getTime() - oldEffectiveStartDate.getTime();
+                            if (oldStartDate && oldEndDate) {
+                                duration = oldEndDate.getTime() - oldStartDate.getTime();
                             }
-
+    
                             item.startDate = newStartDate.toISOString().split('T')[0];
-
+    
                             if (duration !== null) {
                                 const newEndDate = new Date(newStartDate.getTime() + duration);
                                 item.endDate = newEndDate.toISOString().split('T')[0];
-                            } else if (item.endDate) {
-                                const existingEndDate = this.parseDate(item.endDate);
-                                if (newStartDate > existingEndDate) {
-                                    item.endDate = newStartDate.toISOString().split('T')[0];
-                                }
                             }
                             
                             item.isDriven = true;
                             item.driverName = parent.name;
-                            
-                            if (item.subtasks && item.subtasks.length > 0 && oldEffectiveStartDate) {
-                                const timeShift = newStartDate.getTime() - oldEffectiveStartDate.getTime();
-                                if(timeShift !== 0) {
-                                    item.subtasks.forEach(subtask => {
-                                        if (subtask.startDate) {
-                                            const oldSubtaskStartDate = this.parseDate(subtask.startDate);
-                                            const newSubtaskStartDate = new Date(oldSubtaskStartDate.getTime() + timeShift);
-                                            subtask.startDate = newSubtaskStartDate.toISOString().split('T')[0];
-                                        }
-                                        if (subtask.endDate) {
-                                            const oldSubtaskEndDate = this.parseDate(subtask.endDate);
-                                            const newSubtaskEndDate = new Date(oldSubtaskEndDate.getTime() + timeShift);
-                                            subtask.endDate = newSubtaskEndDate.toISOString().split('T')[0];
-                                        }
-                                    });
-                                }
-                            }
                         }
                     }
                 }
@@ -519,6 +510,7 @@ const timelineApp = {
             this.calculateRollups();
         }
     },
+    
 
     renderProjects() {
         this.calculateRollups();
@@ -546,7 +538,7 @@ const timelineApp = {
             
             if (project.overallProgress >= 100) {
                  progressColor = 'var(--green)';
-                 tooltipText = `<b>Status: Complete</b><br>Finished with ${daysLeftInfo.days !== null ? Math.abs(daysLeftInfo.days) : '0'} days to spare.`;
+                 tooltipText = `<b>Status: Complete</b><br>Finished with ${daysLeftInfo.days !== null ? Math.abs(daysLeftInfo.days) : '0'} weekdays to spare.`;
             } else if (daysLeftInfo.isOverdue) {
                 progressColor = 'var(--red)';
                 tooltipText = `<b>Status: Overdue</b><br>The deadline has passed, and only ${overallProgress}% of work is complete.`;
@@ -565,9 +557,7 @@ const timelineApp = {
                 <div class="duration-scale-container tooltip">
                     <span class="tooltip-text">${tooltipText}</span>
                     <div class="relative h-2 w-full rounded-full" style="background-color: var(--bg-tertiary);">
-                        <!-- Time Elapsed is represented by the grey bar underneath -->
                         <div class="absolute h-2 top-0 left-0 rounded-full" style="background-color: var(--bg-tertiary); width: ${durationProgress}%; z-index: 1;"></div>
-                        <!-- Progress -->
                         <div class="absolute h-2 top-0 left-0 rounded-full" style="background-color: ${progressColor}; width: ${overallProgress}%; z-index: 2;"></div>
                     </div>
                 </div>
@@ -584,7 +574,7 @@ const timelineApp = {
                 : `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h5V3a3 3 0 0 1 6 0v4a.5.5 0 0 1-1 0V3a2 2 0 0 0-2-2z"/></svg>`;
 
             projectCard.innerHTML = `
-                <div class="flex justify-between items-center mb-3">
+                <div class="flex justify-between items-center mb-3 project-header">
                     <div class="flex items-center gap-2 flex-grow min-w-0">
                         ${completionIcon}
                         <button onclick="timelineApp.toggleProjectCollapse(${project.id})" class="p-1 rounded-full hover-bg-secondary flex-shrink-0">
@@ -691,8 +681,6 @@ const timelineApp = {
                 ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>`
                 : `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h5V3a3 3 0 0 1 6 0v4a.5.5 0 0 1-1 0V3a2 2 0 0 0-2-2z"/></svg>`;
             
-            const isEffectivelyLocked = project.locked || phase.locked;
-
             html += `
                 <div class="phase-row rounded-lg p-2 ${depClass} ${selectedClass}" data-id="${phase.id}" data-type="phase" data-project-id="${project.id}" onmouseover="timelineApp.highlightPhaseOnChart(${phase.id})" onmouseout="timelineApp.unhighlightPhaseOnChart(${phase.id})">
                     <div class="flex items-center gap-3 item-main-row">
@@ -705,15 +693,15 @@ const timelineApp = {
                         <span class="font-semibold flex-grow editable-text" onclick="timelineApp.makeEditable(this, 'updatePhaseName', ${project.id}, ${phase.id})">${phase.name}</span>
                         ${this.getDependencyIcon(phase)}
                         <div class="flex items-center gap-2 text-sm text-secondary">
-                            <button onclick="timelineApp.togglePhaseLock(${project.id}, ${phase.id})" class="lock-toggle-btn" title="${phase.locked ? 'Unlock Phase Dates' : 'Lock Phase Dates'}" ${project.locked ? 'disabled' : ''}>
+                             <button onclick="timelineApp.togglePhaseLock(${project.id}, ${phase.id})" class="lock-toggle-btn" title="${phase.locked ? 'Unlock Phase Dates' : 'Lock Phase Dates'}">
                                 ${lockIcon}
                             </button>
                             <div class="date-input-container">
-                                <input type="text" value="${phase.startDate ? this.formatDate(this.parseDate(phase.startDate)) : ''}" placeholder="Start Date" class="date-input" data-project-id="${project.id}" data-phase-id="${phase.id}" data-type="phase-start" data-date="${phase.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)" ${isEffectivelyLocked ? 'disabled' : ''}>
+                                <input type="text" value="${phase.startDate ? this.formatDate(this.parseDate(phase.startDate)) : ''}" placeholder="Start Date" class="date-input" data-project-id="${project.id}" data-phase-id="${phase.id}" data-type="phase-start" data-date="${phase.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)" ${phase.locked ? 'disabled' : ''}>
                                 ${iconHtml}
                             </div>
                             <div class="date-input-container">
-                                <input type="text" value="${phase.endDate ? this.formatDate(this.parseDate(phase.endDate)) : ''}" placeholder="End Date" class="date-input" data-project-id="${project.id}" data-phase-id="${phase.id}" data-type="phase-end" data-date="${phase.endDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)" ${isEffectivelyLocked ? 'disabled' : ''}>
+                                <input type="text" value="${phase.endDate ? this.formatDate(this.parseDate(phase.endDate)) : ''}" placeholder="End Date" class="date-input" data-project-id="${project.id}" data-phase-id="${phase.id}" data-type="phase-end" data-date="${phase.endDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)" ${phase.locked ? 'disabled' : ''}>
                                 ${iconHtml}
                             </div>
                         </div>
@@ -2132,4 +2120,3 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
-
