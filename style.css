@@ -228,6 +228,7 @@ button:not(:disabled),
 }
 .phase-row {
     background-color: var(--bg-secondary);
+    transition: background-color 0.2s, box-shadow 0.2s;
 }
 .task-row {
     background-color: var(--bg-primary);
@@ -346,6 +347,7 @@ button:not(:disabled),
     fill: #3b82f6; /* Blue-500 */
     stroke: var(--bg-page);
     stroke-width: 2;
+    transition: all 0.2s;
 }
 .phase-marker-text {
     font-size: 10px;
@@ -476,6 +478,17 @@ button:not(:disabled),
 /* Softer dividers for task/subtask lists */
 .phase-row .border-t, .task-row .border-t {
     border-color: color-mix(in srgb, var(--border-primary) 50%, transparent);
+}
+
+.phase-row-highlight {
+    background-color: color-mix(in srgb, var(--accent-primary) 20%, transparent);
+    box-shadow: 0 0 0 2px var(--accent-primary);
+}
+
+.phase-marker-highlight {
+    stroke: var(--accent-primary);
+    stroke-width: 4;
+    r: 12;
 }
 
 
@@ -974,5 +987,36 @@ button:not(:disabled),
     border: 1px solid var(--border-primary);
     border-radius: 6px;
     padding: 4px;
+}
+
+.unlock-log-entry {
+    background-color: color-mix(in srgb, var(--amber) 25%, transparent);
+}
+.dark .unlock-log-entry {
+    background-color: color-mix(in srgb, var(--amber) 20%, transparent);
+}
+.unlock-log-entry td {
+    color: var(--text-primary) !important;
+    font-weight: 500;
+}
+
+.lock-toggle-btn {
+    padding: 4px;
+    border-radius: 6px;
+    color: var(--text-tertiary);
+    transition: background-color 0.2s, color 0.2s;
+}
+.lock-toggle-btn:hover:not(:disabled) {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+.lock-toggle-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+.date-input:disabled {
+    background-color: var(--bg-secondary);
+    color: var(--text-secondary);
+    cursor: not-allowed;
 }
 
