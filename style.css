@@ -14,6 +14,10 @@
     --shadow-color: rgba(0,0,0,0.07);
     --title-primary: #0f172a;
     --title-secondary: #94a3b8;
+    --green: #22c55e;
+    --blue: #3b82f6;
+    --red: #ef4444;
+    --amber: #f59e0b;
 }
 
 html.dark[data-theme="default"] {
@@ -842,6 +846,68 @@ button:not(:disabled),
     color: #c4b5fd;
 }
 
+/* --- Tooltip (Shared by Pacing Bar and other elements) --- */
+.tooltip {
+    position: relative;
+}
+.tooltip .tooltip-text {
+    visibility: hidden;
+    width: 220px;
+    background-color: var(--accent-primary);
+    color: var(--accent-text);
+    text-align: center;
+    border-radius: 6px;
+    padding: 8px;
+    position: absolute;
+    z-index: 10;
+    bottom: 150%;
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+}
+.tooltip .tooltip-text b {
+    color: var(--accent-text);
+}
+.tooltip .tooltip-text::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: var(--accent-primary) transparent transparent transparent;
+}
+.tooltip:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* --- Days Left Pill --- */
+.days-left-pill {
+    background-color: var(--bg-tertiary);
+    color: var(--text-secondary);
+    font-size: 0.75rem; /* 12px */
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    margin-left: 0.75rem; /* 12px */
+    flex-shrink: 0;
+    min-width: 28px;
+    text-align: center;
+}
+
+.days-left-pill-overdue {
+    background-color: var(--red);
+    color: var(--bg-primary);
+}
+
+.days-left-pill-due-today {
+    background-color: var(--amber);
+    color: var(--bg-primary);
+}
 
 /* ADDED FOR PUNCHLIST ANIMATION */
 .task-slide-in {
@@ -909,3 +975,4 @@ button:not(:disabled),
     border-radius: 6px;
     padding: 4px;
 }
+
