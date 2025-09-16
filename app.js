@@ -9,6 +9,7 @@ const timelineApp = {
     currentPickerContext: null,
     pendingDateChange: null,
     pendingDeletion: null,
+    pendingLockChange: null,
     dependencyMode: false,
     firstSelectedItem: null,
     pendingClearDependencies: null,
@@ -278,9 +279,11 @@ const timelineApp = {
         this.projects.forEach(project => {
             if (!project.originalStartDate) project.originalStartDate = project.startDate;
             if (!project.originalEndDate) project.originalEndDate = project.endDate;
+            if (project.locked === undefined) project.locked = false;
             if (!project.phases) project.phases = [];
             project.phases.forEach(phase => { 
                 if(phase.collapsed === undefined) phase.collapsed = false; 
+                if (phase.locked === undefined) phase.locked = false;
                 if(!phase.dependencies) phase.dependencies = [];
                 if(!phase.dependents) phase.dependents = [];
                 phase.tasks.forEach(task => {
@@ -370,6 +373,45 @@ const timelineApp = {
             return { text: '0', tooltip: 'Due today', isOverdue: false, days: 0, className: 'days-left-pill-due-today' };
         }
         return { text: `${diffDays}`, tooltip: `${diffDays} days left`, isOverdue: false, days: diffDays, className: '' };
+    },
+
+    getScopedPlannedProgress(date, scopePathData, project) {
+        if (!scopePathData || scopePathData.length < 2) {
+            // Fallback to linear project dates if no valid scope phases exist
+            if (!project || !project.startDate || !project.endDate) return 0;
+            const projectStartDate = this.parseDate(project.startDate);
+            const projectEndDate = this.parseDate(project.endDate);
+            if (!projectStartDate || !projectEndDate) return 0;
+            const totalDuration = projectEndDate.getTime() - projectStartDate.getTime();
+            if (totalDuration <= 0) return (date >= projectEndDate) ? 100 : 0;
+            const elapsed = Math.max(0, date.getTime() - projectStartDate.getTime());
+            return Math.min(100, (elapsed / totalDuration) * 100);
+        }
+    
+        const targetTime = date.getTime();
+        const firstPoint = scopePathData[0];
+        const lastPoint = scopePathData[scopePathData.length - 1];
+    
+        if (targetTime <= firstPoint.date.getTime()) return 0;
+        if (targetTime >= lastPoint.date.getTime()) return 100;
+    
+        let p1 = firstPoint, p2 = lastPoint;
+        for (let i = 0; i < scopePathData.length - 1; i++) {
+            if (targetTime >= scopePathData[i].date.getTime() && targetTime <= scopePathData[i + 1].date.getTime()) {
+                p1 = scopePathData[i];
+                p2 = scopePathData[i + 1];
+                break;
+            }
+        }
+    
+        const segmentDuration = p2.date.getTime() - p1.date.getTime();
+        if (segmentDuration === 0) return p1.progress;
+    
+        const timeIntoSegment = targetTime - p1.date.getTime();
+        const progressInSegment = p2.progress - p1.progress;
+        
+        const plannedProgress = p1.progress + (progressInSegment * (timeIntoSegment / segmentDuration));
+        return plannedProgress;
     },
 
     calculateRollups() {
@@ -537,6 +579,10 @@ const timelineApp = {
                 </div>
             `;
 
+            const lockIcon = project.locked
+                ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>`
+                : `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h5V3a3 3 0 0 1 6 0v4a.5.5 0 0 1-1 0V3a2 2 0 0 0-2-2z"/></svg>`;
+
             projectCard.innerHTML = `
                 <div class="flex justify-between items-center mb-3">
                     <div class="flex items-center gap-2 flex-grow min-w-0">
@@ -549,12 +595,15 @@ const timelineApp = {
                         ${daysLeftPillHTML}
                     </div>
                     <div class="flex items-center gap-2 text-sm text-secondary flex-shrink-0">
+                        <button onclick="timelineApp.toggleProjectLock(${project.id})" class="lock-toggle-btn" title="${project.locked ? 'Unlock Project Dates' : 'Lock Project Dates'}">
+                            ${lockIcon}
+                        </button>
                         <div class="date-input-container">
-                            <input type="text" value="${project.startDate ? this.formatDate(this.parseDate(project.startDate)) : ''}" placeholder="Start Date" class="date-input" data-project-id="${project.id}" data-type="project-start" data-date="${project.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
+                            <input type="text" value="${project.startDate ? this.formatDate(this.parseDate(project.startDate)) : ''}" placeholder="Start Date" class="date-input" data-project-id="${project.id}" data-type="project-start" data-date="${project.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)" ${project.locked ? 'disabled' : ''}>
                             <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
                         </div>
                         <div class="date-input-container">
-                            <input type="text" value="${project.endDate ? this.formatDate(this.parseDate(project.endDate)) : ''}" placeholder="End Date" class="date-input" data-project-id="${project.id}" data-type="project-end" data-date="${project.endDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
+                            <input type="text" value="${project.endDate ? this.formatDate(this.parseDate(project.endDate)) : ''}" placeholder="End Date" class="date-input" data-project-id="${project.id}" data-type="project-end" data-date="${project.endDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)" ${project.locked ? 'disabled' : ''}>
                             <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
                         </div>
                     </div>
@@ -623,7 +672,7 @@ const timelineApp = {
                     <svg id="phase-chevron-${phase.id}" class="w-4 h-4 text-tertiary chevron ${phase.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                 </button>` : `<div class="w-6 h-6 flex-shrink-0"></div>`; 
 
-            const depClass = this.dependencyMode && this.firstSelectedItem?.id !== phase.id ? 'dependency-candidate' : '';
+            const depClass = ''; // Phases can no longer be dependents, so they can't be candidates
             const selectedClass = this.firstSelectedItem?.id === phase.id ? 'dependency-selected' : '';
             const drivenDot = phase.isDriven ? `<div class="driven-by-dot" title="Starts after: ${phase.driverName.replace(/"/g, '&quot;')}"></div>` : '<div class="w-2"></div>';
             const durationProgress = this.getDurationProgress(phase.effectiveStartDate, phase.effectiveEndDate);
@@ -637,9 +686,15 @@ const timelineApp = {
             } else if (durationProgress > 75) {
                 durationBarColorClass = 'bg-yellow-500';
             }
+            const iconHtml = `<div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>`;
+            const lockIcon = phase.locked
+                ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>`
+                : `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h5V3a3 3 0 0 1 6 0v4a.5.5 0 0 1-1 0V3a2 2 0 0 0-2-2z"/></svg>`;
+            
+            const isEffectivelyLocked = project.locked || phase.locked;
 
             html += `
-                <div class="phase-row rounded-lg p-2 ${depClass} ${selectedClass}" data-id="${phase.id}" data-type="phase" data-project-id="${project.id}">
+                <div class="phase-row rounded-lg p-2 ${depClass} ${selectedClass}" data-id="${phase.id}" data-type="phase" data-project-id="${project.id}" onmouseover="timelineApp.highlightPhaseOnChart(${phase.id})" onmouseout="timelineApp.unhighlightPhaseOnChart(${phase.id})">
                     <div class="flex items-center gap-3 item-main-row">
                         ${toggleButton}
                          ${drivenDot}
@@ -650,8 +705,17 @@ const timelineApp = {
                         <span class="font-semibold flex-grow editable-text" onclick="timelineApp.makeEditable(this, 'updatePhaseName', ${project.id}, ${phase.id})">${phase.name}</span>
                         ${this.getDependencyIcon(phase)}
                         <div class="flex items-center gap-2 text-sm text-secondary">
-                            <div class="date-input-container"><input type="text" value="${phase.effectiveStartDate ? this.formatDate(this.parseDate(phase.effectiveStartDate)) : ''}" placeholder="Start" readonly class="date-input date-input-disabled" disabled></div>
-                            <div class="date-input-container"><input type="text" value="${phase.effectiveEndDate ? this.formatDate(this.parseDate(phase.effectiveEndDate)) : ''}" placeholder="End" readonly class="date-input date-input-disabled" disabled></div>
+                            <button onclick="timelineApp.togglePhaseLock(${project.id}, ${phase.id})" class="lock-toggle-btn" title="${phase.locked ? 'Unlock Phase Dates' : 'Lock Phase Dates'}" ${project.locked ? 'disabled' : ''}>
+                                ${lockIcon}
+                            </button>
+                            <div class="date-input-container">
+                                <input type="text" value="${phase.startDate ? this.formatDate(this.parseDate(phase.startDate)) : ''}" placeholder="Start Date" class="date-input" data-project-id="${project.id}" data-phase-id="${phase.id}" data-type="phase-start" data-date="${phase.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)" ${isEffectivelyLocked ? 'disabled' : ''}>
+                                ${iconHtml}
+                            </div>
+                            <div class="date-input-container">
+                                <input type="text" value="${phase.endDate ? this.formatDate(this.parseDate(phase.endDate)) : ''}" placeholder="End Date" class="date-input" data-project-id="${project.id}" data-phase-id="${phase.id}" data-type="phase-end" data-date="${phase.endDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)" ${isEffectivelyLocked ? 'disabled' : ''}>
+                                ${iconHtml}
+                            </div>
                         </div>
                         <button onclick="timelineApp.deletePhase(${project.id}, ${phase.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold">&times;</button>
                     </div>
@@ -693,8 +757,12 @@ const timelineApp = {
             } else if (durationProgress > 75) {
                 durationBarColorClass = 'bg-yellow-500';
             }
-            const isDriven = hasSubtasks || task.isDriven;
-            const dateInputClasses = isDriven ? 'date-input-disabled' : '';
+            
+            const isStartDateDrivenByDependency = task.isDriven;
+            const isStartDateDisabled = hasSubtasks || isStartDateDrivenByDependency;
+            const startDateInputClasses = isStartDateDisabled ? 'date-input-disabled' : '';
+            const isEndDateDisabled = hasSubtasks;
+            const endDateInputClasses = isEndDateDisabled ? 'date-input-disabled' : '';
 
             html += `
                 <div class="task-row rounded-lg px-2 py-1 ${depClass} ${selectedClass}" data-id="${task.id}" data-type="task" data-project-id="${projectId}" data-phase-id="${phaseId}">
@@ -722,12 +790,12 @@ const timelineApp = {
                         ${this.getDependencyIcon(task)}
                         <div class="flex items-center gap-2 text-sm text-secondary">
                             <div class="date-input-container">
-                                <input type="text" value="${task.effectiveStartDate ? this.formatDate(this.parseDate(task.effectiveStartDate)) : ''}" placeholder="Start" class="date-input ${dateInputClasses}" ${isDriven ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-start" data-date="${task.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
-                                ${!isDriven ? iconHtml : ''}
+                                <input type="text" value="${task.effectiveStartDate ? this.formatDate(this.parseDate(task.effectiveStartDate)) : ''}" placeholder="Start" class="date-input ${startDateInputClasses}" ${isStartDateDisabled ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-start" data-date="${task.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
+                                ${!isStartDateDisabled ? iconHtml : ''}
                             </div>
                             <div class="date-input-container">
-                                <input type="text" value="${task.effectiveEndDate ? this.formatDate(this.parseDate(task.effectiveEndDate)) : ''}" placeholder="End" class="date-input ${dateInputClasses}" ${isDriven ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-end" data-date="${task.endDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
-                                ${!isDriven ? iconHtml : ''}
+                                <input type="text" value="${task.effectiveEndDate ? this.formatDate(this.parseDate(task.effectiveEndDate)) : ''}" placeholder="End" class="date-input ${endDateInputClasses}" ${isEndDateDisabled ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-end" data-date="${task.endDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
+                                ${!isEndDateDisabled ? iconHtml : ''}
                             </div>
                         </div>
                         <button onclick="timelineApp.deleteTask(${projectId}, ${phaseId}, ${task.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold">&times;</button>
@@ -802,13 +870,16 @@ const timelineApp = {
         if (!project.logs || project.logs.length === 0) return '<p class="text-xs text-secondary">No changes logged.</p>';
         let tableHtml = `<table class="w-full text-xs font-mono"><thead><tr class="border-b border-primary"><th class="text-left p-1 w-1/4">Timestamp</th><th class="text-left p-1 w-1/4">Item</th><th class="text-left p-1">Change</th><th class="text-left p-1">Reason</th></tr></thead><tbody>`;
         [...project.logs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).forEach(log => {
+            const rowClass = log.type === 'unlock' ? 'unlock-log-entry' : '';
             let changeText = '';
             if (log.type === 'deletion') {
                 changeText = 'Deleted';
+            } else if (log.type === 'lock' || log.type === 'unlock') {
+                changeText = log.type.charAt(0).toUpperCase() + log.type.slice(1) + 'ed';
             } else {
                 changeText = `${log.from ? this.formatDate(this.parseDate(log.from)) : 'None'} -> ${this.formatDate(this.parseDate(log.to))}`;
             }
-            tableHtml += `<tr class="border-b border-secondary"><td class="p-1 align-top">${this.formatLogTimestamp(new Date(log.timestamp))}</td><td class="p-1 align-top">${log.item}</td><td class="p-1 align-top">${changeText}</td><td class="p-1 align-top">${log.comment}</td></tr>`;
+            tableHtml += `<tr class="border-b border-secondary ${rowClass}"><td class="p-1 align-top">${this.formatLogTimestamp(new Date(log.timestamp))}</td><td class="p-1 align-top">${log.item}</td><td class="p-1 align-top">${changeText}</td><td class="p-1 align-top">${log.comment}</td></tr>`;
         });
         return tableHtml + '</tbody></table>';
     },
@@ -865,6 +936,11 @@ const timelineApp = {
             const width = container.node().getBoundingClientRect().width;
             if (width <= 0) return;
             container.selectAll("*").remove();
+
+            let tooltip = d3.select("body").select(".chart-tooltip");
+            if (tooltip.empty()) {
+                tooltip = d3.select("body").append("div").attr("class", "chart-tooltip");
+            }
             
             container.append('button')
                 .html('<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 1v4m0 0h-4m4 0l-5-5" /></svg>')
@@ -914,7 +990,31 @@ const timelineApp = {
                     .attr("y2", height);
             }
 
-            svg.append("line").attr("class", "planned-line").attr("x1", x(startDate)).attr("y1", y(0)).attr("x2", x(endDate)).attr("y2", y(100));
+            const scopedPhases = [...project.phases]
+                .filter(p => p.startDate && p.endDate)
+                .sort((a, b) => this.parseDate(a.startDate) - this.parseDate(b.startDate));
+            
+            const scopePathData = [];
+            if (scopedPhases.length > 0) {
+                scopePathData.push({ date: this.parseDate(scopedPhases[0].startDate), progress: 0 });
+                scopedPhases.forEach((phase, i) => {
+                    const progressPerPhase = 100 / scopedPhases.length;
+                    const cumulativeProgress = (i + 1) * progressPerPhase;
+                    scopePathData.push({ date: this.parseDate(phase.endDate), progress: cumulativeProgress });
+                });
+            }
+
+            if (scopePathData.length > 1) {
+                const scopeLine = d3.line().x(d => x(d.date)).y(d => y(d.progress));
+                svg.append("path")
+                    .datum(scopePathData)
+                    .attr("class", "planned-line")
+                    .attr("d", scopeLine)
+                    .style("fill", "none");
+            } else {
+                svg.append("line").attr("class", "planned-line").attr("x1", x(startDate)).attr("y1", y(0)).attr("x2", x(endDate)).attr("y2", y(100));
+            }
+
             svg.append("line").attr("class", "finish-line").attr("x1", x(endDate)).attr("y1", 0).attr("x2", x(endDate)).attr("y2", height);
 
             const allTasks = project.phases.flatMap(phase => phase.tasks).filter(task => task.effectiveEndDate);
@@ -931,14 +1031,18 @@ const timelineApp = {
             });
 
             const line = d3.line().x(d => x(d.date)).y(d => y(d.progress));
-            const totalDuration = endDate.getTime() - startDate.getTime();
-            const getPlannedProgress = date => totalDuration <= 0 ? 0 : Math.min(100, (date.getTime() - startDate.getTime()) / totalDuration * 100);
+            
             for (let i = 0; i < pathData.length - 1; i++) {
                 const segment = [pathData[i], pathData[i+1]], endPoint = segment[1];
-                const colorClass = endPoint.date > endDate ? 'stroke-red-500' : (endPoint.progress >= getPlannedProgress(endPoint.date) ? 'stroke-green-500' : 'stroke-red-500');
+                const plannedProgressAtDate = this.getScopedPlannedProgress(endPoint.date, scopePathData, project);
+                const colorClass = endPoint.date > endDate ? 'stroke-red-500' : (endPoint.progress >= plannedProgressAtDate ? 'stroke-green-500' : 'stroke-red-500');
                 svg.append("path").datum(segment).attr("class", `${endPoint.completed ? 'actual-line' : 'projected-line'} ${colorClass}`).attr("d", line);
             }
-            svg.selectAll(".actual-point").data(pathData.slice(1).filter(d=>d.completed)).enter().append("circle").attr("class", "actual-point").attr("cx", d => x(d.date)).attr("cy", d => y(d.progress)).attr("fill", d => d.date > endDate ? '#ef4444' : (d.progress >= getPlannedProgress(d.date) ? '#22c55e' : '#ef4444'));
+            svg.selectAll(".actual-point").data(pathData.slice(1).filter(d=>d.completed)).enter().append("circle").attr("class", "actual-point").attr("cx", d => x(d.date)).attr("cy", d => y(d.progress))
+                .attr("fill", d => {
+                    const plannedProgressAtDate = this.getScopedPlannedProgress(d.date, scopePathData, project);
+                    return d.date > endDate ? '#ef4444' : (d.progress >= plannedProgressAtDate ? '#22c55e' : '#ef4444');
+                });
 
             const sortedPhases = [...project.phases]
                 .filter(p => p.effectiveEndDate)
@@ -948,17 +1052,45 @@ const timelineApp = {
                 .data(sortedPhases)
                 .enter()
                 .append("g")
-                .attr("class", "phase-marker")
+                .attr("class", d => `phase-marker phase-marker-${d.id}`)
                 .attr("transform", (d, i) => {
                     const phaseEndDate = this.parseDate(d.effectiveEndDate);
                     let tasksInPhaseOrBefore = allTasks.filter(t => this.parseDate(t.effectiveEndDate) <= phaseEndDate);
                     let phaseEndProgress = (tasksInPhaseOrBefore.length / (allTasks.length || 1)) * 100;
                     return `translate(${x(phaseEndDate)}, ${y(phaseEndProgress)})`;
+                })
+                .on("mouseover", function(event, d) {
+                    tooltip.style("visibility", "visible")
+                        .html(`<strong>${d.name}</strong><br>Ends: ${timelineApp.formatDate(timelineApp.parseDate(d.effectiveEndDate))}<br>Progress: ${Math.round(d.progress || 0)}%`);
+                    d3.select(this).select('circle').classed('phase-marker-highlight', true);
+                    const phaseRow = document.querySelector(`.phase-row[data-id='${d.id}']`);
+                    if (phaseRow) {
+                        phaseRow.classList.add('phase-row-highlight');
+                    }
+                })
+                .on("mousemove", (event) => {
+                    tooltip.style("top", (event.pageY - 10) + "px").style("left", (event.pageX + 10) + "px");
+                })
+                .on("mouseout", function(event, d) {
+                    tooltip.style("visibility", "hidden");
+                    d3.select(this).select('circle').classed('phase-marker-highlight', false);
+                    const phaseRow = document.querySelector(`.phase-row[data-id='${d.id}']`);
+                    if (phaseRow) {
+                        phaseRow.classList.remove('phase-row-highlight');
+                    }
                 });
 
             phaseMarkers.append("circle").attr("class", "phase-marker-circle");
             phaseMarkers.append("text").attr("class", "phase-marker-text").text((d, i) => `P${i + 1}`);
         }, 0);
+    },
+
+    highlightPhaseOnChart(phaseId) {
+        d3.selectAll(`.phase-marker-${phaseId} circle`).classed('phase-marker-highlight', true);
+    },
+    
+    unhighlightPhaseOnChart(phaseId) {
+        d3.selectAll(`.phase-marker-${phaseId} circle`).classed('phase-marker-highlight', false);
     },
 
     drawOverallLoadChart() {
@@ -1162,7 +1294,28 @@ const timelineApp = {
         svg.append("g").attr("class", "chart-grid").attr("transform", `translate(0,${chartHeight})`).call(d3.axisBottom(x).ticks(tickInterval).tickFormat(d3.timeFormat("%b %d")));
         svg.append("g").attr("class", "chart-grid").call(d3.axisLeft(y).ticks(10).tickFormat(d => `${d}%`));
         svg.append("text").attr("x", chartWidth / 2).attr("y", 0 - (margin.top / 2)).attr("text-anchor", "middle").attr("class", "text-lg font-bold chart-title").text(`${project.name} - Progress Chart`);
-        svg.append("line").attr("class", "planned-line").attr("x1", x(startDate)).attr("y1", y(0)).attr("x2", x(endDate)).attr("y2", y(100));
+        
+        const scopedPhasesFullscreen = [...project.phases]
+            .filter(p => p.startDate && p.endDate)
+            .sort((a, b) => this.parseDate(a.startDate) - this.parseDate(b.startDate));
+
+        const scopePathDataFullscreen = [];
+        if (scopedPhasesFullscreen.length > 0) {
+            scopePathDataFullscreen.push({ date: this.parseDate(scopedPhasesFullscreen[0].startDate), progress: 0 });
+            scopedPhasesFullscreen.forEach((phase, i) => {
+                const progressPerPhase = 100 / scopedPhasesFullscreen.length;
+                const cumulativeProgress = (i + 1) * progressPerPhase;
+                scopePathDataFullscreen.push({ date: this.parseDate(phase.endDate), progress: cumulativeProgress });
+            });
+        }
+        
+        if (scopePathDataFullscreen.length > 1) {
+            const scopeLine = d3.line().x(d => x(d.date)).y(d => y(d.progress));
+            svg.append("path").datum(scopePathDataFullscreen).attr("class", "planned-line").attr("d", scopeLine).style("fill", "none");
+        } else {
+             svg.append("line").attr("class", "planned-line").attr("x1", x(startDate)).attr("y1", y(0)).attr("x2", x(endDate)).attr("y2", y(100));
+        }
+
         svg.append("line").attr("class", "finish-line").attr("x1", x(endDate)).attr("y1", 0).attr("x2", x(endDate)).attr("y2", chartHeight);
 
         const today = new Date();
@@ -1185,17 +1338,20 @@ const timelineApp = {
         });
         
         const line = d3.line().x(d => x(d.date)).y(d => y(d.progress));
-        const totalDuration = endDate.getTime() - startDate.getTime();
-        const getPlannedProgress = date => totalDuration <= 0 ? 0 : Math.min(100, (date.getTime() - startDate.getTime()) / totalDuration * 100);
         
         for (let i = 0; i < pathData.length - 1; i++) {
             const segment = [pathData[i], pathData[i+1]], endPoint = segment[1];
-            const colorClass = endPoint.date > endDate ? 'stroke-red-500' : (endPoint.progress >= getPlannedProgress(endPoint.date) ? 'stroke-green-500' : 'stroke-red-500');
+            const plannedProgressAtDate = this.getScopedPlannedProgress(endPoint.date, scopePathDataFullscreen, project);
+            const colorClass = endPoint.date > endDate ? 'stroke-red-500' : (endPoint.progress >= plannedProgressAtDate ? 'stroke-green-500' : 'stroke-red-500');
             svg.append("path").datum(segment).attr("class", `${endPoint.completed ? 'actual-line' : 'projected-line'} ${colorClass}`).attr("d", line);
         }
 
         svg.selectAll(".task-point").data(pathData.slice(1)).enter().append("circle").attr("class", "task-point actual-point")
-            .attr("cx", d => x(d.date)).attr("cy", d => y(d.progress)).attr("fill", d => d.date > endDate ? '#ef4444' : (d.progress >= getPlannedProgress(d.date) ? '#22c55e' : '#ef4444'));
+            .attr("cx", d => x(d.date)).attr("cy", d => y(d.progress))
+            .attr("fill", d => {
+                 const plannedProgressAtDate = this.getScopedPlannedProgress(d.date, scopePathDataFullscreen, project);
+                 return d.date > endDate ? '#ef4444' : (d.progress >= plannedProgressAtDate ? '#22c55e' : '#ef4444');
+            });
 
         const labels = svg.selectAll(".task-label-container").data(pathData.slice(1)).enter().append("foreignObject").attr("class", "task-label-container").attr("width", 180).attr("height", 60);
 
@@ -1358,7 +1514,7 @@ const timelineApp = {
     addPhase(projectId) {
         const nameInput = document.getElementById(`new-phase-name-${projectId}`), name = nameInput.value.trim(); if (!name) return;
         const project = this.projects.find(p => p.id === projectId); 
-        if (project) { project.phases.push({ id: Date.now(), name, collapsed: false, tasks: [], dependencies: [], dependents: [] }); this.saveState(); this.renderProjects(); }
+        if (project) { project.phases.push({ id: Date.now(), name, startDate: null, endDate: null, collapsed: false, tasks: [], dependencies: [], dependents: [] }); this.saveState(); this.renderProjects(); }
     },
 
     addTask(projectId, phaseId) {
@@ -1416,9 +1572,16 @@ const timelineApp = {
         const { projectId, phaseId, taskId, subtaskId, type } = context; const project = this.projects.find(p => p.id === projectId); if (!project) return; let targetItem, dateField, itemName;
         if (type.startsWith('project')) { targetItem = project; dateField = type.endsWith('start') ? 'startDate' : 'endDate'; itemName = `Project '${project.name}' ${dateField.replace('Date','')} date`; }
         else {
-            const phase = project.phases.find(ph => ph.id === phaseId); if (!phase) return; const task = phase.tasks.find(t => t.id === taskId); if (!task) return; itemName = `Task '${task.name}'`;
-            if (type.startsWith('task')) { targetItem = task; dateField = type.endsWith('start') ? 'startDate' : 'endDate'; itemName += ` ${dateField.replace('Date','')} date`; }
-            else if (type.startsWith('subtask')) { const subtask = task.subtasks.find(st => st.id === subtaskId); if (!subtask) return; targetItem = subtask; dateField = type.endsWith('start') ? 'startDate' : 'endDate'; itemName = `Subtask '${subtask.name}' ${dateField.replace('Date','')} date`; }
+            const phase = project.phases.find(ph => ph.id === phaseId); if (!phase) return;
+            if (type.startsWith('phase')) {
+                targetItem = phase;
+                dateField = type.endsWith('start') ? 'startDate' : 'endDate';
+                itemName = `Phase '${phase.name}' ${dateField.replace('Date','')} date`;
+            } else {
+                const task = phase.tasks.find(t => t.id === taskId); if (!task) return; itemName = `Task '${task.name}'`;
+                if (type.startsWith('task')) { targetItem = task; dateField = type.endsWith('start') ? 'startDate' : 'endDate'; itemName += ` ${dateField.replace('Date','')} date`; }
+                else if (type.startsWith('subtask')) { const subtask = task.subtasks.find(st => st.id === subtaskId); if (!subtask) return; targetItem = subtask; dateField = type.endsWith('start') ? 'startDate' : 'endDate'; itemName = `Subtask '${subtask.name}' ${dateField.replace('Date','')} date`; }
+            }
         }
         if (targetItem && dateField) { const oldDate = targetItem[dateField]; if (comment) { if (!project.logs) project.logs = []; project.logs.push({ timestamp: new Date().toISOString(), item: itemName, from: oldDate, to: value, comment }); } targetItem[dateField] = value; }
         this.saveState(); this.renderProjects();
@@ -1635,6 +1798,7 @@ const timelineApp = {
             let startDate;
             if (subtaskId) startDate = this.projects.find(p=>p.id===parseInt(projectId))?.phases.find(p=>p.id===parseInt(phaseId))?.tasks.find(t=>t.id===parseInt(taskId))?.subtasks.find(s=>s.id===parseInt(subtaskId))?.startDate;
             else if (taskId) startDate = this.projects.find(p=>p.id===parseInt(projectId))?.phases.find(p=>p.id===parseInt(phaseId))?.tasks.find(t=>t.id===parseInt(taskId))?.startDate;
+            else if (phaseId) startDate = this.projects.find(p=>p.id===parseInt(projectId))?.phases.find(p=>p.id===parseInt(phaseId))?.startDate;
             else if (projectId) startDate = this.projects.find(p=>p.id===parseInt(projectId))?.startDate;
             if (startDate) defaultDate = startDate;
         }
@@ -1666,12 +1830,40 @@ const timelineApp = {
             deleteFn();
             this.saveState();
             this.renderProjects();
+        } else if (this.pendingLockChange) {
+            const { type, projectId, phaseId, newState } = this.pendingLockChange;
+            const project = this.projects.find(p => p.id === projectId);
+            if (!project) return;
+
+            let item, itemName;
+            if (type === 'project') {
+                item = project;
+                itemName = `Project '${project.name}'`;
+            } else {
+                item = project.phases.find(ph => ph.id === phaseId);
+                itemName = `Phase '${item.name}'`;
+            }
+
+            if (item) {
+                item.locked = newState;
+                const logType = newState ? 'lock' : 'unlock';
+                if (!project.logs) project.logs = [];
+                project.logs.push({
+                    timestamp: new Date().toISOString(),
+                    item: itemName,
+                    type: logType,
+                    comment: comment
+                });
+                this.saveState();
+                this.renderProjects();
+            }
         }
 
         this.elements.reasonModal.classList.add('hidden');
         this.elements.reasonCommentTextarea.value = '';
         this.pendingDateChange = null;
         this.pendingDeletion = null;
+        this.pendingLockChange = null;
     },
 
     handleCancelReason() {
@@ -1680,6 +1872,7 @@ const timelineApp = {
         this.renderProjects();
         this.pendingDateChange = null;
         this.pendingDeletion = null;
+        this.pendingLockChange = null;
     },
 
     handleCircleClick(itemId) {
@@ -1722,6 +1915,17 @@ const timelineApp = {
     handleDependencyClick(target) {
          if (!this.dependencyMode || !this.firstSelectedItem) return;
         const itemId = parseInt(target.dataset.id);
+        const itemType = target.dataset.type;
+
+        if (itemType === 'phase') {
+            console.warn("Phases cannot be set as dependents; their dates are set manually for scope.");
+            this.dependencyMode = false;
+            this.firstSelectedItem = null;
+            this.elements.dependencyBanner.classList.add('hidden');
+            this.renderProjects();
+            return;
+        }
+        
         if (this.firstSelectedItem.id === itemId) return;
         const allItems = new Map();
         this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
@@ -1752,6 +1956,38 @@ const timelineApp = {
         
         this.dependencyMode = false; this.firstSelectedItem = null; this.elements.dependencyBanner.classList.add('hidden');
         this.saveState(); this.renderProjects();
+    },
+
+    toggleProjectLock(projectId) {
+        const project = this.projects.find(p => p.id === projectId);
+        if (!project) return;
+        const isLocking = !project.locked;
+        this.pendingLockChange = {
+            type: 'project',
+            projectId: projectId,
+            newState: isLocking
+        };
+        this.elements.reasonModalTitle.textContent = isLocking ? 'Reason for Locking Dates' : 'Reason for Unlocking Dates';
+        this.elements.reasonModalDetails.textContent = `You are about to ${isLocking ? 'lock' : 'unlock'} the dates for project: "${project.name}".`;
+        this.elements.reasonModal.classList.remove('hidden');
+        this.elements.reasonCommentTextarea.focus();
+    },
+
+    togglePhaseLock(projectId, phaseId) {
+        const project = this.projects.find(p => p.id === projectId);
+        const phase = project?.phases.find(ph => ph.id === phaseId);
+        if (!phase) return;
+        const isLocking = !phase.locked;
+        this.pendingLockChange = {
+            type: 'phase',
+            projectId: projectId,
+            phaseId: phaseId,
+            newState: isLocking
+        };
+        this.elements.reasonModalTitle.textContent = isLocking ? 'Reason for Locking Dates' : 'Reason for Unlocking Dates';
+        this.elements.reasonModalDetails.textContent = `You are about to ${isLocking ? 'lock' : 'unlock'} the dates for phase: "${phase.name}".`;
+        this.elements.reasonModal.classList.remove('hidden');
+        this.elements.reasonCommentTextarea.focus();
     },
 
     // --- TAB MANAGEMENT ---
@@ -1896,3 +2132,4 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
