@@ -194,6 +194,11 @@ button:not(:disabled),
 /* 4. Set specific cursors for other elements. */
 .driven-by-dot {
     cursor: help;
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    background-color: #3b82f6; /* Blue-500 */
+    border-radius: 50%;
 }
 
 .date-input-disabled {
