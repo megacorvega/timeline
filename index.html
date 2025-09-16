@@ -47,10 +47,16 @@
     <div id="dependency-tooltip" class="hidden absolute z-[1002] p-3 tooltip-card border rounded-lg shadow-xl text-xs w-max max-w-xs"></div>
 
     <div id="fullscreen-modal">
-        <div id="fullscreen-chart-container">
+        <header class="header">
+            <h1 id="fullscreen-project-title"></h1>
             <button id="close-fullscreen-btn">&times;</button>
-        </div>
+        </header>
+        <main class="chart-panel">
+            <div id="fullscreen-chart-container" class="w-full h-full"></div>
+        </main>
     </div>
+    
+    <div id="gantt-tooltip" class="gantt-tooltip"></div>
     
     <!-- Keyboard Shortcuts Modal -->
     <div id="shortcuts-modal" class="hidden fixed inset-0 z-[1001] flex items-center justify-center p-4">
@@ -207,3 +213,4 @@
     <script src="punchlist.js"></script>
 </body>
 </html>
+
