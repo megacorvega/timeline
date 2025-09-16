@@ -4,84 +4,74 @@
 
 ---
 
-### Key Benefits
+### Key Features
 
-* **Hierarchical Organization:** Structure your projects with nested phases, tasks, and subtasks to break down complex work into manageable pieces.
-* **Visual Progress Tracking:**  Date vs. Completion progress graphs give you a clear understanding of your project's health and trajectory.
+* **Four Views in One:** Manage your work across four distinct tabs: a hierarchical **Projects** timeline, a flexible **List** for notes and tasks, a **Task Load** chart for visualizing workload, and an **Upcoming** view to see what's next.
+* **Hierarchical Organization:** Structure projects with nested phases, tasks, and subtasks to break down complex work into manageable pieces.
+* **Interactive Gantt Charts:** Each project features a progress chart that can be expanded into a fullscreen Gantt view for detailed analysis.
 * **Dependency Management:** Easily create and visualize dependencies between tasks to understand critical paths and potential bottlenecks.
-* **Change Auditing:** A built-in change log tracks all date modifications and deletions, requiring a reason for each to ensure accountability and historical context.
-* **Data Portability:** Import and export your project data in JSON format, allowing for easy backups and sharing.
+* **Flexible Task Lists:** Use the markdown-inspired List view to create freeform checklists, notes, and outlines with highlighting and nested items.
+* **Change Auditing:** A built-in change log tracks all date modifications, deletions, and date-locking, requiring a reason for each to ensure accountability and historical context.
+* **Customization:** Personalize your workspace with multiple color themes and a dark/light mode toggle.
+* **Data Portability:** Import and export your entire project data in JSON format for easy backups and sharing.
+* **Keyboard Shortcuts:** A comprehensive set of keyboard shortcuts for efficient navigation and editing.
 
 ---
 
-### Design Language and Features
+### The Four Views
 
-#### **Projects, Phases, Tasks, and Subtasks**
+#### 1. Projects View
 
-The application is structured hierarchically.
+This is the core of the application, providing a structured, timeline-based approach to project management.
 
-* **Projects:** The highest-level container. Each project has its own timeline, chart, and change log.
-* **Phases:** Major stages of a project. Progress is calculated based on the completion of its tasks.
-* **Tasks:** Individual work items within a phase. Can have their own start/end dates or be composed of subtasks.
-* **Subtasks:** Granular steps within a task. The parent task's progress and dates are automatically calculated from its subtasks.
+* **Hierarchy:** The view is organized into **Projects** > **Phases** > **Tasks** > **Subtasks**. The progress and dates of parent items (like Phases or Tasks with subtasks) are automatically calculated based on their children.
+* **Progress Pacing Bar:** The project header includes a visual pacing bar that compares the percentage of work complete against the percentage of time elapsed, giving you an at-a-glance indication of whether you are ahead, on track, or behind schedule.
+* **Interactive Progress Chart:** Each project features a chart that visualizes its schedule and status.
+    * **Planned Line (Dashed Grey):** The ideal path from 0% to 100% completion.
+    * **Actual/Projected Path (Solid/Dashed Line):** A green line shows progress ahead of schedule, while a red line shows progress behind schedule. A dashed line projects the future path.
+    * **Today & Finish Lines:** Vertical lines mark the current date (blue) and the project's planned end date (red).
+    * **Fullscreen Gantt Chart:** Expand the chart for a detailed, interactive Gantt view that shows every phase, task, and subtask on a timeline.
+* **Dependency Management:**
+    * A **blue dot** `●` next to an item indicates its start date is automatically driven by a dependency. Hover over it to see the parent task.
+    * Hover over any task or subtask to reveal two circles. Click the **left circle** of a *parent* item and then click another item to make it a *dependent*. The dependent's start date will now automatically adjust based on the parent's end date.
+* **Date Locking:** Project and Phase dates can be locked to prevent accidental changes. A reason is required to unlock them, which is recorded in the Change Log.
 
+#### 2. List View (Punch List)
 
+A flexible, text-based view for managing tasks, notes, and ideas that don't fit into a formal project structure. It uses simple markdown-style shortcuts for formatting.
 
-You can add new items at any level using the "Add" buttons. All item names are editable by simply clicking on them.
+* **Project Organization:** Use `# Project Title` to create distinct project sections within the list.
+* **Formatting:**
+    * `##` for a sub-section header.
+    * `-` for a checkbox item.
+    * `>` for an indented note block.
+* **Hierarchy:** Indent and outdent lines using `Tab` and `Shift + Tab` to create nested structures.
+* **Highlighting:** Use keyboard shortcuts (`Ctrl/Cmd + Alt + 1-4`) to apply yellow, blue, purple, or red highlights to lines.
+* **Keyboard Navigation:** Designed for power users, you can create new lines, move items up and down, and manage tasks entirely from the keyboard.
 
----
+#### 3. Task Load View
 
-#### **Visual Cues**
+This view provides a high-level overview of your workload across all projects. It displays a stacked bar chart showing how many tasks are due each week, with colors corresponding to each project. This helps you quickly identify upcoming crunches and potential resource bottlenecks.
 
-`timeline` uses a simple, color-coded system to provide information quickly.
+#### 4. Upcoming View
 
-* **Progress Bars & Checkboxes:**
-    * Phases and tasks with subtasks show a percentage of completion.
-    * Standalone tasks and subtasks have a checkbox to mark them as complete. `✔`
-* **Driven-by Dot:**
-    * A **blue dot** `●` next to an item indicates its start date is automatically determined by a dependency. Hovering over the dot reveals which item is driving it.
-* **Dependency Circles:**
-    * When you hover over an item, two circles appear. These are used to manage dependencies.
-    * The **left circle** `( D )` represents *dependents*. If colored **red**, it means other items depend on this one. The number inside shows how many.
-    * The **right circle** `( P )` represents *parents*. If colored **amber**, it means this item depends on another.
-    * Clicking the **left circle** enters "Dependency Mode" to select a dependent.
-    * Clicking the **right circle** will prompt to clear existing parent dependencies.
-
-
-
----
-
-#### **Progress Chart**
-
-Each project features an interactive progress chart that visualizes the project's schedule and status.
-
-
-
-* **Planned Line (Dashed Grey):** The ideal path from 0% to 100% completion between the project's start and end dates.
-* **Finish Line (Red):** A vertical line marking the project's planned end date.
-* **Today Line (Blue):** A vertical line indicating the current date.
-* **Actual/Projected Path:**
-    * A **solid green line** shows progress on completed tasks that are on or ahead of schedule.
-    * A **solid red line** shows progress on completed tasks that are behind schedule.
-    * A **dashed line** represents the projected path for uncompleted tasks.
-* **Phase Markers (Blue Circles):** `P1`, `P2`, etc., mark the effective end date and cumulative progress at the completion of each phase.
-* **Fullscreen Mode:** Expand the chart for a more detailed view, including task and phase labels directly on the chart.
+This view gives you a clear, chronological list of all tasks and subtasks that have a due date. Items are grouped by date (e.g., "Overdue", "Today", "Tomorrow", "in 3 days") so you can easily focus on what needs your attention now.
 
 ---
 
-#### **How to Use**
+### Customization and Usability
 
-1.  **Add a Project:** Give your project a name and optional start/end dates.
-2.  **Add Phases and Tasks:** Flesh out your project structure. Add dates to tasks that don't have subtasks.
-3.  **Create Dependencies:**
-    * Click the **left dependency circle** of the *parent* item. The banner will indicate you are in "Dependency Mode".
-    * Click the body of the *dependent* item. A link is now created, and the dependent's start date will automatically adjust.
-4.  **Track Progress:** Mark tasks and subtasks as complete. The progress percentages and charts will update automatically.
-5.  **Log Changes:** When you change a date or delete an item, a modal will appear prompting for a reason. This is stored in the project's "Change Log".
-6.  **Import/Export:** Use the buttons in the header to save your project data to a `.json` file or to load data from a file.
+* **Themes & Appearance:** Go to the shortcuts menu (`?`) to select from several color themes (Default, Dracula, Solarized, Monokai, Nord) and toggle between light and dark modes.
+* **Keyboard Shortcuts:** Press `?` anywhere in the app to open a modal displaying all available keyboard shortcuts for general navigation, editing in the List view, and highlighting.
 
+---
 
-### To-do
-1. Add initial scope function to use as a basis of comparison.
-2. Mouseover graph highlight functionality
-3. Integrate Punch List
+### How to Use
+
+1.  **Add a Project:** In the "Projects" tab, give your project a name and set the start/end dates.
+2.  **Flesh out the Structure:** Add phases, tasks, and subtasks. Assign dates to tasks and subtasks that don't have children.
+3.  **Create Dependencies:** Hover over a parent task, click its left dependency circle, and then click the dependent task. The dependent's start date will now be managed automatically.
+4.  **Track Progress:** Mark tasks and subtasks as complete using their checkboxes. Progress bars and charts will update in real-time.
+5.  **Use the Other Views:** Switch to the "List" tab for brainstorming and checklists. Check the "Task Load" and "Upcoming" tabs to stay on top of your workload.
+6.  **Log Changes:** When you change a date or delete an item, a modal will appear prompting for a reason. This is stored in the project's "Change Log".
+7.  **Import/Export:** Use the buttons in the header to save your project data to a `.json` file or to load data from a file.
