@@ -236,7 +236,12 @@ button:not(:disabled),
 }
 
 .btn-primary { background-color: var(--accent-primary); color: var(--accent-text); }
-.btn-secondary { background-color: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-primary); }
+.btn-secondary { 
+    background-color: var(--bg-secondary); 
+    color: var(--text-primary); 
+    border: 1px solid var(--border-primary);
+    white-space: nowrap;
+}
 
 .input-primary {
     background-color: var(--bg-primary);
@@ -1105,4 +1110,3 @@ button:not(:disabled),
     color: var(--text-secondary);
     cursor: not-allowed;
 }
-
