@@ -1,3 +1,4 @@
+// megacorvega/timeline/timeline-5b49bea539918dd31a53c7d8f6e34b509b129fcc/app.js
 const timelineApp = {
     // --- STATE & CONFIG ---
     projects: [],
@@ -1308,7 +1309,7 @@ const timelineApp = {
             });
         });
 
-        const minBarHeight = 25; // Minimum pixels per gantt item
+        const minBarHeight = 35; 
         const requiredHeight = ganttItems.length * minBarHeight;
         const height = Math.max(bounds.height - margin.top - margin.bottom, requiredHeight);
         
@@ -1330,6 +1331,28 @@ const timelineApp = {
 
         const startDate = this.parseDate(project.startDate);
         const endDate = this.parseDate(project.endDate);
+        
+        // --- DYNAMIC AXIS TICKS ---
+        const durationDays = (endDate - startDate) / (1000 * 60 * 60 * 24);
+        let tickInterval, tickFormat;
+
+        if (durationDays > 1095) { // ~3+ years
+            tickInterval = d3.timeYear.every(1);
+            tickFormat = d3.timeFormat("'%y");
+        } else if (durationDays > 365) { // 1-3 years
+            tickInterval = d3.timeMonth.every(3);
+            tickFormat = d3.timeFormat("%b '%y");
+        } else if (durationDays > 90) { // 3-12 months
+            tickInterval = d3.timeMonth.every(1);
+            tickFormat = d3.timeFormat("%B");
+        } else if (durationDays > 30) { // 1-3 months
+            tickInterval = d3.timeWeek.every(2);
+            tickFormat = d3.timeFormat("%b %d");
+        } else { // < 1 month
+            tickInterval = d3.timeWeek.every(1);
+            tickFormat = d3.timeFormat("%b %d");
+        }
+
 
         // --- SCALES ---
         const x = d3.scaleTime().domain([startDate, endDate]).range([0, width]);
@@ -1339,7 +1362,7 @@ const timelineApp = {
         // --- AXES ---
         svg.append("g").attr("class", "chart-grid")
             .attr("transform", `translate(0,${height})`)
-            .call(d3.axisBottom(x).ticks(d3.timeMonth.every(1)).tickFormat(d3.timeFormat("%b '%y")));
+            .call(d3.axisBottom(x).ticks(tickInterval).tickFormat(tickFormat));
 
         const yAxisGantt = d3.axisLeft(yGantt).tickSize(0).tickPadding(10)
              .tickFormat((id, i) => ganttItems[i].name);
@@ -1415,7 +1438,10 @@ const timelineApp = {
             .attr("y", 0)
             .attr("width", d => {
                 const start = this.parseDate(d.effectiveStartDate || d.startDate);
-                const end = this.parseDate(d.effectiveEndDate || d.endDate);
+                let end = this.parseDate(d.effectiveEndDate || d.endDate);
+                if (start && end && start.getTime() === end.getTime()) {
+                    end.setDate(end.getDate() + 1);
+                }
                 return start && end ? Math.max(0, x(end) - x(start)) : 0;
             }).attr("height", yGantt.bandwidth()).attr("rx", 5);
 
@@ -1425,8 +1451,11 @@ const timelineApp = {
             .attr("y", 0)
             .attr("width", d => {
                 const start = this.parseDate(d.effectiveStartDate || d.startDate);
-                const end = this.parseDate(d.effectiveEndDate || d.endDate);
+                let end = this.parseDate(d.effectiveEndDate || d.endDate);
                 if (!start || !end) return 0;
+                if (start.getTime() === end.getTime()) {
+                    end.setDate(end.getDate() + 1);
+                }
                 const totalWidth = Math.max(0, x(end) - x(start));
                 return totalWidth * ((d.progress || 0) / 100);
             })
