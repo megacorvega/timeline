@@ -304,6 +304,7 @@ const timelineApp = {
             if (project.collapsed === undefined) project.collapsed = false;
             if (typeof project.startDate !== 'string' || project.startDate.trim() === '') project.startDate = null;
             if (typeof project.endDate !== 'string' || project.endDate.trim() === '') project.endDate = null;
+            this.updatePhaseDependencies(project.id);
         });
 
         const savedDeletedLogs = localStorage.getItem('projectTimelineDeletedLogs');
@@ -657,7 +658,7 @@ const timelineApp = {
         let html = '';
         const sortedPhases = [...project.phases].sort((a, b) => this.sortByEndDate(a, b, 'effectiveEndDate'));
 
-        sortedPhases.forEach(phase => {
+        sortedPhases.forEach((phase, index) => {
             const hasTasks = phase.tasks && phase.tasks.length > 0;
             const toggleButton = hasTasks ?
                 `<button onclick="timelineApp.togglePhaseCollapse(${project.id}, ${phase.id})" class="p-1 rounded-full hover-bg-tertiary flex-shrink-0">
@@ -683,6 +684,8 @@ const timelineApp = {
                 ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>`
                 : `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h5V3a3 3 0 0 1 6 0v4a.5.5 0 0 1-1 0V3a2 2 0 0 0-2-2z"/></svg>`;
             
+            const isFirstPhase = index === 0;
+
             html += `
                 <div class="phase-row rounded-lg p-2 ${depClass} ${selectedClass}" data-id="${phase.id}" data-type="phase" data-project-id="${project.id}" onmouseover="timelineApp.highlightPhaseOnChart(${phase.id})" onmouseout="timelineApp.unhighlightPhaseOnChart(${phase.id})">
                     <div class="flex items-center gap-3 item-main-row">
@@ -699,7 +702,7 @@ const timelineApp = {
                                 ${lockIcon}
                             </button>
                             <div class="date-input-container">
-                                <input type="text" value="${phase.startDate ? this.formatDate(this.parseDate(phase.startDate)) : ''}" placeholder="Start Date" class="date-input" data-project-id="${project.id}" data-phase-id="${phase.id}" data-type="phase-start" data-date="${phase.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)" ${phase.locked ? 'disabled' : ''}>
+                                <input type="text" value="${phase.startDate ? this.formatDate(this.parseDate(phase.startDate)) : ''}" placeholder="Start Date" class="date-input ${!isFirstPhase ? 'date-input-disabled' : ''}" data-project-id="${project.id}" data-phase-id="${phase.id}" data-type="phase-start" data-date="${phase.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)" ${phase.locked || !isFirstPhase ? 'disabled' : ''}>
                                 ${iconHtml}
                             </div>
                             <div class="date-input-container">
@@ -1288,11 +1291,19 @@ const timelineApp = {
         project.phases.forEach(phase => {
             ganttItems.push({ ...phase, level: 1, type: 'Phase', id: `p-${phase.id}` });
             phase.tasks.forEach(task => {
-                ganttItems.push({ ...task, level: 2, type: 'Task', id: `t-${task.id}` });
-                if (task.subtasks) {
+                if (task.subtasks && task.subtasks.length > 0) {
                     task.subtasks.forEach(subtask => {
-                        ganttItems.push({ ...subtask, level: 3, type: 'Subtask', id: `st-${subtask.id}` });
+                        ganttItems.push({
+                            ...subtask,
+                            name: `${task.name} > ${subtask.name}`, // New combined name
+                            level: 3, // Keep level for indentation
+                            type: 'Subtask',
+                            id: `st-${subtask.id}`
+                        });
                     });
+                } else {
+                    // Only include tasks that do not have subtasks
+                    ganttItems.push({ ...task, level: 2, type: 'Task', id: `t-${task.id}` });
                 }
             });
         });
@@ -1608,7 +1619,12 @@ const timelineApp = {
     addPhase(projectId) {
         const nameInput = document.getElementById(`new-phase-name-${projectId}`), name = nameInput.value.trim(); if (!name) return;
         const project = this.projects.find(p => p.id === projectId); 
-        if (project) { project.phases.push({ id: Date.now(), name, startDate: null, endDate: null, collapsed: false, tasks: [], dependencies: [], dependents: [] }); this.saveState(); this.renderProjects(); }
+        if (project) {
+            project.phases.push({ id: Date.now(), name, startDate: null, endDate: null, collapsed: false, tasks: [], dependencies: [], dependents: [] });
+            this.updatePhaseDependencies(projectId);
+            this.saveState();
+            this.renderProjects();
+        }
     },
 
     addTask(projectId, phaseId) {
@@ -1677,7 +1693,17 @@ const timelineApp = {
                 else if (type.startsWith('subtask')) { const subtask = task.subtasks.find(st => st.id === subtaskId); if (!subtask) return; targetItem = subtask; dateField = type.endsWith('start') ? 'startDate' : 'endDate'; itemName = `Subtask '${subtask.name}' ${dateField.replace('Date','')} date`; }
             }
         }
-        if (targetItem && dateField) { const oldDate = targetItem[dateField]; if (comment) { if (!project.logs) project.logs = []; project.logs.push({ timestamp: new Date().toISOString(), item: itemName, from: oldDate, to: value, comment }); } targetItem[dateField] = value; }
+        if (targetItem && dateField) {
+            const oldDate = targetItem[dateField];
+            if (comment) {
+                if (!project.logs) project.logs = [];
+                project.logs.push({ timestamp: new Date().toISOString(), item: itemName, from: oldDate, to: value, comment });
+            }
+            targetItem[dateField] = value;
+            if (type === 'phase-end' || type === 'phase-start') {
+                this.updatePhaseDependencies(projectId);
+            }
+        }
         this.saveState(); this.renderProjects();
     },
 
@@ -1722,7 +1748,10 @@ const timelineApp = {
         if (phase) {
             this.removeAllDependencies(phaseId);
             phase.tasks.forEach(t => { this.removeAllDependencies(t.id); if(t.subtasks) t.subtasks.forEach(st => this.removeAllDependencies(st.id)); });
-            this.pendingDeletion = { type: 'phase', logContext: { projectId }, deleteFn: () => { project.phases = project.phases.filter(ph => ph.id !== phaseId); }, itemName: `Phase '${phase.name}' from project '${project.name}'` };
+            this.pendingDeletion = { type: 'phase', logContext: { projectId }, deleteFn: () => {
+                project.phases = project.phases.filter(ph => ph.id !== phaseId);
+                this.updatePhaseDependencies(projectId);
+            }, itemName: `Phase '${phase.name}' from project '${project.name}'` };
             this.elements.reasonModalTitle.textContent = 'Reason for Deletion';
             this.elements.reasonModalDetails.textContent = `You are about to delete the phase: "${phase.name}".`;
             this.elements.reasonModal.classList.remove('hidden');
@@ -1970,6 +1999,7 @@ const timelineApp = {
     },
 
     handleCircleClick(itemId) {
+        this.hideDependencyTooltip(); // Hide tooltip on click
         const allItems = new Map();
         this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
         const item = allItems.get(itemId);
@@ -1998,6 +2028,7 @@ const timelineApp = {
     },
 
     startDependencyMode(itemId) {
+        this.hideDependencyTooltip(); // Hide tooltip on click
         const allItems = new Map();
         this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
         this.firstSelectedItem = allItems.get(itemId);
@@ -2213,6 +2244,52 @@ const timelineApp = {
 
     toggleShortcutsModal() {
         this.elements.shortcutsModal.classList.toggle('hidden');
+    },
+
+    updatePhaseDependencies(projectId) {
+        const project = this.projects.find(p => p.id === projectId);
+        if (!project || !project.phases || project.phases.length < 2) return;
+
+        // Sort phases by their start date to ensure correct order
+        const sortedPhases = [...project.phases].sort((a, b) => {
+            const dateA = a.startDate ? this.parseDate(a.startDate) : null;
+            const dateB = b.startDate ? this.parseDate(b.startDate) : null;
+            if (dateA && dateB) return dateA - dateB;
+            if (dateA) return -1;
+            if (dateB) return 1;
+            return 0;
+        });
+
+        for (let i = 1; i < sortedPhases.length; i++) {
+            const prevPhase = sortedPhases[i - 1];
+            const currentPhase = sortedPhases[i];
+
+            if (prevPhase.endDate) {
+                const prevEndDate = this.parseDate(prevPhase.endDate);
+                const newStartDate = new Date(prevEndDate);
+                newStartDate.setDate(newStartDate.getDate() + 1); // Start the day after the previous ends
+
+                const newStartDateStr = newStartDate.toISOString().split('T')[0];
+
+                // Only update if the date is different to avoid unnecessary re-renders and history states
+                if (currentPhase.startDate !== newStartDateStr) {
+                    currentPhase.startDate = newStartDateStr;
+
+                    // Maintain duration of the current phase if it has one
+                    if (currentPhase.endDate) {
+                        const oldStartDate = currentPhase.startDate ? this.parseDate(currentPhase.startDate) : null;
+                        const oldEndDate = this.parseDate(currentPhase.endDate);
+                        if (oldStartDate && oldEndDate) {
+                            const duration = oldEndDate.getTime() - oldStartDate.getTime();
+                            const newEndDate = new Date(newStartDate.getTime() + duration);
+                            currentPhase.endDate = newEndDate.toISOString().split('T')[0];
+                        }
+                    }
+                }
+            }
+        }
+        // After updating dates, we might need to re-calculate rollups for the project
+        this.calculateRollups();
     }
 };
 
