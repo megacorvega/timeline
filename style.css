@@ -1,3 +1,4 @@
+/* megacorvega/timeline/timeline-5b49bea539918dd31a53c7d8f6e34b509b129fcc/style.css */
 /* --- THEME DEFINITIONS --- */
 :root, html[data-theme="default"] {
     /* Light Mode */
@@ -496,6 +497,18 @@ button:not(:disabled),
     r: 12;
 }
 
+.reset-zoom-btn {
+    position: absolute;
+    top: 10px;
+    right: 60px;
+    z-index: 10;
+}
+
+.brush .selection {
+    fill: var(--accent-primary);
+    fill-opacity: 0.2;
+    stroke: var(--accent-primary);
+}
 
 @media print {
     body {
@@ -662,6 +675,28 @@ button:not(:disabled),
     border: 1px solid var(--border-primary);
 }
 
+/* Custom Scrollbar Styles */
+.chart-panel::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+.chart-panel::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+    border-radius: 10px;
+}
+.chart-panel::-webkit-scrollbar-thumb {
+    background-color: var(--bg-tertiary);
+    border-radius: 10px;
+    border: 3px solid var(--bg-secondary);
+}
+.chart-panel::-webkit-scrollbar-thumb:hover {
+    background-color: var(--accent-primary);
+}
+.chart-panel::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+
 .chart-tooltip {
     position: absolute;
     visibility: hidden;
@@ -737,7 +772,7 @@ button:not(:disabled),
 
 /* Punch List Styles */
 #main-tab-panel-list .punch-list-container {
-    font-family: 'Cascadia Code', monospace;
+    font-family: inherit;
 }
 #punch-list-container {
   display: flex;
