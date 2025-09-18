@@ -19,7 +19,6 @@ const timelineApp = {
     activeTab: 'projects',
     tabOrder: ['projects', 'list', 'overall-load', 'upcoming'],
     fullscreenObserver: null,
-    resizeTimeout: null,
 
     // --- DOM ELEMENTS ---
     elements: {},
@@ -180,10 +179,7 @@ const timelineApp = {
         this.elements.closeShortcutsBtn.addEventListener('click', this.toggleShortcutsModal.bind(this));
         this.elements.shortcutsModalBackdrop.addEventListener('click', this.toggleShortcutsModal.bind(this));
 
-        window.addEventListener('resize', () => {
-            clearTimeout(this.resizeTimeout);
-            this.resizeTimeout = setTimeout(() => this.handleResize(), 150);
-        });
+        window.addEventListener('resize', () => this.updateTabIndicator());
 
         document.addEventListener('keydown', (e) => {
             if (e.key === '?') {
@@ -229,25 +225,6 @@ const timelineApp = {
             }
         });
         this.addDragAndDropListeners();
-    },
-
-    handleResize() {
-        this.updateTabIndicator();
-        if (this.activeTab === 'projects') {
-            this.projects.forEach(project => {
-                if (!project.collapsed && project.startDate && project.endDate) {
-                    this.drawChart(project);
-                }
-            });
-        } else if (this.activeTab === 'overall-load') {
-            this.drawOverallLoadChart();
-        }
-        
-        if (this.elements.fullscreenModal.style.display === 'flex') {
-            const projectId = parseInt(document.getElementById('fullscreen-project-title').dataset.projectId);
-            const project = this.projects.find(p => p.id === projectId);
-            if(project) this.drawFullscreenChart(project);
-        }
     },
     
     // --- DATA & UTILS ---
@@ -307,7 +284,6 @@ const timelineApp = {
             if (!project.originalEndDate) project.originalEndDate = project.endDate;
             if (project.locked === undefined) project.locked = false;
             if (!project.phases) project.phases = [];
-            if (project.zoomDomain === undefined) project.zoomDomain = null;
             project.phases.forEach(phase => { 
                 if(phase.collapsed === undefined) phase.collapsed = false; 
                 if (phase.locked === undefined) phase.locked = false;
@@ -494,7 +470,7 @@ const timelineApp = {
                 ph.tasks.forEach(t => {
                     allItems.set(t.id, t);
                     if (t.subtasks) {
-                        t.subtasks.forEach(st => allItems.set(st, st.id));
+                        t.subtasks.forEach(st => allItems.set(st.id, st));
                     }
                 });
             });
@@ -628,10 +604,7 @@ const timelineApp = {
                     <button onclick="timelineApp.deleteProject(${project.id})" class="text-gray-400 hover:text-red-500 transition-colors text-xl font-bold ml-4 flex-shrink-0">&times;</button>
                 </div>
                  <div id="project-body-${project.id}" class="${project.collapsed ? 'hidden' : ''}">
-                    <div class="relative">
-                        <button onclick="timelineApp.resetZoom(${project.id})" class="reset-zoom-btn btn-secondary px-2 py-1 text-xs font-semibold rounded-md ${!project.zoomDomain ? 'hidden' : ''}">Reset Zoom</button>
-                        <div id="chart-${project.id}" class="w-full h-48 mb-3 relative"></div>
-                    </div>
+                    <div id="chart-${project.id}" class="w-full h-48 mb-3 relative"></div>
                     <div id="phases-${project.id}" class="space-y-1"></div>
                     <div class="mt-3">
                         <button onclick="timelineApp.toggleLog(${project.id})" class="text-xs font-semibold text-tertiary hover-text-primary flex items-center gap-1">
@@ -974,10 +947,8 @@ const timelineApp = {
             const svg = container.append("svg").attr("width", chartWidth + margin.left + margin.right).attr("height", height + margin.top + margin.bottom).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
             const x = d3.scaleTime().range([0, chartWidth]),
                 y = d3.scaleLinear().range([height, 0]);
-            
-            const startDate = project.zoomDomain ? this.parseDate(project.zoomDomain[0]) : this.parseDate(project.startDate);
-            const endDate = project.zoomDomain ? this.parseDate(project.zoomDomain[1]) : this.parseDate(project.endDate);
-
+            const startDate = this.parseDate(project.startDate),
+                endDate = this.parseDate(project.endDate);
             x.domain([startDate, endDate]);
             y.domain([0, 100]);
             svg.append("g").attr("class", "chart-grid").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x).ticks(5).tickFormat(this.formatDate));
@@ -1035,13 +1006,13 @@ const timelineApp = {
                     .attr("d", scopeLine)
                     .style("fill", "none");
             } else {
-                svg.append("line").attr("class", "planned-line").attr("x1", x(this.parseDate(project.startDate))).attr("y1", y(0)).attr("x2", x(this.parseDate(project.endDate))).attr("y2", y(100));
+                svg.append("line").attr("class", "planned-line").attr("x1", x(startDate)).attr("y1", y(0)).attr("x2", x(endDate)).attr("y2", y(100));
             }
 
-            svg.append("line").attr("class", "finish-line").attr("x1", x(this.parseDate(project.endDate))).attr("y1", 0).attr("x2", x(this.parseDate(project.endDate))).attr("y2", height);
+            svg.append("line").attr("class", "finish-line").attr("x1", x(endDate)).attr("y1", 0).attr("x2", x(endDate)).attr("y2", height);
 
             const allTasks = project.phases.flatMap(phase => phase.tasks).filter(task => task.effectiveEndDate);
-            const firstActivityDate = this.parseDate(this.getBoundaryDate(allTasks, 'earliest')) || this.parseDate(project.startDate);
+            const firstActivityDate = this.parseDate(this.getBoundaryDate(allTasks, 'earliest')) || startDate;
             const pathData = [{ date: firstActivityDate, progress: 0 }];
             let cumulativeProgress = 0;
 
@@ -1058,13 +1029,13 @@ const timelineApp = {
             for (let i = 0; i < pathData.length - 1; i++) {
                 const segment = [pathData[i], pathData[i+1]], endPoint = segment[1];
                 const plannedProgressAtDate = this.getScopedPlannedProgress(endPoint.date, scopePathData, project);
-                const colorClass = endPoint.date > this.parseDate(project.endDate) ? 'stroke-red-500' : (endPoint.progress >= plannedProgressAtDate ? 'stroke-green-500' : 'stroke-red-500');
+                const colorClass = endPoint.date > endDate ? 'stroke-red-500' : (endPoint.progress >= plannedProgressAtDate ? 'stroke-green-500' : 'stroke-red-500');
                 svg.append("path").datum(segment).attr("class", `${endPoint.completed ? 'actual-line' : 'projected-line'} ${colorClass}`).attr("d", line);
             }
             svg.selectAll(".actual-point").data(pathData.slice(1).filter(d=>d.completed)).enter().append("circle").attr("class", "actual-point").attr("cx", d => x(d.date)).attr("cy", d => y(d.progress))
                 .attr("fill", d => {
                     const plannedProgressAtDate = this.getScopedPlannedProgress(d.date, scopePathData, project);
-                    return d.date > this.parseDate(project.endDate) ? '#ef4444' : (d.progress >= plannedProgressAtDate ? '#22c55e' : '#ef4444');
+                    return d.date > endDate ? '#ef4444' : (d.progress >= plannedProgressAtDate ? '#22c55e' : '#ef4444');
                 });
 
             const sortedPhases = [...project.phases]
@@ -1105,28 +1076,7 @@ const timelineApp = {
 
             phaseMarkers.append("circle").attr("class", "phase-marker-circle");
             phaseMarkers.append("text").attr("class", "phase-marker-text").text((d, i) => `P${i + 1}`);
-            
-            const brush = d3.brushX()
-                .extent([[0, 0], [chartWidth, height]])
-                .on("end", (event) => {
-                    if (!event.selection) return;
-                    const [x0, x1] = event.selection.map(x.invert);
-                    project.zoomDomain = [x0.toISOString().split('T')[0], x1.toISOString().split('T')[0]];
-                    this.saveState();
-                    this.renderProjects();
-                });
-            svg.append("g").attr("class", "brush").call(brush);
-
         }, 0);
-    },
-    
-    resetZoom(projectId) {
-        const project = this.projects.find(p => p.id === projectId);
-        if (project) {
-            project.zoomDomain = null;
-            this.saveState();
-            this.renderProjects();
-        }
     },
 
     highlightPhaseOnChart(phaseId) {
@@ -1311,10 +1261,7 @@ const timelineApp = {
         const project = this.projects.find(p => p.id === projectId);
         if (!project) return;
 
-        const title = document.getElementById('fullscreen-project-title');
-        title.textContent = project.name;
-        title.dataset.projectId = project.id;
-
+        document.getElementById('fullscreen-project-title').textContent = project.name;
         this.elements.fullscreenModal.style.display = 'flex';
         
         // Use a ResizeObserver to redraw the chart when the container size changes.
@@ -1573,7 +1520,7 @@ const timelineApp = {
 
     showDependencyTooltip(event, itemId) {
         const allItems = new Map();
-        this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st, st.id)); }); }));
+        this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
         const item = allItems.get(itemId);
         if (!item || ((!item.dependents || item.dependents.length === 0) && (!item.dependencies || item.dependencies.length === 0))) return;
 
@@ -1691,7 +1638,7 @@ const timelineApp = {
         const name = this.elements.newProjectNameInput.value.trim(); if (!name) return;
         const startDateInput = document.getElementById('new-project-start-date'), endDateInput = document.getElementById('new-project-end-date');
         const startDate = startDateInput.dataset.date || null, endDate = endDateInput.dataset.date || null;
-        this.projects.push({ id: Date.now(), name, startDate, endDate, originalStartDate: startDate, originalEndDate: endDate, collapsed: false, phases: [], logs: [], zoomDomain: null });
+        this.projects.push({ id: Date.now(), name, startDate, endDate, originalStartDate: startDate, originalEndDate: endDate, collapsed: false, phases: [], logs: [] });
         this.saveState(); 
         this.elements.newProjectNameInput.value = ''; 
         startDateInput.value = ''; endDateInput.value = ''; delete startDateInput.dataset.date; delete endDateInput.dataset.date; 
@@ -1794,7 +1741,7 @@ const timelineApp = {
     
     removeAllDependencies(itemId) {
         const allItems = new Map();
-        this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st, st.id)); }); }));
+        this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
         
         const itemToRemove = allItems.get(itemId);
         if (!itemToRemove) return;
@@ -2083,7 +2030,7 @@ const timelineApp = {
     handleCircleClick(itemId) {
         this.hideDependencyTooltip(); // Hide tooltip on click
         const allItems = new Map();
-        this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st, st.id)); }); }));
+        this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
         const item = allItems.get(itemId);
         if (item.dependencies && item.dependencies.length > 0) {
             this.pendingClearDependencies = itemId;
@@ -2094,7 +2041,7 @@ const timelineApp = {
     
     clearDependencies(itemId) {
         const allItems = new Map();
-        this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st, st.id)); }); }));
+        this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
         const itemToClear = allItems.get(itemId);
         if (!itemToClear || !itemToClear.dependencies) return;
         itemToClear.dependencies.forEach(parentId => {
@@ -2112,7 +2059,7 @@ const timelineApp = {
     startDependencyMode(itemId) {
         this.hideDependencyTooltip(); // Hide tooltip on click
         const allItems = new Map();
-        this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st, st.id)); }); }));
+        this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
         this.firstSelectedItem = allItems.get(itemId);
         this.dependencyMode = true;
         this.elements.dependencyBanner.classList.remove('hidden');
@@ -2135,7 +2082,7 @@ const timelineApp = {
         
         if (this.firstSelectedItem.id === itemId) return;
         const allItems = new Map();
-        this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st, st.id)); }); }));
+        this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
         const secondItem = allItems.get(itemId), firstItem = this.firstSelectedItem;
 
         let current = secondItem, visited = new Set();
