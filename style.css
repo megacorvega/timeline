@@ -500,7 +500,7 @@ button:not(:disabled),
 .reset-zoom-btn {
     position: absolute;
     top: 10px;
-    left: 50px;
+    right: 60px;
     z-index: 10;
 }
 
