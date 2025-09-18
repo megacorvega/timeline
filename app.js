@@ -1,4 +1,4 @@
-// megacorvega/timeline/timeline-5b49bea539918dd31a53c7d8f6e34b509b129fcc/app.js
+// megacorvega/timeline/timeline-f6a8e5036442f8e80443c8b16d897c212e40770d/app.js
 const timelineApp = {
     // --- STATE & CONFIG ---
     projects: [],
@@ -98,25 +98,40 @@ const timelineApp = {
             this.setDarkMode(!document.documentElement.classList.contains('dark'));
         });
 
-        this.elements.exportBtn.addEventListener('click', () => { 
-            const a = document.createElement('a'); 
-            a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.projects, null, 2)); 
-            a.download = "timeline-projects.json"; 
-            document.body.appendChild(a); 
-            a.click(); 
-            a.remove(); 
+        this.elements.exportBtn.addEventListener('click', () => {
+            const punchListData = JSON.parse(localStorage.getItem(punchListApp.STORAGE_KEY) || '[]');
+            const dataToExport = {
+                projects: this.projects,
+                punchList: punchListData
+            };
+            const a = document.createElement('a');
+            a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataToExport, null, 2));
+            a.download = "timeline-data.json";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
         });
         this.elements.importBtn.addEventListener('click', () => this.elements.importFileInput.click());
-        this.elements.importFileInput.addEventListener('change', (e) => { 
-            const file = e.target.files[0]; if (!file) return; 
-            const reader = new FileReader(); 
-            reader.onload = (e) => { 
-                try { 
-                    const imported = JSON.parse(e.target.result); 
-                    if (Array.isArray(imported)) { this.projects = imported; this.saveState(); this.renderProjects(); } 
-                } catch (err) { console.error(err); } 
-            }; 
-            reader.readAsText(file); e.target.value = null; 
+        this.elements.importFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (importedData.projects && Array.isArray(importedData.projects)) {
+                        this.projects = importedData.projects;
+                        this.saveState();
+                        this.renderProjects();
+                    }
+                    if (importedData.punchList && Array.isArray(importedData.punchList)) {
+                        localStorage.setItem(punchListApp.STORAGE_KEY, JSON.stringify(importedData.punchList));
+                        if (this.activeTab === 'list') {
+                            punchListApp.loadList();
+                        }
+                    }
+                } catch (err) { console.error(err); }
+            };
+            reader.readAsText(file); e.target.value = null;
         });
          this.elements.pdfBtn.addEventListener('click', () => {
             const originalCollapsedState = this.projects.map(p => ({id: p.id, collapsed: p.collapsed, phases: p.phases.map(ph => ({id: ph.id, collapsed: ph.collapsed}))}));
@@ -137,10 +152,10 @@ const timelineApp = {
                 this.renderProjects();
             }, 100);
         });
-        document.querySelector('.container').addEventListener('click', (e) => { 
-            const icon = e.target.closest('.date-input-icon-wrapper'); 
-            if (icon) { 
-                const input = icon.parentElement.querySelector('.date-input'); 
+        document.querySelector('.container').addEventListener('click', (e) => {
+            const icon = e.target.closest('.date-input-icon-wrapper');
+            if (icon) {
+                const input = icon.parentElement.querySelector('.date-input');
                 if (input && !input.disabled) this.handleDateTrigger(input);
                 return;
             }
@@ -174,7 +189,7 @@ const timelineApp = {
             this.elements.confirmModal.classList.add('hidden');
             this.pendingClearDependencies = null;
         });
-        
+
         // Shortcuts Modal Listeners
         this.elements.shortcutsBtn.addEventListener('click', this.toggleShortcutsModal.bind(this));
         this.elements.closeShortcutsBtn.addEventListener('click', this.toggleShortcutsModal.bind(this));
@@ -195,7 +210,7 @@ const timelineApp = {
             if(e.key === 'Escape') {
                 if (!this.elements.shortcutsModal.classList.contains('hidden')) {
                     this.toggleShortcutsModal();
-                    return; 
+                    return;
                 }
                 if (this.dependencyMode) {
                     this.dependencyMode = false;
@@ -214,15 +229,15 @@ const timelineApp = {
                 const direction = e.key.toLowerCase() === 'arrowleft' ? -1 : 1;
                 const currentIndex = this.tabOrder.indexOf(this.activeTab);
                 if (currentIndex === -1) return;
-        
+
                 let newIndex = currentIndex + direction;
-        
+
                 if (newIndex < 0) {
                     newIndex = this.tabOrder.length - 1;
                 } else if (newIndex >= this.tabOrder.length) {
                     newIndex = 0;
                 }
-                
+
                 const newTabName = this.tabOrder[newIndex];
                 this.showMainTab(newTabName);
                 document.getElementById(`main-tab-btn-${newTabName}`).focus();
@@ -242,21 +257,21 @@ const timelineApp = {
         } else if (this.activeTab === 'overall-load') {
             this.drawOverallLoadChart();
         }
-        
+
         if (this.elements.fullscreenModal.style.display === 'flex') {
             const projectId = parseInt(document.getElementById('fullscreen-project-title').dataset.projectId);
             const project = this.projects.find(p => p.id === projectId);
             if(project) this.drawFullscreenChart(project);
         }
     },
-    
+
     // --- DATA & UTILS ---
     saveState() {
         this.history.push(JSON.parse(JSON.stringify(this.projects)));
         if (this.history.length > this.MAX_HISTORY) {
-            this.history.shift(); 
+            this.history.shift();
         }
-        this.redoStack = []; 
+        this.redoStack = [];
         this.saveProjects();
         this.updateUndoRedoButtons();
     },
@@ -265,7 +280,7 @@ const timelineApp = {
         if (this.history.length > 0) {
             this.redoStack.push(JSON.parse(JSON.stringify(this.projects)));
             this.projects = this.history.pop();
-            this.saveProjects(); 
+            this.saveProjects();
             this.renderProjects();
             this.updateUndoRedoButtons();
         }
@@ -275,12 +290,12 @@ const timelineApp = {
         if (this.redoStack.length > 0) {
             this.history.push(JSON.parse(JSON.stringify(this.projects)));
             this.projects = this.redoStack.pop();
-            this.saveProjects(); 
+            this.saveProjects();
             this.renderProjects();
             this.updateUndoRedoButtons();
         }
     },
-    
+
     updateUndoRedoButtons() {
         this.elements.undoBtn.disabled = this.history.length === 0;
         this.elements.redoBtn.disabled = this.redoStack.length === 0;
@@ -308,8 +323,8 @@ const timelineApp = {
             if (project.locked === undefined) project.locked = false;
             if (!project.phases) project.phases = [];
             if (project.zoomDomain === undefined) project.zoomDomain = null;
-            project.phases.forEach(phase => { 
-                if(phase.collapsed === undefined) phase.collapsed = false; 
+            project.phases.forEach(phase => {
+                if(phase.collapsed === undefined) phase.collapsed = false;
                 if (phase.locked === undefined) phase.locked = false;
                 if(!phase.dependencies) phase.dependencies = [];
                 if(!phase.dependents) phase.dependents = [];
@@ -372,7 +387,7 @@ const timelineApp = {
         const boundary = type === 'latest' ? new Date(Math.max.apply(null, dates)) : new Date(Math.min.apply(null, dates));
         return boundary.toISOString().split('T')[0];
     },
-    
+
     getDurationProgress(startDateStr, endDateStr) {
         if (!startDateStr || !endDateStr) return 0;
         const start = this.parseDate(startDateStr).getTime();
@@ -429,14 +444,14 @@ const timelineApp = {
             const elapsed = Math.max(0, date.getTime() - projectStartDate.getTime());
             return Math.min(100, (elapsed / totalDuration) * 100);
         }
-    
+
         const targetTime = date.getTime();
         const firstPoint = scopePathData[0];
         const lastPoint = scopePathData[scopePathData.length - 1];
-    
+
         if (targetTime <= firstPoint.date.getTime()) return 0;
         if (targetTime >= lastPoint.date.getTime()) return 100;
-    
+
         let p1 = firstPoint, p2 = lastPoint;
         for (let i = 0; i < scopePathData.length - 1; i++) {
             if (targetTime >= scopePathData[i].date.getTime() && targetTime <= scopePathData[i + 1].date.getTime()) {
@@ -445,13 +460,13 @@ const timelineApp = {
                 break;
             }
         }
-    
+
         const segmentDuration = p2.date.getTime() - p1.date.getTime();
         if (segmentDuration === 0) return p1.progress;
-    
+
         const timeIntoSegment = targetTime - p1.date.getTime();
         const progressInSegment = p2.progress - p1.progress;
-        
+
         const plannedProgress = p1.progress + (progressInSegment * (timeIntoSegment / segmentDuration));
         return plannedProgress;
     },
@@ -473,7 +488,7 @@ const timelineApp = {
                         task.progress = task.completed ? 100 : 0;
                     }
                 });
-                
+
                 phase.effectiveStartDate = this.getBoundaryDate(phase.tasks, 'earliest');
                 phase.effectiveEndDate = this.getBoundaryDate(phase.tasks, 'latest');
                 const totalProgress = phase.tasks.reduce((sum, t) => sum + (t.progress || 0), 0);
@@ -499,21 +514,21 @@ const timelineApp = {
                 });
             });
         });
-    
+
         allItems.forEach(item => item.isDriven = false);
-    
+
         for (let i = 0; i < allItems.size; i++) {
             allItems.forEach(item => {
                 if (item.dependencies && item.dependencies.length > 0) {
                     const parentId = item.dependencies[0];
                     const parent = allItems.get(parentId);
-    
+
                     if (parent) {
                         const parentEndDateValue = parent.effectiveEndDate || parent.endDate;
                         if (parentEndDateValue) {
                             const parentEndDate = this.parseDate(parentEndDateValue);
                             const newStartDate = new Date(parentEndDate);
-    
+
                             // Maintain duration
                             const oldStartDate = item.startDate ? this.parseDate(item.startDate) : null;
                             const oldEndDate = item.endDate ? this.parseDate(item.endDate) : null;
@@ -521,14 +536,14 @@ const timelineApp = {
                             if (oldStartDate && oldEndDate) {
                                 duration = oldEndDate.getTime() - oldStartDate.getTime();
                             }
-    
+
                             item.startDate = newStartDate.toISOString().split('T')[0];
-    
+
                             if (duration !== null) {
                                 const newEndDate = new Date(newStartDate.getTime() + duration);
                                 item.endDate = newEndDate.toISOString().split('T')[0];
                             }
-                            
+
                             item.isDriven = true;
                             item.driverName = parent.name;
                         }
@@ -538,11 +553,11 @@ const timelineApp = {
             this.calculateRollups();
         }
     },
-    
+
 
     renderProjects() {
         this.calculateRollups();
-        this.resolveDependencies(); 
+        this.resolveDependencies();
         this.elements.projectsContainer.innerHTML = '';
         const sortedProjects = [...this.projects].sort((a, b) => {
             if (a.overallProgress >= 100 && b.overallProgress < 100) return 1;
@@ -563,7 +578,7 @@ const timelineApp = {
             let tooltipText = '';
 
             const isBehind = overallProgress < durationProgress && !daysLeftInfo.isOverdue;
-            
+
             if (project.overallProgress >= 100) {
                  progressColor = 'var(--green)';
                  tooltipText = `<b>Status: Complete</b><br>Finished with ${daysLeftInfo.days !== null ? Math.abs(daysLeftInfo.days) : '0'} weekdays to spare.`;
@@ -590,7 +605,7 @@ const timelineApp = {
                     </div>
                 </div>
             `;
-            
+
             const daysLeftPillHTML = `
                 <div class="days-left-pill ${daysLeftInfo.className}" title="${daysLeftInfo.tooltip}">
                     ${daysLeftInfo.text}
@@ -658,7 +673,7 @@ const timelineApp = {
             this.renderUpcomingTasks();
         }
     },
-    
+
     getDependencyIcon(item) {
         const dependentCount = item.dependents?.length || 0;
         const isDependentSource = dependentCount > 0;
@@ -668,8 +683,8 @@ const timelineApp = {
 
         return `
             <div class="dependency-container">
-                <div class="dependency-circle ${dependentSourceClass}" 
-                     onmouseover="timelineApp.showDependencyTooltip(event, ${item.id})" 
+                <div class="dependency-circle ${dependentSourceClass}"
+                     onmouseover="timelineApp.showDependencyTooltip(event, ${item.id})"
                      onmouseout="timelineApp.hideDependencyTooltip()"
                      onclick="timelineApp.startDependencyMode(${item.id})">${isDependentSource ? `<span>${dependentCount}</span>` : ''}</div>
                 <div class="dependency-circle ${parentSourceClass}"
@@ -691,7 +706,7 @@ const timelineApp = {
             const toggleButton = hasTasks ?
                 `<button onclick="timelineApp.togglePhaseCollapse(${project.id}, ${phase.id})" class="p-1 rounded-full hover-bg-tertiary flex-shrink-0">
                     <svg id="phase-chevron-${phase.id}" class="w-4 h-4 text-tertiary chevron ${phase.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
-                </button>` : `<div class="w-6 h-6 flex-shrink-0"></div>`; 
+                </button>` : `<div class="w-6 h-6 flex-shrink-0"></div>`;
 
             const depClass = ''; // Phases can no longer be dependents, so they can't be candidates
             const selectedClass = this.firstSelectedItem?.id === phase.id ? 'dependency-selected' : '';
@@ -711,7 +726,7 @@ const timelineApp = {
             const lockIcon = phase.locked
                 ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>`
                 : `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h5V3a3 3 0 0 1 6 0v4a.5.5 0 0 1-1 0V3a2 2 0 0 0-2-2z"/></svg>`;
-            
+
             const isFirstPhase = index === 0;
 
             html += `
@@ -760,7 +775,7 @@ const timelineApp = {
         sortedTasks.forEach(task => {
             const hasSubtasks = task.subtasks && task.subtasks.length > 0;
             let taskControlHtml = hasSubtasks ? `<div class="text-xs font-bold text-secondary w-10 text-center flex-shrink-0">${Math.round(task.progress || 0)}%</div>` : `<input type="checkbox" class="custom-checkbox" onchange="timelineApp.toggleTaskComplete(${projectId}, ${phaseId}, ${task.id})" ${task.completed ? 'checked' : ''}>`;
-            const toggleButton = hasSubtasks ? 
+            const toggleButton = hasSubtasks ?
                 `<button onclick="timelineApp.toggleTaskCollapse(${projectId}, ${phaseId}, ${task.id})" class="p-1 rounded-full hover-bg-tertiary flex-shrink-0">
                     <svg id="task-chevron-${task.id}" class="w-4 h-4 text-tertiary chevron ${task.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                 </button>` : `<div class="w-6 h-6 flex-shrink-0"></div>`;
@@ -778,7 +793,7 @@ const timelineApp = {
             } else if (durationProgress > 75) {
                 durationBarColorClass = 'bg-yellow-500';
             }
-            
+
             const isStartDateDrivenByDependency = task.isDriven;
             const isStartDateDisabled = hasSubtasks || isStartDateDrivenByDependency;
             const startDateInputClasses = isStartDateDisabled ? 'date-input-disabled' : '';
@@ -962,19 +977,19 @@ const timelineApp = {
             if (tooltip.empty()) {
                 tooltip = d3.select("body").append("div").attr("class", "chart-tooltip");
             }
-            
+
             container.append('button')
                 .html('<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 1v4m0 0h-4m4 0l-5-5" /></svg>')
                 .attr('class', 'absolute bottom-1 right-1 p-1.5 btn-secondary rounded-full')
                 .on('click', () => this.showFullscreenChart(project.id));
-            
+
             const margin = { top: 10, right: 20, bottom: 20, left: 40 },
                 chartWidth = width - margin.left - margin.right,
                 height = container.node().getBoundingClientRect().height - margin.top - margin.bottom;
             const svg = container.append("svg").attr("width", chartWidth + margin.left + margin.right).attr("height", height + margin.top + margin.bottom).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
             const x = d3.scaleTime().range([0, chartWidth]),
                 y = d3.scaleLinear().range([height, 0]);
-            
+
             const startDate = project.zoomDomain ? this.parseDate(project.zoomDomain[0]) : this.parseDate(project.startDate);
             const endDate = project.zoomDomain ? this.parseDate(project.zoomDomain[1]) : this.parseDate(project.endDate);
 
@@ -1016,7 +1031,7 @@ const timelineApp = {
             const scopedPhases = [...project.phases]
                 .filter(p => p.startDate && p.endDate)
                 .sort((a, b) => this.parseDate(a.startDate) - this.parseDate(b.startDate));
-            
+
             const scopePathData = [];
             if (scopedPhases.length > 0) {
                 scopePathData.push({ date: this.parseDate(scopedPhases[0].startDate), progress: 0 });
@@ -1054,7 +1069,7 @@ const timelineApp = {
             });
 
             const line = d3.line().x(d => x(d.date)).y(d => y(d.progress));
-            
+
             for (let i = 0; i < pathData.length - 1; i++) {
                 const segment = [pathData[i], pathData[i+1]], endPoint = segment[1];
                 const plannedProgressAtDate = this.getScopedPlannedProgress(endPoint.date, scopePathData, project);
@@ -1105,7 +1120,7 @@ const timelineApp = {
 
             phaseMarkers.append("circle").attr("class", "phase-marker-circle");
             phaseMarkers.append("text").attr("class", "phase-marker-text").text((d, i) => `P${i + 1}`);
-            
+
             const brush = d3.brushX()
                 .extent([[0, 0], [chartWidth, height]])
                 .on("end", (event) => {
@@ -1119,7 +1134,7 @@ const timelineApp = {
 
         }, 0);
     },
-    
+
     resetZoom(projectId) {
         const project = this.projects.find(p => p.id === projectId);
         if (project) {
@@ -1132,7 +1147,7 @@ const timelineApp = {
     highlightPhaseOnChart(phaseId) {
         d3.selectAll(`.phase-marker-${phaseId} circle`).classed('phase-marker-highlight', true);
     },
-    
+
     unhighlightPhaseOnChart(phaseId) {
         d3.selectAll(`.phase-marker-${phaseId} circle`).classed('phase-marker-highlight', false);
     },
@@ -1142,7 +1157,7 @@ const timelineApp = {
         const container = d3.select(`#${containerId}`);
         if (container.empty()) return;
         container.selectAll("*").remove();
-        
+
         const legendContainer = d3.select('#overall-load-legend');
         legendContainer.html('');
 
@@ -1186,18 +1201,18 @@ const timelineApp = {
         setTimeout(() => {
             const width = container.node().getBoundingClientRect().width;
             if (width <= 0) return;
-            
+
             const margin = { top: 20, right: 20, bottom: 50, left: 40 },
                 chartWidth = width - margin.left - margin.right,
                 height = container.node().getBoundingClientRect().height - margin.top - margin.bottom;
 
             const svg = container.append("svg").attr("width", chartWidth + margin.left + margin.right).attr("height", height + margin.top + margin.bottom)
                 .append("g").attr("transform", `translate(${margin.left},${margin.top})`);
-                
+
             const x = d3.scaleBand().domain(stackData.map(d => d.week)).range([0, chartWidth]).padding(0.2);
             const yMax = d3.max(series, d => d3.max(d, d => d[1]));
             const y = d3.scaleLinear().domain([0, yMax > 0 ? yMax : 1]).nice().range([height, 0]);
-                
+
             svg.append("g").attr("class", "chart-grid").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x).tickFormat(d3.timeFormat("%b %d")))
                 .selectAll("text").style("font-size", "10px").attr("transform", "rotate(-45)").style("text-anchor", "end");
 
@@ -1227,7 +1242,7 @@ const timelineApp = {
             legend.append('span').text(d => d);
         }, 0);
     },
-    
+
     renderUpcomingTasks() {
         const container = document.getElementById('upcoming-tasks-container');
         container.innerHTML = '';
@@ -1316,7 +1331,7 @@ const timelineApp = {
         title.dataset.projectId = project.id;
 
         this.elements.fullscreenModal.style.display = 'flex';
-        
+
         // Use a ResizeObserver to redraw the chart when the container size changes.
         if (this.fullscreenObserver) this.fullscreenObserver.disconnect();
         const chartPanel = this.elements.fullscreenModal.querySelector('.chart-panel');
@@ -1331,8 +1346,8 @@ const timelineApp = {
 
     drawFullscreenChart(project) {
         const container = d3.select("#fullscreen-chart-container");
-        container.selectAll("*").remove(); 
-        
+        container.selectAll("*").remove();
+
         const ganttTooltip = d3.select("#gantt-tooltip");
 
         const bounds = container.node().getBoundingClientRect();
@@ -1340,7 +1355,7 @@ const timelineApp = {
 
         const margin = { top: 20, right: 60, bottom: 40, left: 250 };
         const width = bounds.width - margin.left - margin.right;
-        
+
         const ganttItems = [];
         project.phases.forEach(phase => {
             ganttItems.push({ ...phase, level: 1, type: 'Phase', id: `p-${phase.id}` });
@@ -1362,16 +1377,16 @@ const timelineApp = {
             });
         });
 
-        const minBarHeight = 35; 
+        const minBarHeight = 35;
         const requiredHeight = ganttItems.length * minBarHeight;
         const height = Math.max(bounds.height - margin.top - margin.bottom, requiredHeight);
-        
+
         const svg = container.append("svg")
             .attr("width", width + margin.left + margin.right)
             .attr("height", height + margin.top + margin.bottom)
             .append("g")
             .attr("transform", `translate(${margin.left},${margin.top})`);
-        
+
         if (!project.startDate || !project.endDate) {
              svg.append("text")
                 .attr("x", width / 2)
@@ -1384,7 +1399,7 @@ const timelineApp = {
 
         const startDate = this.parseDate(project.startDate);
         const endDate = this.parseDate(project.endDate);
-        
+
         // --- DYNAMIC AXIS TICKS ---
         const durationDays = (endDate - startDate) / (1000 * 60 * 60 * 24);
         let tickInterval, tickFormat;
@@ -1423,7 +1438,7 @@ const timelineApp = {
         svg.append("g").attr("class", "gantt-y-axis").call(yAxisGantt)
             .selectAll(".tick text")
             .attr("class", (id, i) => `indent-${ganttItems[i].level}`);
-        
+
         const yAxisProgress = d3.axisRight(yProgress).ticks(5).tickFormat(d => `${d}%`);
          svg.append("g").attr("class", "chart-grid")
             .attr("transform", `translate(${width}, 0)`)
@@ -1439,7 +1454,7 @@ const timelineApp = {
         if (today >= startDate && today <= endDate) {
              svg.append("line").attr("class", "today-line").attr("x1", x(today)).attr("y1", 0).attr("x2", x(today)).attr("y2", height);
         }
-        
+
         // --- PHASE DIVIDERS ---
         const phaseItems = ganttItems.filter(d => d.type === 'Phase');
         svg.selectAll(".phase-divider")
@@ -1457,7 +1472,7 @@ const timelineApp = {
             .data(ganttItems).enter().append("g")
             .attr("class", "gantt-item-group")
             .attr("transform", d => `translate(0, ${yGantt(d.id)})`);
-        
+
         const bars = itemsGroup.filter(d => d.type !== 'Phase' && (d.effectiveStartDate || d.startDate))
             .append("g").attr("class", "gantt-bar-group")
             .on("mouseover", (event, d) => {
@@ -1470,14 +1485,14 @@ const timelineApp = {
                 const tooltipNode = ganttTooltip.node();
                 const tooltipRect = tooltipNode.getBoundingClientRect();
                 const padding = 15;
-                
+
                 let newLeft = event.pageX + padding;
                 let newTop = event.pageY + padding;
 
                 if (newLeft + tooltipRect.width > window.innerWidth) {
                     newLeft = event.pageX - tooltipRect.width - padding;
                 }
-                
+
                 if (newTop + tooltipRect.height > window.innerHeight) {
                     newTop = event.pageY - tooltipRect.height - padding;
                 }
@@ -1485,7 +1500,7 @@ const timelineApp = {
                 ganttTooltip.style("top", `${newTop}px`).style("left", `${newLeft}px`);
             })
             .on("mouseout", () => { ganttTooltip.style("visibility", "hidden").style("opacity", 0); });
-        
+
         bars.append("rect").attr("class", "gantt-bar-bg")
             .attr("x", d => x(this.parseDate(d.effectiveStartDate || d.startDate)))
             .attr("y", 0)
@@ -1556,7 +1571,7 @@ const timelineApp = {
                 }
             });
         }
-        
+
         const line = d3.line().x(d => x(d.date)).y(d => yProgress(d.progress));
         for (let i = 0; i < pathData.length - 1; i++) {
             const segment = [pathData[i], pathData[i + 1]];
@@ -1596,7 +1611,7 @@ const timelineApp = {
 
         this.elements.dependencyTooltip.style.top = `${top}px`;
         this.elements.dependencyTooltip.style.left = `${left}px`;
-        
+
         const tooltipRect = this.elements.dependencyTooltip.getBoundingClientRect();
         if (tooltipRect.right > window.innerWidth) this.elements.dependencyTooltip.style.left = `${window.innerWidth - tooltipRect.width - 10}px`;
         if (tooltipRect.bottom > window.innerHeight) this.elements.dependencyTooltip.style.top = `${top - tooltipRect.height - rect.height - 10}px`;
@@ -1607,7 +1622,7 @@ const timelineApp = {
     },
 
     buildDependencyTree(itemId, highlightedId, allItems, visited = new Set()) {
-        if (visited.has(itemId)) return ''; 
+        if (visited.has(itemId)) return '';
         visited.add(itemId);
 
         const item = allItems.get(itemId);
@@ -1630,7 +1645,7 @@ const timelineApp = {
     },
 
     formatDateInput(event) { let value = event.target.value.replace(/\D/g, ''); if (value.length > 2) value = value.substring(0, 2) + '/' + value.substring(2); if (value.length > 5) value = value.substring(0, 5) + '/' + value.substring(5, 7); event.target.value = value; },
-    
+
     handleManualDateInput(event) {
         const input = event.target, dateStr = input.value;
         const revert = () => { input.value = input.dataset.date ? this.formatDate(this.parseDate(input.dataset.date)) : ''; };
@@ -1654,7 +1669,7 @@ const timelineApp = {
         }
         else if (!oldDate && newDate) { this.updateDate(context, newDate); }
     },
-    
+
     handleDateInputKeydown(event) { if (event.key === 'Enter') { event.preventDefault(); event.target.blur(); } },
 
     makeEditable(element, updateFunction, ...args) {
@@ -1678,7 +1693,7 @@ const timelineApp = {
             if (e.key === 'Escape') { input.value = originalText; input.blur(); }
         });
     },
-    
+
     showAddSubtaskInput(taskId) {
         const form = document.getElementById(`add-subtask-form-${taskId}`);
         if (form) {
@@ -1686,21 +1701,21 @@ const timelineApp = {
             form.querySelector('input').focus();
         }
     },
-    
+
     addProject() {
         const name = this.elements.newProjectNameInput.value.trim(); if (!name) return;
         const startDateInput = document.getElementById('new-project-start-date'), endDateInput = document.getElementById('new-project-end-date');
         const startDate = startDateInput.dataset.date || null, endDate = endDateInput.dataset.date || null;
         this.projects.push({ id: Date.now(), name, startDate, endDate, originalStartDate: startDate, originalEndDate: endDate, collapsed: false, phases: [], logs: [], zoomDomain: null });
-        this.saveState(); 
-        this.elements.newProjectNameInput.value = ''; 
-        startDateInput.value = ''; endDateInput.value = ''; delete startDateInput.dataset.date; delete endDateInput.dataset.date; 
+        this.saveState();
+        this.elements.newProjectNameInput.value = '';
+        startDateInput.value = ''; endDateInput.value = ''; delete startDateInput.dataset.date; delete endDateInput.dataset.date;
         this.renderProjects();
     },
 
     addPhase(projectId) {
         const nameInput = document.getElementById(`new-phase-name-${projectId}`), name = nameInput.value.trim(); if (!name) return;
-        const project = this.projects.find(p => p.id === projectId); 
+        const project = this.projects.find(p => p.id === projectId);
         if (project) {
             project.phases.push({ id: Date.now(), name, startDate: null, endDate: null, collapsed: false, tasks: [], dependencies: [], dependents: [] });
             this.updatePhaseDependencies(projectId);
@@ -1711,13 +1726,13 @@ const timelineApp = {
 
     addTask(projectId, phaseId) {
         const nameInput = document.getElementById(`new-task-name-${phaseId}`), name = nameInput.value.trim(); if (!name) return;
-        const phase = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId); 
+        const phase = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId);
         if (phase) { phase.tasks.push({ id: Date.now(), name, startDate: null, endDate: null, completed: false, subtasks: [], dependencies: [], dependents: [] }); this.saveState(); this.renderProjects(); }
     },
 
     addSubtask(projectId, phaseId, taskId) {
         const nameInput = document.getElementById(`new-subtask-name-${taskId}`), name = nameInput.value.trim(); if (!name) return;
-        const task = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId); 
+        const task = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId);
         if (task) { if (!task.subtasks) task.subtasks = []; task.subtasks.push({ id: Date.now(), name, startDate: null, endDate: null, completed: false, dependencies: [], dependents: [] }); nameInput.value = ''; this.saveState(); this.renderProjects(); }
     },
     moveTask(projectId, fromPhaseId, toPhaseId, taskId) {
@@ -1791,11 +1806,11 @@ const timelineApp = {
 
     toggleTaskComplete(projectId, phaseId, taskId) { const t = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId); if (t) { t.completed = !t.completed; this.saveState(); this.renderProjects(); } },
     toggleSubtaskComplete(projectId, phaseId, taskId, subtaskId) { const s = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId)?.subtasks.find(st => st.id === subtaskId); if (s) { s.completed = !s.completed; this.saveState(); this.renderProjects(); } },
-    
+
     removeAllDependencies(itemId) {
         const allItems = new Map();
         this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st, st.id)); }); }));
-        
+
         const itemToRemove = allItems.get(itemId);
         if (!itemToRemove) return;
 
@@ -1811,7 +1826,7 @@ const timelineApp = {
         });
         itemToRemove.dependents = [];
     },
-    
+
     deleteProject(projectId) {
         const project = this.projects.find(p => p.id === projectId);
         if (project) {
@@ -1869,7 +1884,7 @@ const timelineApp = {
             this.elements.reasonCommentTextarea.focus();
         }
     },
-    
+
     toggleProjectCollapse(projectId) {
         const p = this.projects.find(p => p.id === projectId);
         if (p) {
@@ -1909,9 +1924,9 @@ const timelineApp = {
         const activeBtn = document.getElementById(`main-tab-btn-${tabName}`);
         if (activePanel) activePanel.classList.remove('hidden');
         if (activeBtn) activeBtn.classList.add('active');
-        
+
         this.updateTabIndicator();
-        
+
         // Conditional rendering based on the new active tab
         if (tabName === 'projects') {
             // Re-draw charts whenever the projects tab becomes visible to ensure they render
@@ -1938,11 +1953,11 @@ const timelineApp = {
         this.renderDeletedProjectsLog();
     },
 
-    applyTheme() { 
+    applyTheme() {
         const savedTheme = localStorage.getItem('timeline-theme-name') || 'default';
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         const savedMode = localStorage.getItem('timeline-theme-mode');
-        
+
         document.documentElement.setAttribute('data-theme', savedTheme);
         this.elements.themeSelect.value = savedTheme;
 
@@ -1968,12 +1983,12 @@ const timelineApp = {
         }
         this.renderProjects(); // Re-render to apply theme to charts
     },
-    
+
     initializeSharedDatePicker() {
         const dummy = document.createElement('input'); dummy.style.display = 'none'; document.body.appendChild(dummy);
         this.sharedPicker = flatpickr(dummy, {
-            dateFormat: "Y-m-d", 
-            onOpen: () => this.elements.datepickerBackdrop.classList.remove('hidden'), 
+            dateFormat: "Y-m-d",
+            onOpen: () => this.elements.datepickerBackdrop.classList.remove('hidden'),
             onClose: () => this.elements.datepickerBackdrop.classList.add('hidden'),
             onChange: (selectedDates, dateStr, instance) => {
                 if (!this.currentPickerContext) return;
@@ -2091,7 +2106,7 @@ const timelineApp = {
             this.elements.confirmModal.classList.remove('hidden');
         }
     },
-    
+
     clearDependencies(itemId) {
         const allItems = new Map();
         this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st, st.id)); }); }));
@@ -2118,7 +2133,7 @@ const timelineApp = {
         this.elements.dependencyBanner.classList.remove('hidden');
         this.renderProjects();
     },
-    
+
     handleDependencyClick(target) {
          if (!this.dependencyMode || !this.firstSelectedItem) return;
         const itemId = parseInt(target.dataset.id);
@@ -2132,7 +2147,7 @@ const timelineApp = {
             this.renderProjects();
             return;
         }
-        
+
         if (this.firstSelectedItem.id === itemId) return;
         const allItems = new Map();
         this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st, st.id)); }); }));
@@ -2160,7 +2175,7 @@ const timelineApp = {
         secondItem.dependencies = [firstItem.id];
         if (!firstItem.dependents) firstItem.dependents = [];
         if (!firstItem.dependents.includes(secondItem.id)) firstItem.dependents.push(secondItem.id);
-        
+
         this.dependencyMode = false; this.firstSelectedItem = null; this.elements.dependencyBanner.classList.add('hidden');
         this.saveState(); this.renderProjects();
     },
@@ -2213,7 +2228,7 @@ const timelineApp = {
             } catch(e) { console.error("Could not parse tab order", e); }
         }
     },
-    
+
     renderTabs() {
         this.elements.mainTabs.innerHTML = '';
         const glider = document.createElement('div');
@@ -2290,7 +2305,7 @@ const timelineApp = {
         tabsContainer.addEventListener('drop', (e) => {
             e.preventDefault();
             if(!draggedItem) return;
-            
+
             const afterElement = this.getDragAfterElement(tabsContainer, e.clientX);
             const draggedTab = draggedItem.dataset.tabName;
             const newOrder = [...this.tabOrder];
