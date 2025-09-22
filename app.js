@@ -254,13 +254,9 @@ const timelineApp = {
     exportToMondayCsv() {
         const headers = [
             "Item Name",
-            "Project",
-            "Phase",
-            "Parent Task",
             "Start Date",
             "End Date",
-            "Status",
-            "Progress (%)"
+            "Status"
         ];
 
         const rows = [];
@@ -268,33 +264,27 @@ const timelineApp = {
         this.projects.forEach(project => {
             project.phases.forEach(phase => {
                 phase.tasks.forEach(task => {
-                    // Add the main task as a row
+                    const hasSubtasks = task.subtasks && task.subtasks.length > 0;
+                    
+                    // Add the main task row
                     const taskStatus = task.completed ? "Done" : "Working on it";
                     const taskRow = [
-                        task.name,
-                        project.name,
-                        phase.name,
-                        "", // Parent Task is empty for main tasks
+                        `${project.name} > ${task.name}`,
                         task.effectiveStartDate || "",
                         task.effectiveEndDate || "",
-                        taskStatus,
-                        Math.round(task.progress || 0)
+                        taskStatus
                     ];
                     rows.push(taskRow);
 
                     // Add subtasks as separate rows
-                    if (task.subtasks && task.subtasks.length > 0) {
+                    if (hasSubtasks) {
                         task.subtasks.forEach(subtask => {
                             const subtaskStatus = subtask.completed ? "Done" : "Working on it";
                             const subtaskRow = [
-                                subtask.name,
-                                project.name,
-                                phase.name,
-                                task.name, // The parent task's name
+                                `${project.name} > ${task.name} > ${subtask.name}`,
                                 subtask.startDate || "",
                                 subtask.endDate || "",
-                                subtaskStatus,
-                                subtask.completed ? 100 : 0
+                                subtaskStatus
                             ];
                             rows.push(subtaskRow);
                         });
