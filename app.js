@@ -99,6 +99,7 @@ const timelineApp = {
         });
 
         this.elements.exportBtn.addEventListener('click', () => {
+            // Standard JSON export
             const punchListData = JSON.parse(localStorage.getItem(punchListApp.STORAGE_KEY) || '[]');
             const dataToExport = {
                 projects: this.projects,
@@ -110,7 +111,11 @@ const timelineApp = {
             document.body.appendChild(a);
             a.click();
             a.remove();
+
+            // Monday.com CSV export
+            this.exportToMondayCsv();
         });
+
         this.elements.importBtn.addEventListener('click', () => this.elements.importFileInput.click());
         this.elements.importFileInput.addEventListener('change', (e) => {
             const file = e.target.files[0]; if (!file) return;
@@ -244,6 +249,84 @@ const timelineApp = {
             }
         });
         this.addDragAndDropListeners();
+    },
+
+    exportToMondayCsv() {
+        const headers = [
+            "Item Name",
+            "Project",
+            "Phase",
+            "Parent Task",
+            "Start Date",
+            "End Date",
+            "Status",
+            "Progress (%)"
+        ];
+
+        const rows = [];
+
+        this.projects.forEach(project => {
+            project.phases.forEach(phase => {
+                phase.tasks.forEach(task => {
+                    // Add the main task as a row
+                    const taskStatus = task.completed ? "Done" : "Working on it";
+                    const taskRow = [
+                        task.name,
+                        project.name,
+                        phase.name,
+                        "", // Parent Task is empty for main tasks
+                        task.effectiveStartDate || "",
+                        task.effectiveEndDate || "",
+                        taskStatus,
+                        Math.round(task.progress || 0)
+                    ];
+                    rows.push(taskRow);
+
+                    // Add subtasks as separate rows
+                    if (task.subtasks && task.subtasks.length > 0) {
+                        task.subtasks.forEach(subtask => {
+                            const subtaskStatus = subtask.completed ? "Done" : "Working on it";
+                            const subtaskRow = [
+                                subtask.name,
+                                project.name,
+                                phase.name,
+                                task.name, // The parent task's name
+                                subtask.startDate || "",
+                                subtask.endDate || "",
+                                subtaskStatus,
+                                subtask.completed ? 100 : 0
+                            ];
+                            rows.push(subtaskRow);
+                        });
+                    }
+                });
+            });
+        });
+
+        // Helper function to escape CSV data
+        const escapeCsv = (str) => {
+            if (str === null || str === undefined) return '';
+            const text = String(str);
+            if (text.includes(',') || text.includes('"') || text.includes('\n')) {
+                return `"${text.replace(/"/g, '""')}"`;
+            }
+            return text;
+        };
+        
+        // Convert rows to CSV format
+        let csvContent = headers.map(escapeCsv).join(",") + "\n";
+        rows.forEach(row => {
+            csvContent += row.map(escapeCsv).join(",") + "\n";
+        });
+
+        // Create a blob and trigger download
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = "timeline-export-for-monday.csv";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
     },
 
     handleResize() {
@@ -2450,4 +2533,3 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
-
