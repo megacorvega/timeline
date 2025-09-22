@@ -265,19 +265,9 @@ const timelineApp = {
             project.phases.forEach(phase => {
                 phase.tasks.forEach(task => {
                     const hasSubtasks = task.subtasks && task.subtasks.length > 0;
-                    
-                    // Add the main task row
-                    const taskStatus = task.completed ? "Done" : "Working on it";
-                    const taskRow = [
-                        `${project.name} > ${task.name}`,
-                        task.effectiveStartDate || "",
-                        task.effectiveEndDate || "",
-                        taskStatus
-                    ];
-                    rows.push(taskRow);
 
-                    // Add subtasks as separate rows
                     if (hasSubtasks) {
+                        // If there are subtasks, only export the subtasks
                         task.subtasks.forEach(subtask => {
                             const subtaskStatus = subtask.completed ? "Done" : "Working on it";
                             const subtaskRow = [
@@ -288,6 +278,16 @@ const timelineApp = {
                             ];
                             rows.push(subtaskRow);
                         });
+                    } else {
+                        // If there are no subtasks, export the task itself
+                        const taskStatus = task.completed ? "Done" : "Working on it";
+                        const taskRow = [
+                            `${project.name} > ${task.name}`,
+                            task.effectiveStartDate || "",
+                            task.effectiveEndDate || "",
+                            taskStatus
+                        ];
+                        rows.push(taskRow);
                     }
                 });
             });
