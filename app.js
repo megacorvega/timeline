@@ -509,7 +509,7 @@ const timelineApp = {
                 ph.tasks.forEach(t => {
                     allItems.set(t.id, t);
                     if (t.subtasks) {
-                        t.subtasks.forEach(st => allItems.set(st, st.id));
+                        t.subtasks.forEach(st => allItems.set(st.id, st));
                     }
                 });
             });
@@ -519,7 +519,7 @@ const timelineApp = {
 
         for (let i = 0; i < allItems.size; i++) {
             allItems.forEach(item => {
-                if (item.dependencies && item.dependencies.length > 0) {
+                if (item.dependencies && item.dependencies.length > 0 && !item.locked) {
                     const parentId = item.dependencies[0];
                     const parent = allItems.get(parentId);
 
@@ -1588,7 +1588,7 @@ const timelineApp = {
 
     showDependencyTooltip(event, itemId) {
         const allItems = new Map();
-        this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st, st.id)); }); }));
+        this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
         const item = allItems.get(itemId);
         if (!item || ((!item.dependents || item.dependents.length === 0) && (!item.dependencies || item.dependencies.length === 0))) return;
 
@@ -1809,7 +1809,7 @@ const timelineApp = {
 
     removeAllDependencies(itemId) {
         const allItems = new Map();
-        this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st, st.id)); }); }));
+        this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
 
         const itemToRemove = allItems.get(itemId);
         if (!itemToRemove) return;
@@ -2098,7 +2098,7 @@ const timelineApp = {
     handleCircleClick(itemId) {
         this.hideDependencyTooltip(); // Hide tooltip on click
         const allItems = new Map();
-        this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st, st.id)); }); }));
+        this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
         const item = allItems.get(itemId);
         if (item.dependencies && item.dependencies.length > 0) {
             this.pendingClearDependencies = itemId;
@@ -2109,7 +2109,7 @@ const timelineApp = {
 
     clearDependencies(itemId) {
         const allItems = new Map();
-        this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st, st.id)); }); }));
+        this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
         const itemToClear = allItems.get(itemId);
         if (!itemToClear || !itemToClear.dependencies) return;
         itemToClear.dependencies.forEach(parentId => {
@@ -2127,7 +2127,7 @@ const timelineApp = {
     startDependencyMode(itemId) {
         this.hideDependencyTooltip(); // Hide tooltip on click
         const allItems = new Map();
-        this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st, st.id)); }); }));
+        this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
         this.firstSelectedItem = allItems.get(itemId);
         this.dependencyMode = true;
         this.elements.dependencyBanner.classList.remove('hidden');
@@ -2150,7 +2150,7 @@ const timelineApp = {
 
         if (this.firstSelectedItem.id === itemId) return;
         const allItems = new Map();
-        this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st, st.id)); }); }));
+        this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
         const secondItem = allItems.get(itemId), firstItem = this.firstSelectedItem;
 
         let current = secondItem, visited = new Set();
