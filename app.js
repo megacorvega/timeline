@@ -471,6 +471,49 @@ const timelineApp = {
         return plannedProgress;
     },
 
+    getPlannedDateForProgress(progress, scopePathData, project) {
+        if (progress <= 0) {
+            return this.parseDate(project.startDate);
+        }
+        if (progress >= 100) {
+            return this.parseDate(project.endDate);
+        }
+    
+        // Fallback for simple projects without detailed phases
+        if (!scopePathData || scopePathData.length < 2) {
+            const projectStartDate = this.parseDate(project.startDate);
+            const projectEndDate = this.parseDate(project.endDate);
+            if (!projectStartDate || !projectEndDate) return new Date(); // Should not happen
+            const totalDuration = projectEndDate.getTime() - projectStartDate.getTime();
+            const timeOffset = totalDuration * (progress / 100);
+            return new Date(projectStartDate.getTime() + timeOffset);
+        }
+    
+        const firstPoint = scopePathData[0];
+        const lastPoint = scopePathData[scopePathData.length - 1];
+    
+        if (progress <= firstPoint.progress) return firstPoint.date;
+        if (progress >= lastPoint.progress) return lastPoint.date;
+    
+        let p1 = firstPoint, p2 = lastPoint;
+        for (let i = 0; i < scopePathData.length - 1; i++) {
+            if (progress >= scopePathData[i].progress && progress <= scopePathData[i + 1].progress) {
+                p1 = scopePathData[i];
+                p2 = scopePathData[i + 1];
+                break;
+            }
+        }
+    
+        const progressInSegment = p2.progress - p1.progress;
+        if (progressInSegment === 0) return p1.date;
+    
+        const progressRatio = (progress - p1.progress) / progressInSegment;
+        const segmentDuration = p2.date.getTime() - p1.date.getTime();
+        const timeOffset = segmentDuration * progressRatio;
+    
+        return new Date(p1.date.getTime() + timeOffset);
+    },
+
     calculateRollups() {
         this.projects.forEach(p => {
             p.phases.forEach(phase => {
@@ -1071,15 +1114,22 @@ const timelineApp = {
             const line = d3.line().x(d => x(d.date)).y(d => y(d.progress));
 
             for (let i = 0; i < pathData.length - 1; i++) {
-                const segment = [pathData[i], pathData[i+1]], endPoint = segment[1];
-                const plannedProgressAtDate = this.getScopedPlannedProgress(endPoint.date, scopePathData, project);
-                const colorClass = endPoint.date > this.parseDate(project.endDate) ? 'stroke-red-500' : (endPoint.progress >= plannedProgressAtDate ? 'stroke-green-500' : 'stroke-red-500');
+                const segment = [pathData[i], pathData[i+1]];
+                const endPoint = segment[1];
+
+                const plannedDateForProgress = this.getPlannedDateForProgress(endPoint.progress, scopePathData, project);
+                const actualDate = endPoint.date;
+                const isLate = actualDate > plannedDateForProgress || actualDate > this.parseDate(project.endDate);
+                const colorClass = isLate ? 'stroke-red-500' : 'stroke-green-500';
+
                 svg.append("path").datum(segment).attr("class", `${endPoint.completed ? 'actual-line' : 'projected-line'} ${colorClass}`).attr("d", line);
             }
             svg.selectAll(".actual-point").data(pathData.slice(1).filter(d=>d.completed)).enter().append("circle").attr("class", "actual-point").attr("cx", d => x(d.date)).attr("cy", d => y(d.progress))
                 .attr("fill", d => {
-                    const plannedProgressAtDate = this.getScopedPlannedProgress(d.date, scopePathData, project);
-                    return d.date > this.parseDate(project.endDate) ? '#ef4444' : (d.progress >= plannedProgressAtDate ? '#22c55e' : '#ef4444');
+                    const plannedDateForProgress = this.getPlannedDateForProgress(d.progress, scopePathData, project);
+                    const actualDate = d.date;
+                    const isLate = actualDate > plannedDateForProgress || actualDate > this.parseDate(project.endDate);
+                    return isLate ? '#ef4444' : '#22c55e';
                 });
 
             const sortedPhases = [...project.phases]
@@ -2400,3 +2450,4 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
