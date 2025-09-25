@@ -198,7 +198,7 @@ button:not(:disabled),
 }
 
 /* 4. Set specific cursors for other elements. */
-.driven-by-dot {
+.comment-dot {
     cursor: help;
     flex-shrink: 0;
     width: 8px;
@@ -1149,7 +1149,7 @@ button:not(:disabled),
 
 .upcoming-task-item {
     transition: background-color 0.2s;
-    padding: 0px;
+    padding: 4px;
     border-radius: 4px;
 }
 
@@ -1177,4 +1177,96 @@ button:not(:disabled),
         background-color: transparent;
     }
 }
-
+/* Comment Section Styles */
+.comment-btn {
+    opacity: 0;
+    transition: opacity 0.2s;
+    padding: 4px;
+    border-radius: 6px;
+    color: var(--text-tertiary);
+}
+.project-header:hover .comment-btn,
+.phase-row .item-main-row:hover .comment-btn,
+.task-row .item-main-row:hover .comment-btn,
+.subtask-row:hover .comment-btn {
+    opacity: 1;
+}
+.comment-btn:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+.comment-section {
+    padding: 12px;
+    margin: 10px 0;
+    background-color: var(--bg-secondary);
+    border-radius: 8px;
+}
+.comment-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-primary);
+}
+.comment-item:last-child {
+    border-bottom: none;
+}
+.comment-content {
+    flex-grow: 1;
+    margin-right: 10px;
+}
+.comment-text {
+    white-space: pre-wrap;
+    font-size: 14px;
+}
+.comment-date {
+    font-size: 10px;
+    color: var(--text-tertiary);
+    margin-top: 4px;
+}
+.comment-actions {
+    display: flex;
+    gap: 5px;
+}
+.comment-actions button {
+    font-size: 12px;
+    color: var(--text-secondary);
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-primary);
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 2px 6px;
+    transition: background-color 0.2s;
+}
+.comment-actions button:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+.add-comment {
+    margin-top: 12px;
+    position: relative;
+}
+.add-comment textarea {
+    width: 100%;
+    padding: 8px 12px;
+    padding-bottom: 42px; /* Add more padding to the bottom for the button */
+    border-radius: 6px;
+    border: 1px solid var(--border-primary);
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    resize: none; /* Disable resizing */
+    min-height: 50px;
+    font-size: 14px;
+}
+.add-comment button {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    border-radius: 6px;
+}
+.no-comments {
+    text-align: center;
+    color: var(--text-tertiary);
+    font-size: 12px;
+    padding: 10px 0;
+}
