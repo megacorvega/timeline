@@ -1376,12 +1376,30 @@ const timelineApp = {
                     if (task.subtasks && task.subtasks.length > 0) {
                         task.subtasks.forEach(subtask => {
                             if (subtask.endDate && !subtask.completed) {
-                                allItems.push({ date: subtask.endDate, path: `${project.name} &gt; ${phase.name} &gt; ${task.name}`, name: subtask.name, completed: subtask.completed });
+                                allItems.push({
+                                    date: subtask.endDate,
+                                    path: `${project.name} &gt; ${phase.name} &gt; ${task.name}`,
+                                    name: subtask.name,
+                                    completed: subtask.completed,
+                                    projectId: project.id,
+                                    phaseId: phase.id,
+                                    taskId: task.id,
+                                    subtaskId: subtask.id
+                                });
                             }
                         });
                     } else {
                         if (task.effectiveEndDate && !task.completed) {
-                            allItems.push({ date: task.effectiveEndDate, path: `${project.name} &gt; ${phase.name}`, name: task.name, completed: task.completed });
+                            allItems.push({
+                                date: task.effectiveEndDate,
+                                path: `${project.name} &gt; ${phase.name}`,
+                                name: task.name,
+                                completed: task.completed,
+                                projectId: project.id,
+                                phaseId: phase.id,
+                                taskId: task.id,
+                                subtaskId: null
+                            });
                         }
                     }
                 });
@@ -1432,8 +1450,9 @@ const timelineApp = {
                 const isOverdue = diffDays < 0 && !item.completed;
                 const completedClass = item.completed ? 'line-through opacity-60' : '';
                 const overdueClass = isOverdue ? 'text-red-600 dark:text-red-400 font-semibold' : '';
+                const onclickAttr = `onclick="timelineApp.navigateToTask(${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'})"`;
 
-                html += `<div class="flex items-center text-sm ${completedClass}">
+                html += `<div class="upcoming-task-item flex items-center text-sm ${completedClass}" ${onclickAttr}>
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2 text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
                         <span class="text-secondary mr-2">${item.path} &gt;</span>
                         <span class="font-medium ${overdueClass}">${item.name}</span>
@@ -1443,6 +1462,43 @@ const timelineApp = {
             html += `</div></div>`;
         }
         container.innerHTML = html;
+    },
+
+    navigateToTask(projectId, phaseId, taskId, subtaskId) {
+        this.showMainTab('projects');
+
+        const project = this.projects.find(p => p.id === projectId);
+        if (!project) return;
+        project.collapsed = false;
+
+        const phase = project.phases.find(ph => ph.id === phaseId);
+        if (!phase) return;
+        phase.collapsed = false;
+
+        const task = phase.tasks.find(t => t.id === taskId);
+        if (task && subtaskId) {
+            task.collapsed = false;
+        }
+
+        this.renderProjects();
+
+        // Use setTimeout to allow the DOM to update after renderProjects()
+        setTimeout(() => {
+            let element;
+            if (subtaskId) {
+                element = document.querySelector(`.subtask-row[data-id='${subtaskId}']`);
+            } else {
+                element = document.querySelector(`.task-row[data-id='${taskId}']`);
+            }
+
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                element.classList.add('highlight-task');
+                setTimeout(() => {
+                    element.classList.remove('highlight-task');
+                }, 2000);
+            }
+        }, 100);
     },
 
     showFullscreenChart(projectId) {
