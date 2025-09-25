@@ -731,6 +731,8 @@ const timelineApp = {
             const lockIcon = project.locked
                 ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>`
                 : `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h5V3a3 3 0 0 1 6 0v4a.5.5 0 0 1-1 0V3a2 2 0 0 0-2-2z"/></svg>`;
+            
+            const commentDot = project.comments && project.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
 
             projectCard.innerHTML = `
                 <div class="flex justify-between items-center mb-3 project-header">
@@ -739,11 +741,15 @@ const timelineApp = {
                         <button onclick="timelineApp.toggleProjectCollapse(${project.id})" class="p-1 rounded-full hover-bg-secondary flex-shrink-0">
                             <svg id="chevron-${project.id}" class="w-5 h-5 text-tertiary chevron ${project.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                         </button>
+                        ${commentDot}
                         <h3 class="text-xl font-bold truncate editable-text" onclick="timelineApp.makeEditable(this, 'updateProjectName', ${project.id})">${project.name}</h3>
                         ${pacingBarHTML}
                         ${daysLeftPillHTML}
                     </div>
                     <div class="flex items-center gap-2 text-sm text-secondary flex-shrink-0">
+                        <button onclick="timelineApp.toggleCommentSection('project', ${project.id})" class="comment-btn" title="Comments">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                        </button>
                         <button onclick="timelineApp.toggleProjectLock(${project.id})" class="lock-toggle-btn" title="${project.locked ? 'Unlock Project Dates' : 'Lock Project Dates'}">
                             ${lockIcon}
                         </button>
@@ -759,6 +765,7 @@ const timelineApp = {
                     <button onclick="timelineApp.deleteProject(${project.id})" class="text-gray-400 hover:text-red-500 transition-colors text-xl font-bold ml-4 flex-shrink-0">&times;</button>
                 </div>
                  <div id="project-body-${project.id}" class="${project.collapsed ? 'hidden' : ''}">
+                    <div id="comment-section-project-${project.id}" class="comment-section hidden"></div>
                     <div class="relative">
                         <button onclick="timelineApp.resetZoom(${project.id})" class="reset-zoom-btn btn-secondary px-2 py-1 text-xs font-semibold rounded-md ${!project.zoomDomain ? 'hidden' : ''}">Reset Zoom</button>
                         <div id="chart-${project.id}" class="w-full h-48 mb-3 relative"></div>
@@ -826,7 +833,7 @@ const timelineApp = {
 
             const depClass = ''; // Phases can no longer be dependents, so they can't be candidates
             const selectedClass = this.firstSelectedItem?.id === phase.id ? 'dependency-selected' : '';
-            const drivenDot = phase.isDriven ? `<div class="driven-by-dot" title="Starts after: ${phase.driverName.replace(/"/g, '&quot;')}"></div>` : '<div class="w-2"></div>';
+            const commentDot = phase.comments && phase.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
             const durationProgress = this.getDurationProgress(phase.effectiveStartDate, phase.effectiveEndDate);
             let durationBarColorClass = 'bg-blue-500';
             if (phase.completed) {
@@ -849,7 +856,7 @@ const timelineApp = {
                 <div class="phase-row rounded-lg p-2 ${depClass} ${selectedClass}" data-id="${phase.id}" data-type="phase" data-project-id="${project.id}" onmouseover="timelineApp.highlightPhaseOnChart(${phase.id})" onmouseout="timelineApp.unhighlightPhaseOnChart(${phase.id})">
                     <div class="flex items-center gap-3 item-main-row">
                         ${toggleButton}
-                         ${drivenDot}
+                         ${commentDot}
                         <div class="text-xs font-bold text-secondary w-10 text-center flex-shrink-0">${Math.round(phase.progress || 0)}%</div>
                         <div class="duration-scale-container" title="Duration Progress">
                             <div class="duration-scale-bar ${durationBarColorClass}" style="width: ${durationProgress}%;"></div>
@@ -859,6 +866,9 @@ const timelineApp = {
                         <div class="flex items-center gap-2 text-sm text-secondary">
                              <button onclick="timelineApp.togglePhaseLock(${project.id}, ${phase.id})" class="lock-toggle-btn" title="${phase.locked ? 'Unlock Phase Dates' : 'Lock Phase Dates'}">
                                 ${lockIcon}
+                            </button>
+                            <button onclick="timelineApp.toggleCommentSection('phase', ${project.id}, ${phase.id})" class="comment-btn" title="Comments">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
                             </button>
                             <div class="date-input-container">
                                 <input type="text" value="${phase.startDate ? this.formatDate(this.parseDate(phase.startDate)) : ''}" placeholder="Start Date" class="date-input ${!isFirstPhase ? 'date-input-disabled' : ''}" data-project-id="${project.id}" data-phase-id="${phase.id}" data-type="phase-start" data-date="${phase.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)" ${phase.locked || !isFirstPhase ? 'disabled' : ''}>
@@ -871,6 +881,7 @@ const timelineApp = {
                         </div>
                         <button onclick="timelineApp.deletePhase(${project.id}, ${phase.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold">&times;</button>
                     </div>
+                    <div id="comment-section-phase-${phase.id}" class="comment-section hidden"></div>
                     <div id="tasks-container-${phase.id}" class="pl-12 mt-2 space-y-1 pt-2 border-t border-primary ${phase.collapsed ? 'hidden' : ''}">${this.renderTaskList(project.id, phase.id, phase.tasks)}</div>
                 </div>`;
         });
@@ -897,7 +908,7 @@ const timelineApp = {
                 </button>` : `<div class="w-6 h-6 flex-shrink-0"></div>`;
             const depClass = this.dependencyMode && this.firstSelectedItem?.id !== task.id ? 'dependency-candidate' : '';
             const selectedClass = this.firstSelectedItem?.id === task.id ? 'dependency-selected' : '';
-            const drivenDot = task.isDriven ? `<div class="driven-by-dot" title="Starts after: ${task.driverName.replace(/"/g, '&quot;')}"></div>` : '<div class="w-2"></div>';
+            const commentDot = task.comments && task.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
             const durationProgress = this.getDurationProgress(task.effectiveStartDate, task.effectiveEndDate);
             let durationBarColorClass = 'bg-blue-500';
             if (task.completed) {
@@ -920,7 +931,7 @@ const timelineApp = {
                 <div class="task-row rounded-lg px-2 py-1 ${depClass} ${selectedClass}" data-id="${task.id}" data-type="task" data-project-id="${projectId}" data-phase-id="${phaseId}">
                     <div class="flex items-center gap-3 item-main-row">
                          ${toggleButton}
-                        ${drivenDot}
+                        ${commentDot}
                         ${taskControlHtml}
                         <div class="duration-scale-container" title="Duration Progress">
                             <div class="duration-scale-bar ${durationBarColorClass}" style="width: ${durationProgress}%;"></div>
@@ -941,6 +952,9 @@ const timelineApp = {
                         </div>
                         ${this.getDependencyIcon(task)}
                         <div class="flex items-center gap-2 text-sm text-secondary">
+                            <button onclick="timelineApp.toggleCommentSection('task', ${projectId}, ${phaseId}, ${task.id})" class="comment-btn" title="Comments">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                            </button>
                             <div class="date-input-container">
                                 <input type="text" value="${task.effectiveStartDate ? this.formatDate(this.parseDate(task.effectiveStartDate)) : ''}" placeholder="Start" class="date-input ${startDateInputClasses}" ${isStartDateDisabled ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-start" data-date="${task.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
                                 ${!isStartDateDisabled ? iconHtml : ''}
@@ -952,6 +966,7 @@ const timelineApp = {
                         </div>
                         <button onclick="timelineApp.deleteTask(${projectId}, ${phaseId}, ${task.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold">&times;</button>
                     </div>
+                    <div id="comment-section-task-${task.id}" class="comment-section hidden"></div>
                     <div id="subtasks-container-${task.id}" class="pl-12 mt-2 space-y-2 pt-2 border-t border-primary ${task.collapsed || !hasSubtasks ? 'hidden' : ''}">
                         ${this.renderSubtaskList(projectId, phaseId, task.id, task.subtasks || [])}
                     </div>
@@ -981,7 +996,7 @@ const timelineApp = {
         sortedSubtasks.forEach(subtask => {
             const depClass = this.dependencyMode && this.firstSelectedItem?.id !== subtask.id ? 'dependency-candidate' : '';
             const selectedClass = this.firstSelectedItem?.id === subtask.id ? 'dependency-selected' : '';
-            const drivenDot = subtask.isDriven ? `<div class="driven-by-dot" title="Starts after: ${subtask.driverName.replace(/"/g, '&quot;')}"></div>` : '<div class="w-2"></div>';
+            const commentDot = subtask.comments && subtask.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
             const durationProgress = this.getDurationProgress(subtask.startDate, subtask.endDate);
             let durationBarColorClass = 'bg-blue-500';
             if (subtask.completed) {
@@ -996,24 +1011,31 @@ const timelineApp = {
             const dateInputClasses = subtask.isDriven ? 'date-input-disabled' : '';
 
             html += `
-                <div class="flex items-center gap-3 subtask-row ${depClass} ${selectedClass}" data-id="${subtask.id}" data-type="subtask" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}">
-                    ${drivenDot}
-                    <input type="checkbox" class="custom-checkbox" onchange="timelineApp.toggleSubtaskComplete(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" ${subtask.completed ? 'checked' : ''}>
-                    <div class="duration-scale-container" title="Duration Progress">
-                        <div class="duration-scale-bar ${durationBarColorClass}" style="width: ${durationProgress}%;"></div>
-                    </div>
-                    <span class="text-sm flex-grow ${subtask.completed ? 'line-through opacity-60' : ''} editable-text" onclick="timelineApp.makeEditable(this, 'updateSubtaskName', ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})">${subtask.name}</span>
-                    ${this.getDependencyIcon(subtask)}
-                    <div class="date-input-container">
-                            <input type="text" value="${subtask.startDate ? this.formatDate(this.parseDate(subtask.startDate)) : ''}" placeholder="Start" class="date-input ${dateInputClasses}" ${subtask.isDriven ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}" data-subtask-id="${subtask.id}" data-type="subtask-start" data-date="${subtask.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
-                             ${!subtask.isDriven ? iconHtml : ''}
-                         </div>
-                         <div class="date-input-container">
-                            <input type="text" value="${subtask.endDate ? this.formatDate(this.parseDate(subtask.endDate)) : ''}" placeholder="End" class="date-input" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}" data-subtask-id="${subtask.id}" data-type="subtask-end" data-date="${subtask.endDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
-                            ${iconHtml}
+                <div class="subtask-row-wrapper">
+                    <div class="flex items-center gap-3 subtask-row ${depClass} ${selectedClass}" data-id="${subtask.id}" data-type="subtask" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}">
+                        ${commentDot}
+                        <input type="checkbox" class="custom-checkbox" onchange="timelineApp.toggleSubtaskComplete(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" ${subtask.completed ? 'checked' : ''}>
+                        <div class="duration-scale-container" title="Duration Progress">
+                            <div class="duration-scale-bar ${durationBarColorClass}" style="width: ${durationProgress}%;"></div>
                         </div>
-                    <button onclick="timelineApp.deleteSubtask(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold w-5 text-center flex-shrink-0">&times;</button>
-                </div>`;
+                        <span class="text-sm flex-grow ${subtask.completed ? 'line-through opacity-60' : ''} editable-text" onclick="timelineApp.makeEditable(this, 'updateSubtaskName', ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})">${subtask.name}</span>
+                        ${this.getDependencyIcon(subtask)}
+                        <button onclick="timelineApp.toggleCommentSection('subtask', ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" class="comment-btn" title="Comments">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                        </button>
+                        <div class="date-input-container">
+                                <input type="text" value="${subtask.startDate ? this.formatDate(this.parseDate(subtask.startDate)) : ''}" placeholder="Start" class="date-input ${dateInputClasses}" ${subtask.isDriven ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}" data-subtask-id="${subtask.id}" data-type="subtask-start" data-date="${subtask.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
+                                 ${!subtask.isDriven ? iconHtml : ''}
+                             </div>
+                             <div class="date-input-container">
+                                <input type="text" value="${subtask.endDate ? this.formatDate(this.parseDate(subtask.endDate)) : ''}" placeholder="End" class="date-input" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}" data-subtask-id="${subtask.id}" data-type="subtask-end" data-date="${subtask.endDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
+                                ${iconHtml}
+                            </div>
+                        <button onclick="timelineApp.deleteSubtask(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold w-5 text-center flex-shrink-0">&times;</button>
+                    </div>
+                    <div id="comment-section-subtask-${subtask.id}" class="comment-section hidden"></div>
+                </div>
+                `;
         });
         return html + '</div>';
     },
@@ -2566,6 +2588,121 @@ const timelineApp = {
         }
         // After updating dates, we might need to re-calculate rollups for the project
         this.calculateRollups();
+    },
+    // --- COMMENT FUNCTIONALITY ---
+    toggleCommentSection(type, projectId, phaseId, taskId, subtaskId) {
+        const id = subtaskId || taskId || phaseId || projectId;
+        const commentSection = document.getElementById(`comment-section-${type}-${id}`);
+        if (commentSection) {
+            commentSection.classList.toggle('hidden');
+            if (!commentSection.classList.contains('hidden')) {
+                this.renderCommentSection(type, projectId, phaseId, taskId, subtaskId);
+            }
+        }
+    },
+
+    renderCommentSection(type, projectId, phaseId, taskId, subtaskId) {
+        const id = subtaskId || taskId || phaseId || projectId;
+        const item = this.getItem(type, projectId, phaseId, taskId, subtaskId);
+        const commentSection = document.getElementById(`comment-section-${type}-${id}`);
+
+        if (!item || !commentSection) return;
+
+        let commentsHtml = '<div class="comments-list">';
+        if (item.comments && item.comments.length > 0) {
+            item.comments.forEach((comment, index) => {
+                commentsHtml += `
+                    <div class="comment-item" data-comment-index="${index}">
+                        <div class="comment-content">
+                            <div class="comment-text">${comment.text}</div>
+                            <div class="comment-date">${new Date(comment.date).toLocaleString()}</div>
+                        </div>
+                        <div class="comment-actions">
+                            <button class="btn-secondary btn-sm" onclick="timelineApp.editComment('${type}', ${projectId}, ${phaseId}, ${taskId}, ${subtaskId}, ${index})">Edit</button>
+                            <button class="btn-secondary btn-sm" onclick="timelineApp.deleteComment('${type}', ${projectId}, ${phaseId}, ${taskId}, ${subtaskId}, ${index})">Delete</button>
+                        </div>
+                    </div>
+                `;
+            });
+        } else {
+            commentsHtml += '<p class="no-comments">No comments yet.</p>';
+        }
+        commentsHtml += '</div>';
+
+        commentsHtml += `
+            <div class="add-comment">
+                <textarea id="new-comment-${type}-${id}" placeholder="Add a comment..."></textarea>
+                <button class="btn-primary btn-sm" onclick="timelineApp.addComment('${type}', ${projectId}, ${phaseId}, ${taskId}, ${subtaskId})">Add</button>
+            </div>
+        `;
+
+        commentSection.innerHTML = commentsHtml;
+    },
+
+    addComment(type, projectId, phaseId, taskId, subtaskId) {
+        const id = subtaskId || taskId || phaseId || projectId;
+        const item = this.getItem(type, projectId, phaseId, taskId, subtaskId);
+        const textarea = document.getElementById(`new-comment-${type}-${id}`);
+        const commentText = textarea.value.trim();
+
+        if (commentText && item) {
+            if (!item.comments) {
+                item.comments = [];
+            }
+            item.comments.push({text: commentText, date: new Date().toISOString()});
+            this.saveState();
+            this.renderProjects();
+            // Re-render the comment section to show the new comment
+            const commentSection = document.getElementById(`comment-section-${type}-${id}`);
+            if(commentSection){
+                commentSection.classList.remove('hidden');
+                this.renderCommentSection(type, projectId, phaseId, taskId, subtaskId);
+            }
+        }
+    },
+
+    editComment(type, projectId, phaseId, taskId, subtaskId, commentIndex) {
+        const item = this.getItem(type, projectId, phaseId, taskId, subtaskId);
+        if (item && item.comments && item.comments[commentIndex]) {
+            const newCommentText = prompt("Edit your comment:", item.comments[commentIndex].text);
+            if (newCommentText !== null) {
+                item.comments[commentIndex].text = newCommentText.trim();
+                this.saveState();
+                this.renderProjects();
+                this.renderCommentSection(type, projectId, phaseId, taskId, subtaskId);
+            }
+        }
+    },
+
+    deleteComment(type, projectId, phaseId, taskId, subtaskId, commentIndex) {
+        const item = this.getItem(type, projectId, phaseId, taskId, subtaskId);
+        if (item && item.comments && item.comments[commentIndex]) {
+            if (confirm("Are you sure you want to delete this comment?")) {
+                item.comments.splice(commentIndex, 1);
+                this.saveState();
+                this.renderProjects();
+                this.renderCommentSection(type, projectId, phaseId, taskId, subtaskId);
+            }
+        }
+    },
+    
+    getItem(type, projectId, phaseId, taskId, subtaskId) {
+        const project = this.projects.find(p => p.id === projectId);
+        if (!project) return null;
+        if (type === 'project') return project;
+
+        const phase = project.phases.find(ph => ph.id === phaseId);
+        if (!phase) return null;
+        if (type === 'phase') return phase;
+
+        const task = phase.tasks.find(t => t.id === taskId);
+        if (!task) return null;
+        if (type === 'task') return task;
+
+        if (type === 'subtask') {
+            return task.subtasks.find(st => st.id === subtaskId);
+        }
+        return null;
     }
 };
 
