@@ -1149,7 +1149,7 @@ button:not(:disabled),
 
 .upcoming-task-item {
     transition: background-color 0.2s;
-    padding: 4px;
+    padding: 0px;
     border-radius: 4px;
 }
 
@@ -1270,3 +1270,4 @@ button:not(:disabled),
     font-size: 12px;
     padding: 10px 0;
 }
+
