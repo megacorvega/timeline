@@ -446,8 +446,8 @@ button:not(:disabled),
     font-size: 10px;
     color: var(--accent-text);
 }
-.phase-row > .item-main-row:hover .dependency-container .dependency-circle,
-.task-row > .item-main-row:hover .dependency-container .dependency-circle,
+.phase-row:hover .dependency-container .dependency-circle,
+.task-row:hover .dependency-container .dependency-circle,
 .subtask-row:hover .dependency-container .dependency-circle {
     opacity: 1;
 }
@@ -1149,7 +1149,7 @@ button:not(:disabled),
 
 .upcoming-task-item {
     transition: background-color 0.2s;
-    padding: 0px;
+    padding: 4px;
     border-radius: 4px;
 }
 
@@ -1270,4 +1270,3 @@ button:not(:disabled),
     font-size: 12px;
     padding: 10px 0;
 }
-
