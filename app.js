@@ -1735,15 +1735,15 @@ const timelineApp = {
 
         // --- PROGRESS LINES ---
         const scopedPhases = [...project.phases]
-            .filter(p => p.startDate && p.endDate)
-            .sort((a, b) => this.parseDate(a.startDate) - this.parseDate(b.startDate));
+            .filter(p => p.effectiveStartDate && p.effectiveEndDate) // Use effective dates
+            .sort((a, b) => this.parseDate(a.effectiveStartDate) - this.parseDate(b.effectiveStartDate)); // Sort by effective start date
         const scopePathData = [];
         if (scopedPhases.length > 0) {
-            scopePathData.push({ date: this.parseDate(scopedPhases[0].startDate), progress: 0 });
+            scopePathData.push({ date: this.parseDate(scopedPhases[0].effectiveStartDate), progress: 0 }); // Use effective start date
             scopedPhases.forEach((phase, i) => {
                 const progressPerPhase = 100 / scopedPhases.length;
                 const cumulativeProgress = (i + 1) * progressPerPhase;
-                scopePathData.push({ date: this.parseDate(phase.endDate), progress: cumulativeProgress });
+                scopePathData.push({ date: this.parseDate(phase.effectiveEndDate), progress: cumulativeProgress }); // Use effective end date
             });
         }
         if (scopePathData.length > 1) {
