@@ -66,6 +66,7 @@ const timelineApp = {
             reasonModalTitle: document.getElementById('reason-modal-title'),
             reasonModalDetails: document.getElementById('reason-modal-details'),
             reasonCommentTextarea: document.getElementById('reason-comment'),
+            logChangeCheckbox: document.getElementById('log-change-checkbox'), // ADD THIS LINE
             saveReasonBtn: document.getElementById('save-reason-btn'),
             cancelReasonBtn: document.getElementById('cancel-reason-btn'),
             dependencyBanner: document.getElementById('dependency-banner'),
@@ -1976,7 +1977,7 @@ const timelineApp = {
     updateTaskName(projectId, phaseId, taskId, newName) { const t = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId); if (t) { t.name = newName; this.saveState(); } },
     updateSubtaskName(projectId, phaseId, taskId, subtaskId, newName) { const s = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId)?.subtasks.find(st => st.id === subtaskId); if (s) { s.name = newName; this.saveState(); } },
 
-    updateDate(context, value, comment = null) {
+    updateDate(context, value, comment = null, shouldLog = true) { // MODIFIED LINE
         const { projectId, phaseId, taskId, subtaskId, type } = context; const project = this.projects.find(p => p.id === projectId); if (!project) return; let targetItem, dateField, itemName;
         if (type.startsWith('project')) { targetItem = project; dateField = type.endsWith('start') ? 'startDate' : 'endDate'; itemName = `Project '${project.name}' ${dateField.replace('Date','')} date`; }
         else {
@@ -1993,7 +1994,7 @@ const timelineApp = {
         }
         if (targetItem && dateField) {
             const oldDate = targetItem[dateField];
-            if (comment) {
+            if (comment && shouldLog) { // MODIFIED LINE
                 if (!project.logs) project.logs = [];
                 project.logs.push({ timestamp: new Date().toISOString(), item: itemName, from: oldDate, to: value, comment });
             }
@@ -2228,24 +2229,28 @@ const timelineApp = {
 
     handleSaveReason() {
         const comment = this.elements.reasonCommentTextarea.value.trim();
-        if (!comment) {
+        const shouldLog = this.elements.logChangeCheckbox.checked;
+
+        if (!comment && shouldLog) { // MODIFIED: Only require comment if logging
             this.elements.reasonCommentTextarea.classList.add('border-red-500', 'ring-red-500');
             setTimeout(() => this.elements.reasonCommentTextarea.classList.remove('border-red-500', 'ring-red-500'), 2000);
             return;
         }
 
         if (this.pendingDateChange) {
-            this.updateDate(this.pendingDateChange.context, this.pendingDateChange.newDate, comment);
+            this.updateDate(this.pendingDateChange.context, this.pendingDateChange.newDate, comment, shouldLog);
         } else if (this.pendingDeletion) {
             const { type, logContext, deleteFn, itemName } = this.pendingDeletion;
 
-            if (type === 'project') {
-                 this.deletedProjectLogs.push({ timestamp: new Date().toISOString(), item: itemName, type: 'deletion', comment: comment });
-            } else {
-                const project = this.projects.find(p => p.id === logContext.projectId);
-                if (project) {
-                    if (!project.logs) project.logs = [];
-                    project.logs.push({ timestamp: new Date().toISOString(), item: itemName, type: 'deletion', comment: comment });
+            if (shouldLog) { // MODIFIED: Conditional logging
+                if (type === 'project') {
+                     this.deletedProjectLogs.push({ timestamp: new Date().toISOString(), item: itemName, type: 'deletion', comment: comment });
+                } else {
+                    const project = this.projects.find(p => p.id === logContext.projectId);
+                    if (project) {
+                        if (!project.logs) project.logs = [];
+                        project.logs.push({ timestamp: new Date().toISOString(), item: itemName, type: 'deletion', comment: comment });
+                    }
                 }
             }
             deleteFn();
@@ -2267,14 +2272,16 @@ const timelineApp = {
 
             if (item) {
                 item.locked = newState;
-                const logType = newState ? 'lock' : 'unlock';
-                if (!project.logs) project.logs = [];
-                project.logs.push({
-                    timestamp: new Date().toISOString(),
-                    item: itemName,
-                    type: logType,
-                    comment: comment
-                });
+                if (shouldLog) { // MODIFIED: Conditional logging
+                    const logType = newState ? 'lock' : 'unlock';
+                    if (!project.logs) project.logs = [];
+                    project.logs.push({
+                        timestamp: new Date().toISOString(),
+                        item: itemName,
+                        type: logType,
+                        comment: comment
+                    });
+                }
                 this.saveState();
                 this.renderProjects();
             }
@@ -2282,6 +2289,7 @@ const timelineApp = {
 
         this.elements.reasonModal.classList.add('hidden');
         this.elements.reasonCommentTextarea.value = '';
+        this.elements.logChangeCheckbox.checked = true; // Reset checkbox
         this.pendingDateChange = null;
         this.pendingDeletion = null;
         this.pendingLockChange = null;
@@ -2290,6 +2298,7 @@ const timelineApp = {
     handleCancelReason() {
         this.elements.reasonModal.classList.add('hidden');
         this.elements.reasonCommentTextarea.value = '';
+        this.elements.logChangeCheckbox.checked = true; // Reset checkbox
         this.renderProjects();
         this.pendingDateChange = null;
         this.pendingDeletion = null;
