@@ -379,6 +379,7 @@ const timelineApp = {
         localStorage.setItem('projectTimelineData', JSON.stringify(this.projects));
         localStorage.setItem('projectTimelineDeletedLogs', JSON.stringify(this.deletedProjectLogs));
     },
+
     loadProjects() {
         const savedData = localStorage.getItem('projectTimelineData');
         let loadedProjects = [];
@@ -418,7 +419,6 @@ const timelineApp = {
             if (project.collapsed === undefined) project.collapsed = false;
             if (typeof project.startDate !== 'string' || project.startDate.trim() === '') project.startDate = null;
             if (typeof project.endDate !== 'string' || project.endDate.trim() === '') project.endDate = null;
-            this.updatePhaseDependencies(project.id);
         });
 
         const savedDeletedLogs = localStorage.getItem('projectTimelineDeletedLogs');
@@ -818,8 +818,7 @@ const timelineApp = {
             </div>
         `;
     },
-
-
+    
     renderPhaseList(project) {
         const phaseContainer = document.getElementById(`phases-${project.id}`);
         let html = '';
@@ -832,7 +831,7 @@ const timelineApp = {
                     <svg id="phase-chevron-${phase.id}" class="w-4 h-4 text-tertiary chevron ${phase.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                 </button>` : `<div class="w-6 h-6 flex-shrink-0"></div>`;
 
-            const depClass = ''; // Phases can no longer be dependents, so they can't be candidates
+            const depClass = this.dependencyMode && this.firstSelectedItem?.id !== phase.id ? 'dependency-candidate' : '';
             const selectedClass = this.firstSelectedItem?.id === phase.id ? 'dependency-selected' : '';
             const commentDot = phase.comments && phase.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
             const durationProgress = this.getDurationProgress(phase.effectiveStartDate, phase.effectiveEndDate);
@@ -846,34 +845,37 @@ const timelineApp = {
             } else if (durationProgress > 75) {
                 durationBarColorClass = 'bg-yellow-500';
             }
-            const iconHtml = `<div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>`;
+            const iconHtml = `<div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 002-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>`;
             const lockIcon = phase.locked
                 ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>`
                 : `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h5V3a3 3 0 0 1 6 0v4a.5.5 0 0 1-1 0V3a2 2 0 0 0-2-2z"/></svg>`;
 
-            const isFirstPhase = index === 0;
+            const isStartDateDrivenByDependency = phase.isDriven;
+            const startDateInputClasses = isStartDateDrivenByDependency ? 'date-input-disabled' : '';
 
             html += `
                 <div class="phase-row rounded-lg p-2 ${depClass} ${selectedClass}" data-id="${phase.id}" data-type="phase" data-project-id="${project.id}" onmouseover="timelineApp.highlightPhaseOnChart(${phase.id})" onmouseout="timelineApp.unhighlightPhaseOnChart(${phase.id})">
                     <div class="flex items-center gap-3 item-main-row">
                         ${toggleButton}
-                         ${commentDot}
+                        ${commentDot}
                         <div class="text-xs font-bold text-secondary w-10 text-center flex-shrink-0">${Math.round(phase.progress || 0)}%</div>
                         <div class="duration-scale-container" title="Duration Progress">
                             <div class="duration-scale-bar ${durationBarColorClass}" style="width: ${durationProgress}%;"></div>
                         </div>
                         <span class="font-semibold flex-grow editable-text" onclick="timelineApp.makeEditable(this, 'updatePhaseName', ${project.id}, ${phase.id})">${phase.name}</span>
+                        
                         ${this.getDependencyIcon(phase)}
-                        <div class="flex items-center gap-2 text-sm text-secondary">
-                             <button onclick="timelineApp.togglePhaseLock(${project.id}, ${phase.id})" class="lock-toggle-btn" title="${phase.locked ? 'Unlock Phase Dates' : 'Lock Phase Dates'}">
+
+                        <div class="flex items-center gap-2 text-sm text-secondary flex-shrink-0">
+                            <button onclick="timelineApp.togglePhaseLock(${project.id}, ${phase.id})" class="lock-toggle-btn" title="${phase.locked ? 'Unlock Phase Dates' : 'Lock Phase Dates'}">
                                 ${lockIcon}
                             </button>
                             <button onclick="timelineApp.toggleCommentSection('phase', ${project.id}, ${phase.id})" class="comment-btn" title="Comments">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
                             </button>
                             <div class="date-input-container">
-                                <input type="text" value="${phase.startDate ? this.formatDate(this.parseDate(phase.startDate)) : ''}" placeholder="Start Date" class="date-input ${!isFirstPhase ? 'date-input-disabled' : ''}" data-project-id="${project.id}" data-phase-id="${phase.id}" data-type="phase-start" data-date="${phase.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)" ${phase.locked || !isFirstPhase ? 'disabled' : ''}>
-                                ${iconHtml}
+                                <input type="text" value="${phase.startDate ? this.formatDate(this.parseDate(phase.startDate)) : ''}" placeholder="Start Date" class="date-input ${startDateInputClasses}" data-project-id="${project.id}" data-phase-id="${phase.id}" data-type="phase-start" data-date="${phase.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)" ${phase.locked || isStartDateDrivenByDependency ? 'disabled' : ''}>
+                                ${!isStartDateDrivenByDependency ? iconHtml : ''}
                             </div>
                             <div class="date-input-container">
                                 <input type="text" value="${phase.endDate ? this.formatDate(this.parseDate(phase.endDate)) : ''}" placeholder="End Date" class="date-input" data-project-id="${project.id}" data-phase-id="${phase.id}" data-type="phase-end" data-date="${phase.endDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)" ${phase.locked ? 'disabled' : ''}>
@@ -1920,7 +1922,6 @@ const timelineApp = {
         const project = this.projects.find(p => p.id === projectId);
         if (project) {
             project.phases.push({ id: Date.now(), name, startDate: null, endDate: null, collapsed: false, tasks: [], dependencies: [], dependents: [] });
-            this.updatePhaseDependencies(projectId);
             this.saveState();
             this.renderProjects();
         }
@@ -1977,7 +1978,7 @@ const timelineApp = {
     updateTaskName(projectId, phaseId, taskId, newName) { const t = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId); if (t) { t.name = newName; this.saveState(); } },
     updateSubtaskName(projectId, phaseId, taskId, subtaskId, newName) { const s = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId)?.subtasks.find(st => st.id === subtaskId); if (s) { s.name = newName; this.saveState(); } },
 
-    updateDate(context, value, comment = null, shouldLog = true) { // MODIFIED LINE
+    updateDate(context, value, comment = null, shouldLog = true) {
         const { projectId, phaseId, taskId, subtaskId, type } = context; const project = this.projects.find(p => p.id === projectId); if (!project) return; let targetItem, dateField, itemName;
         if (type.startsWith('project')) { targetItem = project; dateField = type.endsWith('start') ? 'startDate' : 'endDate'; itemName = `Project '${project.name}' ${dateField.replace('Date','')} date`; }
         else {
@@ -1994,14 +1995,11 @@ const timelineApp = {
         }
         if (targetItem && dateField) {
             const oldDate = targetItem[dateField];
-            if (comment && shouldLog) { // MODIFIED LINE
+            if (comment && shouldLog) {
                 if (!project.logs) project.logs = [];
                 project.logs.push({ timestamp: new Date().toISOString(), item: itemName, from: oldDate, to: value, comment });
             }
             targetItem[dateField] = value;
-            if (type === 'phase-end' || type === 'phase-start') {
-                this.updatePhaseDependencies(projectId);
-            }
         }
         this.saveState(); this.renderProjects();
     },
@@ -2349,15 +2347,6 @@ const timelineApp = {
         const itemId = parseInt(target.dataset.id);
         const itemType = target.dataset.type;
 
-        if (itemType === 'phase') {
-            console.warn("Phases cannot be set as dependents; their dates are set manually for scope.");
-            this.dependencyMode = false;
-            this.firstSelectedItem = null;
-            this.elements.dependencyBanner.classList.add('hidden');
-            this.renderProjects();
-            return;
-        }
-
         if (this.firstSelectedItem.id === itemId) return;
         const allItems = new Map();
         this.projects.forEach(p => p.phases.forEach(ph => { allItems.set(ph.id, ph); ph.tasks.forEach(t => { allItems.set(t.id, t); if(t.subtasks) t.subtasks.forEach(st => allItems.set(st.id, st)); }); }));
@@ -2553,51 +2542,6 @@ const timelineApp = {
         this.elements.shortcutsModal.classList.toggle('hidden');
     },
 
-    updatePhaseDependencies(projectId) {
-        const project = this.projects.find(p => p.id === projectId);
-        if (!project || !project.phases || project.phases.length < 2) return;
-
-        // Sort phases by their start date to ensure correct order
-        const sortedPhases = [...project.phases].sort((a, b) => {
-            const dateA = a.startDate ? this.parseDate(a.startDate) : null;
-            const dateB = b.startDate ? this.parseDate(b.startDate) : null;
-            if (dateA && dateB) return dateA - dateB;
-            if (dateA) return -1;
-            if (dateB) return 1;
-            return 0;
-        });
-
-        for (let i = 1; i < sortedPhases.length; i++) {
-            const prevPhase = sortedPhases[i - 1];
-            const currentPhase = sortedPhases[i];
-
-            if (prevPhase.endDate) {
-                const prevEndDate = this.parseDate(prevPhase.endDate);
-                const newStartDate = new Date(prevEndDate);
-                newStartDate.setDate(newStartDate.getDate() + 1); // Start the day after the previous ends
-
-                const newStartDateStr = newStartDate.toISOString().split('T')[0];
-
-                // Only update if the date is different to avoid unnecessary re-renders and history states
-                if (currentPhase.startDate !== newStartDateStr) {
-                    currentPhase.startDate = newStartDateStr;
-
-                    // Maintain duration of the current phase if it has one
-                    if (currentPhase.endDate) {
-                        const oldStartDate = currentPhase.startDate ? this.parseDate(currentPhase.startDate) : null;
-                        const oldEndDate = this.parseDate(currentPhase.endDate);
-                        if (oldStartDate && oldEndDate) {
-                            const duration = oldEndDate.getTime() - oldStartDate.getTime();
-                            const newEndDate = new Date(newStartDate.getTime() + duration);
-                            currentPhase.endDate = newEndDate.toISOString().split('T')[0];
-                        }
-                    }
-                }
-            }
-        }
-        // After updating dates, we might need to re-calculate rollups for the project
-        this.calculateRollups();
-    },
     // --- COMMENT FUNCTIONALITY ---
     toggleCommentSection(type, projectId, phaseId, taskId, subtaskId) {
         const id = subtaskId || taskId || phaseId || projectId;
