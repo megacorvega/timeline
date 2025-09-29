@@ -2046,9 +2046,8 @@ const timelineApp = {
             this.removeAllDependencies(phaseId);
             phase.tasks.forEach(t => { this.removeAllDependencies(t.id); if(t.subtasks) t.subtasks.forEach(st => this.removeAllDependencies(st.id)); });
             this.pendingDeletion = { type: 'phase', logContext: { projectId }, deleteFn: () => {
-                project.phases = project.phases.filter(ph => ph.id !== phaseId);
-                this.updatePhaseDependencies(projectId);
-            }, itemName: `Phase '${phase.name}' from project '${project.name}'` };
+            project.phases = project.phases.filter(ph => ph.id !== phaseId);
+        }, itemName: `Phase '${phase.name}' from project '${project.name}'` };
             this.elements.reasonModalTitle.textContent = 'Reason for Deletion';
             this.elements.reasonModalDetails.textContent = `You are about to delete the phase: "${phase.name}".`;
             this.elements.reasonModal.classList.remove('hidden');
