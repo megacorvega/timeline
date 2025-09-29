@@ -606,8 +606,21 @@ const timelineApp = {
                     }
                 });
 
-                phase.effectiveStartDate = this.getBoundaryDate(phase.tasks, 'earliest');
-                phase.effectiveEndDate = this.getBoundaryDate(phase.tasks, 'latest');
+                const tasksStartDate = this.getBoundaryDate(phase.tasks, 'earliest');
+                const tasksEndDate = this.getBoundaryDate(phase.tasks, 'latest');
+
+                // Combine the phase's own dates with the calculated task boundaries
+                const allStartDates = [tasksStartDate, phase.startDate].filter(Boolean).map(d => this.parseDate(d));
+                const allEndDates = [tasksEndDate, phase.endDate].filter(Boolean).map(d => this.parseDate(d));
+
+                phase.effectiveStartDate = allStartDates.length > 0
+                    ? new Date(Math.min.apply(null, allStartDates)).toISOString().split('T')[0]
+                    : null;
+
+                phase.effectiveEndDate = allEndDates.length > 0
+                    ? new Date(Math.max.apply(null, allEndDates)).toISOString().split('T')[0]
+                    : null;
+
                 const totalProgress = phase.tasks.reduce((sum, t) => sum + (t.progress || 0), 0);
                 phase.progress = phase.tasks.length > 0 ? totalProgress / phase.tasks.length : 0;
                 phase.completed = phase.progress === 100;
@@ -822,7 +835,7 @@ const timelineApp = {
     renderPhaseList(project) {
         const phaseContainer = document.getElementById(`phases-${project.id}`);
         let html = '';
-        const sortedPhases = [...project.phases].sort((a, b) => this.sortByEndDate(a, b, 'effectiveEndDate'));
+        const sortedPhases = [...project.phases].sort((a, b) => this.sortByEndDate(a, b, 'endDate'));
 
         sortedPhases.forEach((phase, index) => {
             const hasTasks = phase.tasks && phase.tasks.length > 0;
