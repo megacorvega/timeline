@@ -1126,32 +1126,32 @@ const timelineApp = {
             const width = container.node().getBoundingClientRect().width;
             if (width <= 0) return;
             container.selectAll("*").remove();
-
+    
             let tooltip = d3.select("body").select(".chart-tooltip");
             if (tooltip.empty()) {
                 tooltip = d3.select("body").append("div").attr("class", "chart-tooltip");
             }
-
+    
             container.append('button')
                 .html('<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 1v4m0 0h-4m4 0l-5-5" /></svg>')
                 .attr('class', 'absolute bottom-1 right-1 p-1.5 btn-secondary rounded-full')
                 .on('click', () => this.showFullscreenChart(project.id));
-
+    
             const margin = { top: 10, right: 20, bottom: 20, left: 40 },
                 chartWidth = width - margin.left - margin.right,
                 height = container.node().getBoundingClientRect().height - margin.top - margin.bottom;
             const svg = container.append("svg").attr("width", chartWidth + margin.left + margin.right).attr("height", height + margin.top + margin.bottom).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
             const x = d3.scaleTime().range([0, chartWidth]),
                 y = d3.scaleLinear().range([height, 0]);
-
+    
             const startDate = project.zoomDomain ? this.parseDate(project.zoomDomain[0]) : this.parseDate(project.startDate);
             const endDate = project.zoomDomain ? this.parseDate(project.zoomDomain[1]) : this.parseDate(project.endDate);
-
+    
             x.domain([startDate, endDate]);
             y.domain([0, 100]);
             svg.append("g").attr("class", "chart-grid").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x).ticks(5).tickFormat(this.formatDate));
             svg.append("g").attr("class", "chart-grid").call(d3.axisLeft(y).ticks(5).tickFormat(d => `${d}%`));
-
+    
             const endDateChanges = project.logs
                 .filter(log => log.item.includes(`Project '${project.name}' end date`) && log.from)
                 .map(log => log.from);
@@ -1159,7 +1159,7 @@ const timelineApp = {
                 endDateChanges.push(project.originalEndDate);
             }
             const uniquePriorEndDates = [...new Set(endDateChanges)].filter(d => d !== project.endDate);
-
+    
             uniquePriorEndDates.forEach(dateStr => {
                 const date = this.parseDate(dateStr);
                 if (date) {
@@ -1171,7 +1171,7 @@ const timelineApp = {
                         .attr("y2", height);
                 }
             });
-
+    
             const today = new Date();
             if (today >= startDate && today <= endDate) {
                 svg.append("line")
@@ -1181,11 +1181,11 @@ const timelineApp = {
                     .attr("x2", x(today))
                     .attr("y2", height);
             }
-
+    
             const scopedPhases = [...project.phases]
                 .filter(p => p.startDate && p.endDate)
                 .sort((a, b) => this.parseDate(a.startDate) - this.parseDate(b.startDate));
-
+    
             const scopePathData = [];
             if (scopedPhases.length > 0) {
                 scopePathData.push({ date: this.parseDate(scopedPhases[0].startDate), progress: 0 });
@@ -1195,7 +1195,7 @@ const timelineApp = {
                     scopePathData.push({ date: this.parseDate(phase.endDate), progress: cumulativeProgress });
                 });
             }
-
+    
             if (scopePathData.length > 1) {
                 const scopeLine = d3.line().x(d => x(d.date)).y(d => y(d.progress));
                 svg.append("path")
@@ -1206,14 +1206,14 @@ const timelineApp = {
             } else {
                 svg.append("line").attr("class", "planned-line").attr("x1", x(this.parseDate(project.startDate))).attr("y1", y(0)).attr("x2", x(this.parseDate(project.endDate))).attr("y2", y(100));
             }
-
+    
             svg.append("line").attr("class", "finish-line").attr("x1", x(this.parseDate(project.endDate))).attr("y1", 0).attr("x2", x(this.parseDate(project.endDate))).attr("y2", height);
-
+    
             const allTasks = project.phases.flatMap(phase => phase.tasks).filter(task => task.effectiveEndDate);
             const firstActivityDate = this.parseDate(this.getBoundaryDate(allTasks, 'earliest')) || this.parseDate(project.startDate);
             const pathData = [{ date: firstActivityDate, progress: 0 }];
             let cumulativeProgress = 0;
-
+    
             allTasks.sort((a,b) => this.parseDate(a.effectiveEndDate) - this.parseDate(b.effectiveEndDate)).forEach(task => {
                 const dateForPoint = this.parseDate(task.effectiveEndDate);
                 if (dateForPoint) {
@@ -1221,18 +1221,18 @@ const timelineApp = {
                     pathData.push({ date: dateForPoint, progress: cumulativeProgress, completed: task.completed, name: task.name });
                 }
             });
-
+    
             const line = d3.line().x(d => x(d.date)).y(d => y(d.progress));
-
+    
             for (let i = 0; i < pathData.length - 1; i++) {
                 const segment = [pathData[i], pathData[i+1]];
                 const endPoint = segment[1];
-
+    
                 const plannedDateForProgress = this.getPlannedDateForProgress(endPoint.progress, scopePathData, project);
                 const actualDate = endPoint.date;
                 const isLate = actualDate > plannedDateForProgress || actualDate > this.parseDate(project.endDate);
                 const colorClass = isLate ? 'stroke-red-500' : 'stroke-green-500';
-
+    
                 svg.append("path").datum(segment).attr("class", `${endPoint.completed ? 'actual-line' : 'projected-line'} ${colorClass}`).attr("d", line);
             }
             svg.selectAll(".actual-point").data(pathData.slice(1).filter(d=>d.completed)).enter().append("circle").attr("class", "actual-point").attr("cx", d => x(d.date)).attr("cy", d => y(d.progress))
@@ -1242,20 +1242,16 @@ const timelineApp = {
                     const isLate = actualDate > plannedDateForProgress || actualDate > this.parseDate(project.endDate);
                     return isLate ? '#ef4444' : '#22c55e';
                 });
-
-            const sortedPhases = [...project.phases]
-                .filter(p => p.effectiveEndDate)
-                .sort((a, b) => this.parseDate(a.effectiveEndDate) - this.parseDate(b.effectiveEndDate));
-
+    
             const phaseMarkers = svg.selectAll(".phase-marker")
-                .data(sortedPhases)
+                .data(scopedPhases) // Use the same data source as the planned line
                 .enter()
                 .append("g")
                 .attr("class", d => `phase-marker phase-marker-${d.id}`)
                 .attr("transform", (d, i) => {
-                    const phaseEndDate = this.parseDate(d.effectiveEndDate);
-                    let tasksInPhaseOrBefore = allTasks.filter(t => this.parseDate(t.effectiveEndDate) <= phaseEndDate);
-                    let phaseEndProgress = (tasksInPhaseOrBefore.length / (allTasks.length || 1)) * 100;
+                    const phaseEndDate = this.parseDate(d.endDate); // Use the phase's own end date
+                    const progressPerPhase = 100 / scopedPhases.length;
+                    const phaseEndProgress = (i + 1) * progressPerPhase; // Calculate progress the same way as the line
                     return `translate(${x(phaseEndDate)}, ${y(phaseEndProgress)})`;
                 })
                 .on("mouseover", function(event, d) {
@@ -1278,10 +1274,10 @@ const timelineApp = {
                         phaseRow.classList.remove('phase-row-highlight');
                     }
                 });
-
+    
             phaseMarkers.append("circle").attr("class", "phase-marker-circle");
             phaseMarkers.append("text").attr("class", "phase-marker-text").text((d, i) => `P${i + 1}`);
-
+    
             const brush = d3.brushX()
                 .extent([[0, 0], [chartWidth, height]])
                 .on("end", (event) => {
@@ -1292,7 +1288,7 @@ const timelineApp = {
                     this.renderProjects();
                 });
             svg.append("g").attr("class", "brush").call(brush);
-
+    
         }, 0);
     },
 
@@ -2681,3 +2677,4 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
