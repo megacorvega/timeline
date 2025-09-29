@@ -22,9 +22,15 @@
             <h3 id="reason-modal-title" class="text-lg font-bold mb-4">Reason for Change</h3>
             <p id="reason-modal-details" class="text-sm modal-text-secondary mb-4"></p>
             <textarea id="reason-comment" class="w-full p-2 border rounded-md modal-textarea focus:ring-2 focus:ring-blue-500 focus:outline-none" rows="3" placeholder="Please provide a brief reason..."></textarea>
-            <div class="mt-4 flex justify-end gap-2">
-                <button id="cancel-reason-btn" class="px-4 py-2 rounded-md btn-secondary font-semibold text-sm">Cancel</button>
-                <button id="save-reason-btn" class="px-4 py-2 rounded-md btn-primary text-white font-semibold text-sm">Save Change</button>
+            <div class="mt-4 flex justify-between items-center">
+                <label for="log-change-checkbox" class="flex items-center text-sm cursor-pointer">
+                    <input type="checkbox" id="log-change-checkbox" class="custom-checkbox" checked>
+                    <span class="ml-2">Log this change</span>
+                </label>
+                <div class="flex justify-end gap-2">
+                    <button id="cancel-reason-btn" class="px-4 py-2 rounded-md btn-secondary font-semibold text-sm">Cancel</button>
+                    <button id="save-reason-btn" class="px-4 py-2 rounded-md btn-primary text-white font-semibold text-sm">Save Change</button>
+                </div>
             </div>
         </div>
     </div>
