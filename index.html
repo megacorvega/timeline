@@ -213,6 +213,14 @@
         </div>
 
         <div id="main-tab-panel-upcoming" class="hidden">
+            <div class="upcoming-card p-3 rounded-xl shadow-md mb-4">
+                <div class="flex items-center">
+                    <label for="upcoming-project-filter" class="text-sm font-medium text-secondary mr-2">Filter by Project:</label>
+                    <select id="upcoming-project-filter" class="theme-select-dropdown flex-grow">
+                        <option value="all">All Projects</option>
+                    </select>
+                </div>
+            </div>
             <div id="upcoming-tasks-container" class="space-y-4"></div>
         </div>
     </div>
@@ -222,3 +230,4 @@
     <script src="punchlist.js"></script>
 </body>
 </html>
+
