@@ -58,7 +58,6 @@ const timelineApp = {
             lightIcon: document.getElementById('theme-toggle-light-icon'),
             importBtn: document.getElementById('import-btn'),
             exportBtn: document.getElementById('export-btn'),
-            pdfBtn: document.getElementById('pdf-btn'),
             importFileInput: document.getElementById('import-file-input'),
             datepickerBackdrop: document.getElementById('datepicker-backdrop'),
             reasonModal: document.getElementById('reason-modal'),
@@ -87,7 +86,7 @@ const timelineApp = {
         };
     },
 
-    addEventListeners() {
+addEventListeners() {
         this.elements.themeSelect.addEventListener('change', (e) => {
             document.documentElement.setAttribute('data-theme', e.target.value);
             localStorage.setItem('timeline-theme-name', e.target.value);
@@ -137,12 +136,9 @@ const timelineApp = {
             };
             reader.readAsText(file); e.target.value = null;
         });
-        this.elements.pdfBtn.addEventListener('click', () => {
-            this.generatePrintView();
-            setTimeout(() => {
-                window.print();
-            }, 250); // Delay to allow D3 charts to render
-        });
+        
+        // REMOVED old pdfBtn event listener
+        
         document.querySelector('.container').addEventListener('click', (e) => {
             const icon = e.target.closest('.date-input-icon-wrapper');
             if (icon) {
@@ -665,8 +661,7 @@ const timelineApp = {
         }
     },
 
-
-    renderProjects() {
+renderProjects() {
         this.calculateRollups();
         this.resolveDependencies();
         this.elements.projectsContainer.innerHTML = '';
@@ -742,6 +737,9 @@ const timelineApp = {
                         ${daysLeftPillHTML}
                     </div>
                     <div class="flex items-center gap-2 text-sm text-secondary flex-shrink-0">
+                        <button onclick="timelineApp.generatePrintView(${project.id})" class="print-btn" title="Print Project">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clip-rule="evenodd" /></svg>
+                        </button>
                         <button onclick="timelineApp.toggleCommentSection('project', ${project.id})" class="comment-btn" title="Comments">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
                         </button>
@@ -1529,73 +1527,81 @@ const timelineApp = {
         }, 100);
     },
 
-    generatePrintView() {
+generatePrintView(projectId) {
+        const project = this.projects.find(p => p.id === projectId);
+        if (!project || !project.startDate || !project.endDate) {
+            alert("Project must have a start and end date to be printed.");
+            return;
+        }
+
         const printContainer = document.getElementById('print-view');
-        printContainer.innerHTML = ''; // Clear previous content
+        printContainer.innerHTML = ''; 
 
-        this.projects.forEach(project => {
-            if (project.collapsed || !project.startDate || !project.endDate) return;
+        const projectWrapper = document.createElement('div');
+        projectWrapper.className = 'print-project-container';
 
-            const projectWrapper = document.createElement('div');
-            projectWrapper.className = 'print-project-container';
-            projectWrapper.innerHTML = `<h2 class="text-2xl font-bold mb-4">${project.name}</h2>`;
+        const header = document.createElement('div');
+        header.className = 'print-header';
+        header.innerHTML = `
+            <h1>${project.name}</h1>
+            <h2>${this.formatDate(this.parseDate(project.startDate))} - ${this.formatDate(this.parseDate(project.endDate))}</h2>
+        `;
+        projectWrapper.appendChild(header);
 
-            const layout = document.createElement('div');
-            layout.style.display = 'grid';
-            layout.style.gridTemplateColumns = '30% 70%';
-            layout.style.gap = '2rem';
+        const layout = document.createElement('div');
+        layout.className = 'print-layout';
 
-            const listContainer = document.createElement('div');
-            const chartContainer = document.createElement('div');
-            chartContainer.style.width = '100%';
-            
-            layout.appendChild(listContainer);
-            layout.appendChild(chartContainer);
-            projectWrapper.appendChild(layout);
-            printContainer.appendChild(projectWrapper);
-            
-            const visibleItems = [];
-            // Add project itself for y-axis
-            visibleItems.push({ ...project, level: 1, type: 'Project', id: `proj-${project.id}` });
-
-            if (!project.collapsed) {
-                project.phases.forEach(phase => {
-                    visibleItems.push({ ...phase, level: 2, type: 'Phase', id: `p-${phase.id}` });
-                    if (!phase.collapsed) {
-                        phase.tasks.forEach(task => {
-                            if (task.subtasks && task.subtasks.length > 0) {
-                                visibleItems.push({ ...task, name: task.name, level: 3, type: 'Task', id: `t-${task.id}` });
-                                if (!task.collapsed) {
-                                    task.subtasks.forEach(subtask => {
-                                        visibleItems.push({ ...subtask, name: subtask.name, level: 4, type: 'Subtask', id: `st-${subtask.id}`});
-                                    });
-                                }
-                            } else {
-                                visibleItems.push({ ...task, level: 3, type: 'Task', id: `t-${task.id}` });
-                            }
-                        });
-                    }
-                });
-            }
-            
-            visibleItems.forEach(item => {
-                 const el = document.createElement('div');
-                 el.className = `print-item-label indent-${item.level}`;
-                 el.textContent = item.name;
-                 listContainer.appendChild(el);
+        const listContainer = document.createElement('div');
+        listContainer.className = 'print-list-container';
+        
+        const chartContainer = document.createElement('div');
+        chartContainer.className = 'print-chart-container';
+        
+        layout.appendChild(listContainer);
+        layout.appendChild(chartContainer);
+        projectWrapper.appendChild(layout);
+        printContainer.appendChild(projectWrapper);
+        
+        const visibleItems = [];
+        if (!project.collapsed) {
+            project.phases.forEach(phase => {
+                visibleItems.push({ ...phase, level: 2, type: 'Phase', id: `p-${phase.id}` });
+                if (!phase.collapsed) {
+                    phase.tasks.forEach(task => {
+                        visibleItems.push({ ...task, level: 3, type: 'Task', id: `t-${task.id}` });
+                        if (!task.collapsed && task.subtasks && task.subtasks.length > 0) {
+                            task.subtasks.forEach(subtask => {
+                                visibleItems.push({ ...subtask, level: 4, type: 'Subtask', id: `st-${subtask.id}`});
+                            });
+                        }
+                    });
+                }
             });
-            
-            this.drawPrintChartForProject(project, visibleItems, chartContainer);
+        }
+        
+        visibleItems.forEach(item => {
+             const el = document.createElement('div');
+             el.className = `print-item level-${item.level}`;
+             el.innerHTML = `<div class="print-item-name">${item.name}</div>`;
+             listContainer.appendChild(el);
         });
+        
+        this.drawPrintChartForProject(project, visibleItems, chartContainer);
+        
+        setTimeout(() => {
+            window.print();
+        }, 250); 
     },
 
     drawPrintChartForProject(project, items, container) {
-        const itemHeight = 28;
-        const totalHeight = items.length * itemHeight;
-        
-        const margin = { top: 20, right: 40, bottom: 30, left: 5 };
-        const width = 800 - margin.left - margin.right; // Standard A4-ish width
-        const height = totalHeight;
+        if (items.length === 0) return;
+
+        const containerBounds = container.getBoundingClientRect();
+        const itemHeight = containerBounds.height / items.length;
+
+        const margin = { top: 0, right: 10, bottom: 20, left: 0 };
+        const width = containerBounds.width - margin.left - margin.right;
+        const height = containerBounds.height - margin.top - margin.bottom;
 
         const svg = d3.select(container).append("svg")
             .attr("width", width + margin.left + margin.right)
@@ -1607,14 +1613,14 @@ const timelineApp = {
         const endDate = this.parseDate(project.endDate);
 
         const x = d3.scaleTime().domain([startDate, endDate]).range([0, width]);
-        const y = d3.scaleBand().domain(items.map(d => d.id)).range([0, height]).padding(0.2);
+        const y = d3.scaleBand().domain(items.map(d => d.id)).range([0, height]).padding(0.3);
 
-        svg.append("g").attr("class", "chart-grid")
+        svg.append("g").attr("class", "gantt-x-axis chart-grid")
             .attr("transform", `translate(0,${height})`)
-            .call(d3.axisBottom(x).ticks(d3.timeWeek.every(2)).tickFormat(d3.timeFormat("%b %d")));
+            .call(d3.axisBottom(x).ticks(d3.timeWeek.every(1)).tickFormat(d3.timeFormat("%b %d")));
 
         const bars = svg.selectAll(".bar")
-            .data(items.filter(d => (d.effectiveStartDate || d.startDate) && d.type !== 'Project'))
+            .data(items.filter(d => (d.effectiveStartDate || d.startDate) && (d.effectiveEndDate || d.endDate)))
             .enter().append("g");
             
         bars.append("rect")
@@ -1624,12 +1630,11 @@ const timelineApp = {
             .attr("width", d => {
                 const start = this.parseDate(d.effectiveStartDate || d.startDate);
                 let end = this.parseDate(d.effectiveEndDate || d.endDate);
-                if (start && end && start.getTime() === end.getTime()) {
-                    end.setDate(end.getDate() + 1);
-                }
                 return start && end ? Math.max(0, x(end) - x(start)) : 0;
             })
-            .attr("height", y.bandwidth());
+            .attr("height", y.bandwidth())
+            .attr("rx", 3)
+            .attr("ry", 3);
 
         bars.append("rect")
             .attr("class", "gantt-bar-progress")
@@ -1639,18 +1644,28 @@ const timelineApp = {
                 const start = this.parseDate(d.effectiveStartDate || d.startDate);
                 let end = this.parseDate(d.effectiveEndDate || d.endDate);
                 if (!start || !end) return 0;
-                 if (start.getTime() === end.getTime()) {
-                    end.setDate(end.getDate() + 1);
-                }
                 const totalWidth = Math.max(0, x(end) - x(start));
                 return totalWidth * ((d.progress || 0) / 100);
             })
-            .attr("height", y.bandwidth());
+            .attr("height", y.bandwidth())
+            .attr("rx", 3)
+            .attr("ry", 3);
         
         const today = new Date();
         if (today >= startDate && today <= endDate) {
              svg.append("line").attr("class", "today-line").attr("x1", x(today)).attr("y1", 0).attr("x2", x(today)).attr("y2", height);
         }
+
+        const phaseDividers = items.filter(item => item.level === 2);
+        svg.selectAll(".phase-divider-line")
+            .data(phaseDividers)
+            .enter()
+            .append("line")
+            .attr("class", "phase-divider-line")
+            .attr("x1", d => x(this.parseDate(d.effectiveStartDate || d.startDate)))
+            .attr("y1", 0)
+            .attr("x2", d => x(this.parseDate(d.effectiveStartDate || d.startDate)))
+            .attr("y2", height);
     },
 
     showDependencyTooltip(event, itemId) {
@@ -2531,6 +2546,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
 
 
 
