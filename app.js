@@ -1,4 +1,3 @@
-// megacorvega/timeline/timeline-f6a8e5036442f8e80443c8b16d897c212e40770d/app.js
 const timelineApp = {
     // --- STATE & CONFIG ---
     projects: [],
@@ -18,9 +17,8 @@ const timelineApp = {
     taskLoadChartColor: d3.scaleOrdinal(d3.schemeTableau10),
     activeTab: 'projects',
     tabOrder: ['projects', 'list', 'overall-load', 'upcoming'],
-    fullscreenObserver: null,
     resizeTimeout: null,
-    upcomingProjectFilter: 'all', // <-- ADD THIS LINE
+    upcomingProjectFilter: 'all',
 
     // --- DOM ELEMENTS ---
     elements: {},
@@ -77,8 +75,6 @@ const timelineApp = {
             confirmModalText: document.getElementById('confirm-modal-text'),
             cancelConfirmBtn: document.getElementById('cancel-confirm-btn'),
             confirmActionBtn: document.getElementById('confirm-action-btn'),
-            fullscreenModal: document.getElementById('fullscreen-modal'),
-            closeFullscreenBtn: document.getElementById('close-fullscreen-btn'),
             undoBtn: document.getElementById('undo-btn'),
             redoBtn: document.getElementById('redo-btn'),
             toggleDeletedLogBtn: document.getElementById('toggle-deleted-log-btn'),
@@ -87,11 +83,10 @@ const timelineApp = {
             shortcutsModal: document.getElementById('shortcuts-modal'),
             shortcutsModalBackdrop: document.getElementById('shortcuts-modal-backdrop'),
             closeShortcutsBtn: document.getElementById('close-shortcuts-btn'),
-            upcomingProjectFilter: document.getElementById('upcoming-project-filter') // <-- ADD THIS LINE
+            upcomingProjectFilter: document.getElementById('upcoming-project-filter')
         };
     },
 
-// megacorvega/timeline/timeline-f6a8e5036442f8e80443c8b16d897c212e40770d/app.js
     addEventListeners() {
         this.elements.themeSelect.addEventListener('change', (e) => {
             document.documentElement.setAttribute('data-theme', e.target.value);
@@ -142,24 +137,11 @@ const timelineApp = {
             };
             reader.readAsText(file); e.target.value = null;
         });
-         this.elements.pdfBtn.addEventListener('click', () => {
-            const originalCollapsedState = this.projects.map(p => ({id: p.id, collapsed: p.collapsed, phases: p.phases.map(ph => ({id: ph.id, collapsed: ph.collapsed}))}));
-            this.projects.forEach(p => { p.collapsed = false; p.phases.forEach(ph => ph.collapsed = false); });
-            this.renderProjects();
+        this.elements.pdfBtn.addEventListener('click', () => {
+            this.generatePrintView();
             setTimeout(() => {
                 window.print();
-                this.projects.forEach(p => {
-                    const originalProject = originalCollapsedState.find(op => op.id === p.id);
-                    if(originalProject) {
-                       p.collapsed = originalProject.collapsed;
-                        p.phases.forEach(ph => {
-                            const originalPhase = originalProject.phases.find(oph => oph.id === ph.id);
-                            if(originalPhase) ph.collapsed = originalPhase.collapsed;
-                        });
-                    }
-                });
-                this.renderProjects();
-            }, 100);
+            }, 250); // Delay to allow D3 charts to render
         });
         document.querySelector('.container').addEventListener('click', (e) => {
             const icon = e.target.closest('.date-input-icon-wrapper');
@@ -180,11 +162,6 @@ const timelineApp = {
         this.elements.undoBtn.addEventListener('click', this.undo.bind(this));
         this.elements.redoBtn.addEventListener('click', this.redo.bind(this));
         this.elements.toggleDeletedLogBtn.addEventListener('click', this.toggleDeletedLog.bind(this));
-        this.elements.closeFullscreenBtn.addEventListener('click', () => {
-            this.elements.fullscreenModal.style.display = 'none';
-            if (this.fullscreenObserver) this.fullscreenObserver.disconnect();
-            d3.select("body").selectAll(".fullscreen-chart-tooltip").remove();
-        });
         this.elements.saveReasonBtn.addEventListener('click', this.handleSaveReason.bind(this));
         this.elements.cancelReasonBtn.addEventListener('click', this.handleCancelReason.bind(this));
         this.elements.cancelConfirmBtn.addEventListener('click', () => {
@@ -203,7 +180,7 @@ const timelineApp = {
         this.elements.shortcutsBtn.addEventListener('click', this.toggleShortcutsModal.bind(this));
         this.elements.closeShortcutsBtn.addEventListener('click', this.toggleShortcutsModal.bind(this));
         this.elements.shortcutsModalBackdrop.addEventListener('click', this.toggleShortcutsModal.bind(this));
-
+        
         this.elements.upcomingProjectFilter.addEventListener('change', (e) => {
             this.upcomingProjectFilter = e.target.value;
             this.renderUpcomingTasks();
@@ -231,10 +208,6 @@ const timelineApp = {
                     this.firstSelectedItem = null;
                     this.elements.dependencyBanner.classList.add('hidden');
                     this.renderProjects();
-                }
-                if (this.elements.fullscreenModal.style.display === 'flex') {
-                     this.elements.fullscreenModal.style.display = 'none';
-                     d3.select("body").selectAll(".fullscreen-chart-tooltip").remove();
                 }
             }
 
@@ -1140,11 +1113,6 @@ const timelineApp = {
                 tooltip = d3.select("body").append("div").attr("class", "chart-tooltip");
             }
     
-            container.append('button')
-                .html('<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 1v4m0 0h-4m4 0l-5-5" /></svg>')
-                .attr('class', 'absolute bottom-1 right-1 p-1.5 btn-secondary rounded-full')
-                .on('click', () => this.showFullscreenChart(project.id));
-    
             const margin = { top: 10, right: 20, bottom: 20, left: 40 },
                 chartWidth = width - margin.left - margin.right,
                 height = container.node().getBoundingClientRect().height - margin.top - margin.bottom;
@@ -1420,7 +1388,7 @@ const timelineApp = {
             filterDropdown.appendChild(option);
         });
         filterDropdown.value = currentFilterValue; // Restore the saved value
-
+    
         // --- Filter and Render Tasks ---
         const container = document.getElementById('upcoming-tasks-container');
         container.innerHTML = '';
@@ -1430,7 +1398,7 @@ const timelineApp = {
             if (this.upcomingProjectFilter !== 'all' && project.id.toString() !== this.upcomingProjectFilter) {
                 return; // Skip this project if it doesn't match the filter
             }
-
+    
             project.phases.forEach(phase => {
                 phase.tasks.forEach(task => {
                     if (task.subtasks && task.subtasks.length > 0) {
@@ -1465,26 +1433,26 @@ const timelineApp = {
                 });
             });
         });
-
+    
         if (allItems.length === 0) {
             container.innerHTML = `<div class="upcoming-card p-4 rounded-xl shadow-md text-center text-secondary">No upcoming tasks match the filter.</div>`;
             return;
         }
-
+    
         allItems.sort((a, b) => this.parseDate(a.date) - this.parseDate(b.date));
         const groupedByDate = d3.group(allItems, d => d.date);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-
+    
         let html = '';
         const sortedDates = Array.from(groupedByDate.keys()).sort((a,b) => this.parseDate(a) - this.parseDate(b));
-
+    
         for (const dateStr of sortedDates) {
             const items = groupedByDate.get(dateStr);
             const dueDate = this.parseDate(dateStr);
             const diffDays = Math.round((dueDate - today) / (1000 * 60 * 60 * 24));
             let dateLabel = '', headerColorClass = 'bg-gray-100 dark:bg-slate-800';
-
+    
             if (diffDays < 0) {
                 dateLabel = `${Math.abs(diffDays)} days ago`;
                 headerColorClass = 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200';
@@ -1500,7 +1468,7 @@ const timelineApp = {
             } else {
                 dateLabel = `in ${diffDays} days`;
             }
-
+    
             html += `<div class="upcoming-card rounded-xl shadow-md">
                     <div class="p-3 border-b border-primary ${headerColorClass} rounded-t-xl">
                         <h3 class="font-bold">${this.formatDate(dueDate)} <span class="text-sm font-normal text-tertiary">(${dateLabel})</span></h3>
@@ -1511,7 +1479,7 @@ const timelineApp = {
                 const completedClass = item.completed ? 'line-through opacity-60' : '';
                 const overdueClass = isOverdue ? 'text-red-600 dark:text-red-400 font-semibold' : '';
                 const onclickAttr = `onclick="timelineApp.navigateToTask(${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'})"`;
-
+    
                 html += `<div class="upcoming-task-item flex items-center text-sm ${completedClass}" ${onclickAttr}>
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2 text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
                         <span class="text-secondary mr-2">${item.path} &gt;</span>
@@ -1561,188 +1529,98 @@ const timelineApp = {
         }, 100);
     },
 
-    showFullscreenChart(projectId) {
-        const project = this.projects.find(p => p.id === projectId);
-        if (!project) return;
+    generatePrintView() {
+        const printContainer = document.getElementById('print-view');
+        printContainer.innerHTML = ''; // Clear previous content
 
-        const title = document.getElementById('fullscreen-project-title');
-        title.textContent = project.name;
-        title.dataset.projectId = project.id;
+        this.projects.forEach(project => {
+            if (project.collapsed || !project.startDate || !project.endDate) return;
 
-        this.elements.fullscreenModal.style.display = 'flex';
+            const projectWrapper = document.createElement('div');
+            projectWrapper.className = 'print-project-container';
+            projectWrapper.innerHTML = `<h2 class="text-2xl font-bold mb-4">${project.name}</h2>`;
 
-        // Use a ResizeObserver to redraw the chart when the container size changes.
-        if (this.fullscreenObserver) this.fullscreenObserver.disconnect();
-        const chartPanel = this.elements.fullscreenModal.querySelector('.chart-panel');
-        if (chartPanel) {
-            this.fullscreenObserver = new ResizeObserver(() => this.drawFullscreenChart(project));
-            this.fullscreenObserver.observe(chartPanel);
-        }
+            const layout = document.createElement('div');
+            layout.style.display = 'grid';
+            layout.style.gridTemplateColumns = '30% 70%';
+            layout.style.gap = '2rem';
 
-        // Initial draw
-        this.drawFullscreenChart(project);
+            const listContainer = document.createElement('div');
+            const chartContainer = document.createElement('div');
+            chartContainer.style.width = '100%';
+            
+            layout.appendChild(listContainer);
+            layout.appendChild(chartContainer);
+            projectWrapper.appendChild(layout);
+            printContainer.appendChild(projectWrapper);
+            
+            const visibleItems = [];
+            // Add project itself for y-axis
+            visibleItems.push({ ...project, level: 1, type: 'Project', id: `proj-${project.id}` });
+
+            if (!project.collapsed) {
+                project.phases.forEach(phase => {
+                    visibleItems.push({ ...phase, level: 2, type: 'Phase', id: `p-${phase.id}` });
+                    if (!phase.collapsed) {
+                        phase.tasks.forEach(task => {
+                            if (task.subtasks && task.subtasks.length > 0) {
+                                visibleItems.push({ ...task, name: task.name, level: 3, type: 'Task', id: `t-${task.id}` });
+                                if (!task.collapsed) {
+                                    task.subtasks.forEach(subtask => {
+                                        visibleItems.push({ ...subtask, name: subtask.name, level: 4, type: 'Subtask', id: `st-${subtask.id}`});
+                                    });
+                                }
+                            } else {
+                                visibleItems.push({ ...task, level: 3, type: 'Task', id: `t-${task.id}` });
+                            }
+                        });
+                    }
+                });
+            }
+            
+            visibleItems.forEach(item => {
+                 const el = document.createElement('div');
+                 el.className = `print-item-label indent-${item.level}`;
+                 el.textContent = item.name;
+                 listContainer.appendChild(el);
+            });
+            
+            this.drawPrintChartForProject(project, visibleItems, chartContainer);
+        });
     },
 
-    drawFullscreenChart(project) {
-        const container = d3.select("#fullscreen-chart-container");
-        container.selectAll("*").remove();
+    drawPrintChartForProject(project, items, container) {
+        const itemHeight = 28;
+        const totalHeight = items.length * itemHeight;
+        
+        const margin = { top: 20, right: 40, bottom: 30, left: 5 };
+        const width = 800 - margin.left - margin.right; // Standard A4-ish width
+        const height = totalHeight;
 
-        const ganttTooltip = d3.select("#gantt-tooltip");
-
-        const bounds = container.node().getBoundingClientRect();
-        if (bounds.width <= 0 || bounds.height <= 0) return;
-
-        const margin = { top: 20, right: 60, bottom: 40, left: 250 };
-        const width = bounds.width - margin.left - margin.right;
-
-        const ganttItems = [];
-        project.phases.forEach(phase => {
-            ganttItems.push({ ...phase, level: 1, type: 'Phase', id: `p-${phase.id}` });
-            phase.tasks.forEach(task => {
-                if (task.subtasks && task.subtasks.length > 0) {
-                    task.subtasks.forEach(subtask => {
-                        ganttItems.push({
-                            ...subtask,
-                            name: `${task.name} > ${subtask.name}`, // New combined name
-                            level: 3, // Keep level for indentation
-                            type: 'Subtask',
-                            id: `st-${subtask.id}`
-                        });
-                    });
-                } else {
-                    // Only include tasks that do not have subtasks
-                    ganttItems.push({ ...task, level: 2, type: 'Task', id: `t-${task.id}` });
-                }
-            });
-        });
-
-        const minBarHeight = 35;
-        const requiredHeight = ganttItems.length * minBarHeight;
-        const height = Math.max(bounds.height - margin.top - margin.bottom, requiredHeight);
-
-        const svg = container.append("svg")
+        const svg = d3.select(container).append("svg")
             .attr("width", width + margin.left + margin.right)
             .attr("height", height + margin.top + margin.bottom)
             .append("g")
             .attr("transform", `translate(${margin.left},${margin.top})`);
-
-        if (!project.startDate || !project.endDate) {
-             svg.append("text")
-                .attr("x", width / 2)
-                .attr("y", height / 2)
-                .attr("text-anchor", "middle")
-                .style("fill", "var(--text-secondary)")
-                .text("Set project start and end dates to see the chart.");
-            return;
-        }
-
+        
         const startDate = this.parseDate(project.startDate);
         const endDate = this.parseDate(project.endDate);
 
-        // --- DYNAMIC AXIS TICKS ---
-        const durationDays = (endDate - startDate) / (1000 * 60 * 60 * 24);
-        let tickInterval, tickFormat;
-
-        if (durationDays > 1095) { // ~3+ years
-            tickInterval = d3.timeYear.every(1);
-            tickFormat = d3.timeFormat("'%y");
-        } else if (durationDays > 365) { // 1-3 years
-            tickInterval = d3.timeMonth.every(3);
-            tickFormat = d3.timeFormat("%b '%y");
-        } else if (durationDays > 90) { // 3-12 months
-            tickInterval = d3.timeMonth.every(1);
-            tickFormat = d3.timeFormat("%B");
-        } else if (durationDays > 30) { // 1-3 months
-            tickInterval = d3.timeWeek.every(2);
-            tickFormat = d3.timeFormat("%b %d");
-        } else { // < 1 month
-            tickInterval = d3.timeWeek.every(1);
-            tickFormat = d3.timeFormat("%b %d");
-        }
-
-
-        // --- SCALES ---
         const x = d3.scaleTime().domain([startDate, endDate]).range([0, width]);
-        const yGantt = d3.scaleBand().domain(ganttItems.map(d => d.id)).range([height, 0]).padding(0.25);
-        const yProgress = d3.scaleLinear().domain([0, 100]).range([height, 0]);
+        const y = d3.scaleBand().domain(items.map(d => d.id)).range([0, height]).padding(0.2);
 
-        // --- AXES ---
         svg.append("g").attr("class", "chart-grid")
             .attr("transform", `translate(0,${height})`)
-            .call(d3.axisBottom(x).ticks(tickInterval).tickFormat(tickFormat));
+            .call(d3.axisBottom(x).ticks(d3.timeWeek.every(2)).tickFormat(d3.timeFormat("%b %d")));
 
-        const yAxisGantt = d3.axisLeft(yGantt).tickSize(0).tickPadding(10)
-             .tickFormat((id, i) => ganttItems[i].name);
-
-        svg.append("g").attr("class", "gantt-y-axis").call(yAxisGantt)
-            .selectAll(".tick text")
-            .attr("class", (id, i) => `indent-${ganttItems[i].level}`);
-
-        const yAxisProgress = d3.axisRight(yProgress).ticks(5).tickFormat(d => `${d}%`);
-         svg.append("g").attr("class", "chart-grid")
-            .attr("transform", `translate(${width}, 0)`)
-            .call(yAxisProgress);
-
-        svg.append("line")
-            .attr("x1", 0).attr("y1", 0).attr("x2", 0).attr("y2", height)
-            .attr("stroke", "var(--border-primary)");
-
-        // --- REFERENCE LINES ---
-        svg.append("line").attr("class", "finish-line").attr("x1", x(endDate)).attr("y1", 0).attr("x2", x(endDate)).attr("y2", height);
-        const today = new Date();
-        if (today >= startDate && today <= endDate) {
-             svg.append("line").attr("class", "today-line").attr("x1", x(today)).attr("y1", 0).attr("x2", x(today)).attr("y2", height);
-        }
-
-        // --- PHASE DIVIDERS ---
-        const phaseItems = ganttItems.filter(d => d.type === 'Phase');
-        svg.selectAll(".phase-divider")
-            .data(phaseItems)
-            .enter()
-            .append("line")
-            .attr("class", "phase-divider-line")
-            .attr("x1", 0)
-            .attr("x2", width)
-            .attr("y1", d => yGantt(d.id) + yGantt.bandwidth() / 2)
-            .attr("y2", d => yGantt(d.id) + yGantt.bandwidth() / 2);
-
-        // --- GANTT BARS ---
-         const itemsGroup = svg.selectAll(".gantt-item-group")
-            .data(ganttItems).enter().append("g")
-            .attr("class", "gantt-item-group")
-            .attr("transform", d => `translate(0, ${yGantt(d.id)})`);
-
-        const bars = itemsGroup.filter(d => d.type !== 'Phase' && (d.effectiveStartDate || d.startDate))
-            .append("g").attr("class", "gantt-bar-group")
-            .on("mouseover", (event, d) => {
-                const start = d.effectiveStartDate || d.startDate;
-                const end = d.effectiveEndDate || d.endDate;
-                ganttTooltip.style("visibility", "visible").style("opacity", 1)
-                    .html(`<div class="font-bold text-base mb-2">${d.name}</div><div class="text-sm space-y-1"><div><strong>Type:</strong> ${d.type}</div><div><strong>Status:</strong> ${d.completed ? 'Complete' : 'In Progress'} (${Math.round(d.progress || 0)}%)</div>${start && end ? `<div><strong>Dates:</strong> ${this.formatDate(this.parseDate(start))} - ${this.formatDate(this.parseDate(end))}</div>` : ''}</div>`);
-            })
-            .on("mousemove", (event) => {
-                const tooltipNode = ganttTooltip.node();
-                const tooltipRect = tooltipNode.getBoundingClientRect();
-                const padding = 15;
-
-                let newLeft = event.pageX + padding;
-                let newTop = event.pageY + padding;
-
-                if (newLeft + tooltipRect.width > window.innerWidth) {
-                    newLeft = event.pageX - tooltipRect.width - padding;
-                }
-
-                if (newTop + tooltipRect.height > window.innerHeight) {
-                    newTop = event.pageY - tooltipRect.height - padding;
-                }
-
-                ganttTooltip.style("top", `${newTop}px`).style("left", `${newLeft}px`);
-            })
-            .on("mouseout", () => { ganttTooltip.style("visibility", "hidden").style("opacity", 0); });
-
-        bars.append("rect").attr("class", "gantt-bar-bg")
+        const bars = svg.selectAll(".bar")
+            .data(items.filter(d => (d.effectiveStartDate || d.startDate) && d.type !== 'Project'))
+            .enter().append("g");
+            
+        bars.append("rect")
+            .attr("class", "gantt-bar-bg")
             .attr("x", d => x(this.parseDate(d.effectiveStartDate || d.startDate)))
-            .attr("y", 0)
+            .attr("y", d => y(d.id))
             .attr("width", d => {
                 const start = this.parseDate(d.effectiveStartDate || d.startDate);
                 let end = this.parseDate(d.effectiveEndDate || d.endDate);
@@ -1750,78 +1628,28 @@ const timelineApp = {
                     end.setDate(end.getDate() + 1);
                 }
                 return start && end ? Math.max(0, x(end) - x(start)) : 0;
-            }).attr("height", yGantt.bandwidth()).attr("rx", 5);
+            })
+            .attr("height", y.bandwidth());
 
-        bars.append("rect").attr("class", "gantt-bar-progress")
-            .attr("fill", "var(--accent-primary)")
+        bars.append("rect")
+            .attr("class", "gantt-bar-progress")
             .attr("x", d => x(this.parseDate(d.effectiveStartDate || d.startDate)))
-            .attr("y", 0)
+            .attr("y", d => y(d.id))
             .attr("width", d => {
                 const start = this.parseDate(d.effectiveStartDate || d.startDate);
                 let end = this.parseDate(d.effectiveEndDate || d.endDate);
                 if (!start || !end) return 0;
-                if (start.getTime() === end.getTime()) {
+                 if (start.getTime() === end.getTime()) {
                     end.setDate(end.getDate() + 1);
                 }
                 const totalWidth = Math.max(0, x(end) - x(start));
                 return totalWidth * ((d.progress || 0) / 100);
             })
-            .attr("height", yGantt.bandwidth()).attr("rx", 5);
-
-        // --- PROGRESS LINES ---
-        const scopedPhases = [...project.phases]
-            .filter(p => p.effectiveStartDate && p.effectiveEndDate) // Use effective dates
-            .sort((a, b) => this.parseDate(a.effectiveStartDate) - this.parseDate(b.effectiveStartDate)); // Sort by effective start date
-        const scopePathData = [];
-        if (scopedPhases.length > 0) {
-            scopePathData.push({ date: this.parseDate(scopedPhases[0].effectiveStartDate), progress: 0 }); // Use effective start date
-            scopedPhases.forEach((phase, i) => {
-                const progressPerPhase = 100 / scopedPhases.length;
-                const cumulativeProgress = (i + 1) * progressPerPhase;
-                scopePathData.push({ date: this.parseDate(phase.effectiveEndDate), progress: cumulativeProgress }); // Use effective end date
-            });
-        }
-        if (scopePathData.length > 1) {
-            const scopeLine = d3.line().x(d => x(d.date)).y(d => yProgress(d.progress));
-            svg.append("path")
-                .datum(scopePathData)
-                .attr("class", "planned-line")
-                .attr("d", scopeLine)
-                .style("fill", "none");
-        } else {
-            svg.append("line").attr("class", "planned-line").attr("x1", x(startDate)).attr("y1", yProgress(0)).attr("x2", x(endDate)).attr("y2", yProgress(100));
-        }
-
-        const allTasks = project.phases.flatMap(p => p.tasks.flatMap(t => (t.subtasks && t.subtasks.length > 0) ? t.subtasks : [t]))
-            .filter(item => item.effectiveEndDate || item.endDate)
-            .sort((a, b) => this.parseDate(a.effectiveEndDate || a.endDate) - this.parseDate(b.effectiveEndDate || b.endDate));
-
-        const pathData = [{ date: startDate, progress: 0 }];
-        if (allTasks.length > 0) {
-            allTasks.forEach((task) => {
-                const progressPerTask = 100 / allTasks.length;
-                const taskDate = this.parseDate(task.effectiveEndDate || task.endDate);
-                if(taskDate) {
-                    pathData.push({
-                        date: taskDate,
-                        progress: pathData[pathData.length - 1].progress + progressPerTask,
-                        completed: task.completed,
-                    });
-                }
-            });
-        }
-
-        const line = d3.line().x(d => x(d.date)).y(d => yProgress(d.progress));
-        for (let i = 0; i < pathData.length - 1; i++) {
-            const segment = [pathData[i], pathData[i + 1]];
-            const endPoint = segment[1];
-            if(!endPoint.date) continue;
-            const plannedProgressAtDate = d3.scaleTime().domain([startDate, endDate]).range([0, 100])(endPoint.date);
-            const colorClass = endPoint.progress >= plannedProgressAtDate ? 'stroke-green-500' : 'stroke-red-500';
-            svg.append("path")
-                .datum(segment)
-                .attr("class", `${endPoint.completed ? 'actual-line' : 'projected-line'} ${colorClass}`)
-                .attr("d", line);
+            .attr("height", y.bandwidth());
+        
+        const today = new Date();
+        if (today >= startDate && today <= endDate) {
+             svg.append("line").attr("class", "today-line").attr("x1", x(today)).attr("y1", 0).attr("x2", x(today)).attr("y2", height);
         }
     },
 
@@ -2703,6 +2531,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
 
 
 
