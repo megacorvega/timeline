@@ -1018,6 +1018,50 @@ button:not(:disabled),
     stroke-dasharray: 3, 3;
 }
 
+/* ... (other CSS rules are unchanged) ... */
+
+@media print {
+    body > .container, body > *:not(#print-view):not(script):not(link) {
+        display: none !important;
+    }
+    html, body {
+        background-color: #fff !important;
+    }
+    #print-view {
+        display: block !important;
+        margin: 0;
+        padding: 0;
+    }
+    .print-project-container {
+        page-break-inside: avoid;
+        page-break-after: always;
+        padding: 1rem;
+        border-bottom: 1px solid #e2e8f0;
+    }
+     .print-project-container:last-child {
+        page-break-after: auto;
+        border-bottom: none;
+    }
+    .print-item-label {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .print-item-label.indent-1 { font-weight: 700; font-size: 1.1em; }
+    .print-item-label.indent-2 { padding-left: 1.5rem; }
+    .print-item-label.indent-3 { padding-left: 3rem; font-style: italic; }
+
+    /* Make D3 chart elements print-friendly */
+    .chart-grid .domain, .chart-grid .tick line { stroke: #e2e8f0; }
+    .chart-grid .tick text { fill: #475569; }
+    .planned-line { stroke: #94a3b8; stroke-dasharray: 2, 2; }
+    .finish-line { stroke: #ef4444; }
+    .today-line { stroke: #3b82f6; }
+    .actual-line, .projected-line { stroke-width: 2; }
+    .gantt-bar-bg { fill: #e2e8f0; }
+    .gantt-bar-progress { fill: #64748b; }
+}
+
 /* --- Days Left Pill --- */
 .days-left-pill {
     background-color: var(--bg-tertiary);
@@ -1270,3 +1314,4 @@ button:not(:disabled),
     font-size: 12px;
     padding: 10px 0;
 }
+
