@@ -272,7 +272,7 @@ const timelineApp = {
                         task.subtasks.forEach(subtask => {
                             const subtaskStatus = subtask.completed ? "Done" : "Working on it";
                             const subtaskRow = [
-                                `${project.name} > ${task.name} > ${subtask.name}`,
+                                `${project.name} > ${phase.name} > ${task.name} > ${subtask.name}`,
                                 subtask.startDate || "",
                                 subtask.endDate || "",
                                 subtaskStatus
@@ -283,7 +283,7 @@ const timelineApp = {
                         // If there are no subtasks, export the task itself
                         const taskStatus = task.completed ? "Done" : "Working on it";
                         const taskRow = [
-                            `${project.name} > ${task.name}`,
+                            `${project.name} > ${phase.name} > ${task.name}`,
                             task.effectiveStartDate || "",
                             task.effectiveEndDate || "",
                             taskStatus
@@ -2677,4 +2677,5 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
 
