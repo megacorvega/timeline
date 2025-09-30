@@ -20,6 +20,7 @@ const timelineApp = {
     tabOrder: ['projects', 'list', 'overall-load', 'upcoming'],
     fullscreenObserver: null,
     resizeTimeout: null,
+    upcomingProjectFilter: 'all', // <-- ADD THIS LINE
 
     // --- DOM ELEMENTS ---
     elements: {},
@@ -85,10 +86,12 @@ const timelineApp = {
             shortcutsBtn: document.getElementById('shortcuts-btn'),
             shortcutsModal: document.getElementById('shortcuts-modal'),
             shortcutsModalBackdrop: document.getElementById('shortcuts-modal-backdrop'),
-            closeShortcutsBtn: document.getElementById('close-shortcuts-btn')
+            closeShortcutsBtn: document.getElementById('close-shortcuts-btn'),
+            upcomingProjectFilter: document.getElementById('upcoming-project-filter') // <-- ADD THIS LINE
         };
     },
 
+// megacorvega/timeline/timeline-f6a8e5036442f8e80443c8b16d897c212e40770d/app.js
     addEventListeners() {
         this.elements.themeSelect.addEventListener('change', (e) => {
             document.documentElement.setAttribute('data-theme', e.target.value);
@@ -200,6 +203,11 @@ const timelineApp = {
         this.elements.shortcutsBtn.addEventListener('click', this.toggleShortcutsModal.bind(this));
         this.elements.closeShortcutsBtn.addEventListener('click', this.toggleShortcutsModal.bind(this));
         this.elements.shortcutsModalBackdrop.addEventListener('click', this.toggleShortcutsModal.bind(this));
+
+        this.elements.upcomingProjectFilter.addEventListener('change', (e) => {
+            this.upcomingProjectFilter = e.target.value;
+            this.renderUpcomingTasks();
+        });
 
         window.addEventListener('resize', () => {
             clearTimeout(this.resizeTimeout);
@@ -1401,10 +1409,28 @@ const timelineApp = {
     },
 
     renderUpcomingTasks() {
+        // --- Populate Filter Dropdown ---
+        const filterDropdown = this.elements.upcomingProjectFilter;
+        const currentFilterValue = this.upcomingProjectFilter; // Save the current value
+        filterDropdown.innerHTML = '<option value="all">All Projects</option>'; // Reset
+        this.projects.forEach(project => {
+            const option = document.createElement('option');
+            option.value = project.id;
+            option.textContent = project.name;
+            filterDropdown.appendChild(option);
+        });
+        filterDropdown.value = currentFilterValue; // Restore the saved value
+
+        // --- Filter and Render Tasks ---
         const container = document.getElementById('upcoming-tasks-container');
         container.innerHTML = '';
-        const allItems = [];
+        let allItems = [];
         this.projects.forEach(project => {
+            // Apply the project filter here
+            if (this.upcomingProjectFilter !== 'all' && project.id.toString() !== this.upcomingProjectFilter) {
+                return; // Skip this project if it doesn't match the filter
+            }
+
             project.phases.forEach(phase => {
                 phase.tasks.forEach(task => {
                     if (task.subtasks && task.subtasks.length > 0) {
@@ -1441,7 +1467,7 @@ const timelineApp = {
         });
 
         if (allItems.length === 0) {
-            container.innerHTML = `<div class="upcoming-card p-4 rounded-xl shadow-md text-center text-secondary">No upcoming tasks with due dates.</div>`;
+            container.innerHTML = `<div class="upcoming-card p-4 rounded-xl shadow-md text-center text-secondary">No upcoming tasks match the filter.</div>`;
             return;
         }
 
@@ -2677,5 +2703,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
 
 
