@@ -511,30 +511,6 @@ button:not(:disabled),
     stroke: var(--accent-primary);
 }
 
-@media print {
-    body {
-        background-color: #fff;
-    }
-    header, .project-card-add, #import-btn, #export-btn, #pdf-btn, #shortcuts-btn, #dependency-btn-container, #dependency-tooltip, #fullscreen-modal {
-        display: none !important;
-    }
-    .project-card {
-        page-break-before: always;
-        box-shadow: none;
-        border: 1px solid #e2e8f0;
-    }
-    .project-card:first-of-type {
-        page-break-before: auto;
-    }
-    :root {
-        --bg-page: #ffffff !important;
-        --bg-primary: #ffffff !important;
-        --bg-secondary: #f1f5f9 !important;
-        --text-primary: #000000 !important;
-        --text-secondary: #475569 !important;
-    }
-}
-
 .dependency-tree-node {
     display: flex;
     flex-direction: column;
@@ -1018,50 +994,6 @@ button:not(:disabled),
     stroke-dasharray: 3, 3;
 }
 
-/* ... (other CSS rules are unchanged) ... */
-
-@media print {
-    body > .container, body > *:not(#print-view):not(script):not(link) {
-        display: none !important;
-    }
-    html, body {
-        background-color: #fff !important;
-    }
-    #print-view {
-        display: block !important;
-        margin: 0;
-        padding: 0;
-    }
-    .print-project-container {
-        page-break-inside: avoid;
-        page-break-after: always;
-        padding: 1rem;
-        border-bottom: 1px solid #e2e8f0;
-    }
-     .print-project-container:last-child {
-        page-break-after: auto;
-        border-bottom: none;
-    }
-    .print-item-label {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .print-item-label.indent-1 { font-weight: 700; font-size: 1.1em; }
-    .print-item-label.indent-2 { padding-left: 1.5rem; }
-    .print-item-label.indent-3 { padding-left: 3rem; font-style: italic; }
-
-    /* Make D3 chart elements print-friendly */
-    .chart-grid .domain, .chart-grid .tick line { stroke: #e2e8f0; }
-    .chart-grid .tick text { fill: #475569; }
-    .planned-line { stroke: #94a3b8; stroke-dasharray: 2, 2; }
-    .finish-line { stroke: #ef4444; }
-    .today-line { stroke: #3b82f6; }
-    .actual-line, .projected-line { stroke-width: 2; }
-    .gantt-bar-bg { fill: #e2e8f0; }
-    .gantt-bar-progress { fill: #64748b; }
-}
-
 /* --- Days Left Pill --- */
 .days-left-pill {
     background-color: var(--bg-tertiary);
@@ -1171,13 +1103,22 @@ button:not(:disabled),
     transition: background-color 0.2s, color 0.2s, opacity 0.2s;
     opacity: 0;
 }
+.print-btn { /* Added for new print button */
+    padding: 4px;
+    border-radius: 6px;
+    color: var(--text-tertiary);
+    transition: background-color 0.2s, color 0.2s, opacity 0.2s;
+    opacity: 0;
+}
 
 .project-header:hover .lock-toggle-btn,
+.project-header:hover .print-btn,
 .phase-row:hover .lock-toggle-btn {
     opacity: 1;
 }
 
-.lock-toggle-btn:hover:not(:disabled) {
+.lock-toggle-btn:hover:not(:disabled),
+.print-btn:hover {
     background-color: var(--bg-tertiary);
     color: var(--text-primary);
 }
@@ -1315,3 +1256,115 @@ button:not(:disabled),
     padding: 10px 0;
 }
 
+/* --- REVAMPED PRINT STYLES --- */
+@media print {
+    @page {
+        size: landscape;
+        margin: 0.5in;
+    }
+
+    body, html {
+        background-color: #fff !important;
+        -webkit-print-color-adjust: exact;
+        color-adjust: exact;
+    }
+
+    :root {
+        --bg-page: #ffffff !important;
+        --bg-primary: #ffffff !important;
+        --bg-secondary: #f1f5f9 !important;
+        --text-primary: #0f172a !important;
+        --text-secondary: #475569 !important;
+        --border-primary: #e2e8f0 !important;
+    }
+
+    body > *:not(#print-view) {
+        display: none !important;
+    }
+    
+    #print-view {
+        display: block !important;
+    }
+
+    .print-project-container {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .print-header {
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid var(--border-primary);
+        color: var(--text-primary);
+    }
+    .print-header h1 {
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+    .print-header h2 {
+        font-size: 1rem;
+        color: var(--text-secondary);
+    }
+
+    .print-layout {
+        display: grid;
+        grid-template-columns: 35% 1fr;
+        gap: 1.5rem;
+        flex-grow: 1;
+        overflow: hidden;
+    }
+    
+    .print-list-container {
+        font-size: 10px;
+        line-height: 1.4;
+        color: var(--text-primary);
+        height: 100%;
+    }
+
+    .print-item-name {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .print-item.level-1 { font-weight: 700; font-size: 1.1em; margin-bottom: 8px; }
+    .print-item.level-2 { padding-left: 1rem; font-weight: 600; margin-top: 6px; }
+    .print-item.level-3 { padding-left: 2rem; }
+    .print-item.level-4 { padding-left: 3rem; font-style: italic; }
+
+    /* Print-friendly D3 chart elements */
+    .print-chart-container .gantt-y-axis .domain,
+    .print-chart-container .gantt-y-axis .tick line {
+        stroke: none;
+    }
+    .print-chart-container .gantt-y-axis .tick text {
+        display: none; /* Text is in the left column */
+    }
+    .print-chart-container .gantt-x-axis .domain,
+    .print-chart-container .gantt-x-axis .tick line {
+        stroke: #e2e8f0;
+    }
+    .print-chart-container .gantt-x-axis .tick text {
+        fill: var(--text-secondary);
+        font-size: 8px;
+    }
+    .print-chart-container .gantt-bar-bg {
+        fill: #e2e8f0;
+        stroke: #ccc;
+    }
+    .print-chart-container .gantt-bar-progress {
+        fill: #64748b; /* slate-500 */
+    }
+    .print-chart-container .today-line {
+        stroke: #3b82f6;
+        stroke-width: 1;
+        stroke-dasharray: 2,2;
+    }
+    .print-chart-container .phase-divider-line {
+        stroke: #cbd5e1;
+        stroke-width: 1;
+        stroke-dasharray: 2,2;
+    }
+}
