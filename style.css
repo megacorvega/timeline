@@ -1391,29 +1391,5 @@ button:not(:disabled),
         stroke-width: 1;
         stroke-dasharray: 2,2;
     }
-    .progress-marker-circle {
-        r: 5;
-        stroke: var(--bg-page);
-        stroke-width: 1.5;
-    }
-    
-    .hover-line {
-        stroke: var(--text-secondary);
-        stroke-width: 1;
-        stroke-dasharray: 3, 3;
-    }
-    
-    .hover-tooltip rect {
-        fill: var(--bg-secondary);
-        stroke: var(--border-primary);
-    }
-    
-    .hover-tooltip text {
-        fill: var(--text-primary);
-        font-size: 10px;
-        font-weight: 500;
-    }
 }
-
-
 
