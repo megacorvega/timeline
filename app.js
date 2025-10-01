@@ -681,26 +681,36 @@ renderProjects() {
             const overallProgress = Math.round(project.overallProgress);
 
             let progressColor = 'var(--green)';
-            let tooltipText = '';
-
-            const isBehind = overallProgress < durationProgress && !daysLeftInfo.isOverdue;
+            let statusText = '';
+            let statusColorClass = ''; // For tooltip styling
 
             if (project.overallProgress >= 100) {
-                 progressColor = 'var(--green)';
-                 tooltipText = `<b>Status: Complete</b><br>Finished with ${daysLeftInfo.days !== null ? Math.abs(daysLeftInfo.days) : '0'} weekdays to spare.`;
+                progressColor = 'var(--green)';
+                statusText = 'Complete';
+                statusColorClass = 'status-complete';
             } else if (daysLeftInfo.isOverdue) {
                 progressColor = 'var(--red)';
-                tooltipText = `<b>Status: Overdue</b><br>The deadline has passed, and only ${overallProgress}% of work is complete.`;
-            } else if (isBehind) {
+                statusText = 'Late';
+                statusColorClass = 'status-late';
+            } else if (overallProgress < durationProgress) {
                 progressColor = 'var(--amber)';
-                 tooltipText = `<b>Status: Behind</b><br>Only ${overallProgress}% of work is complete, but ${Math.round(durationProgress)}% of time has passed.`;
-            } else if (overallProgress > durationProgress) {
-                progressColor = 'var(--green)';
-                tooltipText = `<b>Status: Ahead</b><br>${overallProgress}% of work is complete in only ${Math.round(durationProgress)}% of the allotted time.`;
-            } else { // on track
+                statusText = 'At Risk';
+                statusColorClass = 'status-at-risk';
+            } else {
                 progressColor = 'var(--blue)';
-                 tooltipText = `<b>Status: On Track</b><br>${overallProgress}% of work is complete in ${Math.round(durationProgress)}% of the allotted time.`;
+                statusText = 'On Track';
+                statusColorClass = 'status-on-track';
             }
+            
+            const tooltipText = `
+                <div class="tooltip-grid">
+                    <span>Status:</span><span class="status-pill ${statusColorClass}">${statusText}</span>
+                    <span>Completion:</span><span>${overallProgress}%</span>
+                    <span>Time Elapsed:</span><span>${Math.round(durationProgress)}%</span>
+                    <span>Days Left:</span><span>${daysLeftInfo.days !== null ? daysLeftInfo.days : 'N/A'}</span>
+                </div>
+            `;
+
 
             const pacingBarHTML = `
                 <div class="duration-scale-container tooltip">
@@ -789,7 +799,6 @@ renderProjects() {
             this.renderUpcomingTasks();
         }
     },
-
     getDependencyIcon(item) {
         const dependentCount = item.dependents?.length || 0;
         const isDependentSource = dependentCount > 0;
@@ -2546,6 +2555,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
 
 
 
