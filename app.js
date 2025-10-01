@@ -1133,12 +1133,10 @@ drawChart(project) {
             x.domain([startDate, endDate]);
             y.domain([0, 100]);
 
-            // --- MODIFIED SECTION ---
+            // This section now uses the corrected helper function
             const tickInterval = this.getTickInterval(x.domain());
             const tickFormat = this.getTickFormat(x.domain());
-
             svg.append("g").attr("class", "chart-grid").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x).ticks(tickInterval).tickFormat(tickFormat));
-            // --- END MODIFIED SECTION ---
 
             svg.append("g").attr("class", "chart-grid").call(d3.axisLeft(y).ticks(5).tickFormat(d => `${d}%`));
     
@@ -2550,21 +2548,24 @@ generatePrintView(projectId) {
         }
         return null;
     },
-    getTickInterval(domain) {
+    
+getTickInterval(domain) {
         const [startDate, endDate] = domain;
         const durationDays = (endDate - startDate) / (1000 * 60 * 60 * 24);
 
-        if (durationDays <= 31) { // ~1 month
+        if (durationDays <= 14) {         // Up to 2 weeks
+            return d3.timeDay.every(2);
+        } else if (durationDays <= 60) {  // Up to ~2 months
             return d3.timeWeek.every(1);
-        } else if (durationDays <= 93) { // ~3 months (1 quarter)
+        } else if (durationDays <= 180) { // Up to ~6 months
             return d3.timeMonth.every(1);
-        } else if (durationDays <= 186) { // ~6 months
+        } else if (durationDays <= 366) { // Up to ~1 year
             return d3.timeMonth.every(2);
-        } else if (durationDays <= 366) { // ~1 year
+        } else if (durationDays <= 731) { // Up to ~2 years
             return d3.timeMonth.every(3); // Quarterly
-        } else if (durationDays <= 731) { // ~2 years
+        } else if (durationDays <= 1460) { // Up to ~4 years
             return d3.timeMonth.every(6); // Half-yearly
-        } else { // More than 2 years
+        } else {                          // More than 4 years
             return d3.timeYear.every(1);
         }
     },
@@ -2593,6 +2594,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
 
 
 
