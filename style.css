@@ -902,8 +902,6 @@ button:not(:disabled),
 /* --- Tooltip (Shared by Pacing Bar and other elements) --- */
 .tooltip {
     position: relative;
-    display: flex; /* Added for alignment */
-    align-items: center; /* Added for alignment */
 }
 .tooltip .tooltip-text {
     visibility: hidden;
@@ -916,18 +914,18 @@ button:not(:disabled),
     padding: 12px;
     position: absolute;
     z-index: 10;
-    bottom: 160%; /* Increased distance */
+    bottom: 160%;
     left: 50%;
     transform: translateX(-50%);
     opacity: 0;
     transition: opacity 0.2s ease-in-out, bottom 0.2s ease-in-out;
     pointer-events: none;
-    font-size: 12px; /* Set a base font size */
+    font-size: 12px;
 }
 .tooltip:hover .tooltip-text {
     visibility: visible;
     opacity: 1;
-    bottom: 150%; /* Animate upwards on hover */
+    bottom: 150%;
 }
 .tooltip .tooltip-grid {
     display: grid;
@@ -945,6 +943,7 @@ button:not(:disabled),
     font-weight: 600;
     text-align: center;
     font-size: 10px;
+    justify-self: start;
 }
 .tooltip .status-on-track { background-color: var(--blue); color: #fff; }
 .tooltip .status-at-risk { background-color: var(--amber); color: #fff; }
@@ -1393,4 +1392,5 @@ button:not(:disabled),
         stroke-dasharray: 2,2;
     }
 }
+
 
