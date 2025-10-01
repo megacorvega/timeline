@@ -902,40 +902,65 @@ button:not(:disabled),
 /* --- Tooltip (Shared by Pacing Bar and other elements) --- */
 .tooltip {
     position: relative;
+    display: flex; /* Added for alignment */
+    align-items: center; /* Added for alignment */
 }
 .tooltip .tooltip-text {
     visibility: hidden;
-    width: 220px;
-    background-color: var(--accent-primary);
-    color: var(--accent-text);
-    text-align: center;
-    border-radius: 6px;
-    padding: 8px;
+    min-width: 240px;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-primary);
+    box-shadow: 0 4px 6px -1px var(--shadow-color);
+    border-radius: 8px;
+    padding: 12px;
     position: absolute;
     z-index: 10;
-    bottom: 150%;
+    bottom: 160%; /* Increased distance */
     left: 50%;
     transform: translateX(-50%);
     opacity: 0;
-    transition: opacity 0.3s;
+    transition: opacity 0.2s ease-in-out, bottom 0.2s ease-in-out;
     pointer-events: none;
+    font-size: 12px; /* Set a base font size */
 }
-.tooltip .tooltip-text b {
-    color: var(--accent-text);
+.tooltip:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+    bottom: 150%; /* Animate upwards on hover */
 }
+.tooltip .tooltip-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 12px;
+    text-align: left;
+}
+.tooltip .tooltip-grid span:nth-child(odd) {
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+.tooltip .status-pill {
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-weight: 600;
+    text-align: center;
+    font-size: 10px;
+}
+.tooltip .status-on-track { background-color: var(--blue); color: #fff; }
+.tooltip .status-at-risk { background-color: var(--amber); color: #fff; }
+.tooltip .status-late { background-color: var(--red); color: #fff; }
+.tooltip .status-complete { background-color: var(--green); color: #fff; }
+
 .tooltip .tooltip-text::after {
     content: "";
     position: absolute;
     top: 100%;
     left: 50%;
-    margin-left: -5px;
-    border-width: 5px;
+    transform: translateX(-50%);
+    border-width: 6px;
     border-style: solid;
-    border-color: var(--accent-primary) transparent transparent transparent;
-}
-.tooltip:hover .tooltip-text {
-    visibility: visible;
-    opacity: 1;
+    border-color: var(--bg-primary) transparent transparent transparent;
+    filter: drop-shadow(0 1px 1px var(--shadow-color));
 }
 
 /* --- Gantt Chart Styles --- */
@@ -1368,3 +1393,4 @@ button:not(:disabled),
         stroke-dasharray: 2,2;
     }
 }
+
