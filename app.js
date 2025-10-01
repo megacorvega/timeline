@@ -1107,7 +1107,7 @@ renderProjects() {
         container.innerHTML = tableHtml;
     },
 
-    drawChart(project) {
+drawChart(project) {
         const container = d3.select(`#chart-${project.id}`);
         if (container.empty() || !project.startDate || !project.endDate) return;
         setTimeout(() => {
@@ -1132,7 +1132,14 @@ renderProjects() {
     
             x.domain([startDate, endDate]);
             y.domain([0, 100]);
-            svg.append("g").attr("class", "chart-grid").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x).ticks(5).tickFormat(this.formatDate));
+
+            // --- MODIFIED SECTION ---
+            const tickInterval = this.getTickInterval(x.domain());
+            const tickFormat = this.getTickFormat(x.domain());
+
+            svg.append("g").attr("class", "chart-grid").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x).ticks(tickInterval).tickFormat(tickFormat));
+            // --- END MODIFIED SECTION ---
+
             svg.append("g").attr("class", "chart-grid").call(d3.axisLeft(y).ticks(5).tickFormat(d => `${d}%`));
     
             const endDateChanges = project.logs
@@ -2542,6 +2549,37 @@ generatePrintView(projectId) {
             return task.subtasks.find(st => st.id === subtaskId);
         }
         return null;
+    },
+    getTickInterval(domain) {
+        const [startDate, endDate] = domain;
+        const durationDays = (endDate - startDate) / (1000 * 60 * 60 * 24);
+
+        if (durationDays <= 31) { // ~1 month
+            return d3.timeWeek.every(1);
+        } else if (durationDays <= 93) { // ~3 months (1 quarter)
+            return d3.timeMonth.every(1);
+        } else if (durationDays <= 186) { // ~6 months
+            return d3.timeMonth.every(2);
+        } else if (durationDays <= 366) { // ~1 year
+            return d3.timeMonth.every(3); // Quarterly
+        } else if (durationDays <= 731) { // ~2 years
+            return d3.timeMonth.every(6); // Half-yearly
+        } else { // More than 2 years
+            return d3.timeYear.every(1);
+        }
+    },
+
+    getTickFormat(domain) {
+        const [startDate, endDate] = domain;
+        const durationDays = (endDate - startDate) / (1000 * 60 * 60 * 24);
+
+        if (durationDays <= 93) { // Up to a quarter
+            return d3.timeFormat("%b %d"); // e.g., Jan 01
+        } else if (durationDays <= 366) { // Up to a year
+            return d3.timeFormat("%b '%y"); // e.g., Jan '25
+        } else { // More than a year
+            return d3.timeFormat("%Y"); // e.g., 2025
+        }
     }
 };
 
@@ -2555,6 +2593,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
 
 
 
