@@ -846,7 +846,7 @@ renderProjects() {
             } else if (durationProgress > 75) {
                 durationBarColorClass = 'bg-yellow-500';
             }
-            const iconHtml = `<div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>`;
+            const iconHtml = `<div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 002-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>`;
             const lockIcon = phase.locked
                 ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>`
                 : `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h5V3a3 3 0 0 1 6 0v4a.5.5 0 0 1-1 0V3a2 2 0 0 0-2-2z"/></svg>`;
@@ -1108,153 +1108,177 @@ renderProjects() {
     },
 
 drawChart(project) {
-    const container = d3.select(`#chart-${project.id}`);
-    if (container.empty() || !project.startDate || !project.endDate) return;
-    setTimeout(() => {
-        const width = container.node().getBoundingClientRect().width;
-        if (width <= 0) return;
-        container.selectAll("*").remove();
-
-        const margin = { top: 10, right: 20, bottom: 20, left: 40 },
-            chartWidth = width - margin.left - margin.right,
-            height = container.node().getBoundingClientRect().height - margin.top - margin.bottom;
-        const svg = container.append("svg").attr("width", chartWidth + margin.left + margin.right).attr("height", height + margin.top + margin.bottom).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
-        
-        const x = d3.scaleTime().range([0, chartWidth]);
-        const y = d3.scaleLinear().range([height, 0]);
-
-        const startDate = project.zoomDomain ? this.parseDate(project.zoomDomain[0]) : this.parseDate(project.startDate);
-        const endDate = project.zoomDomain ? this.parseDate(project.zoomDomain[1]) : this.parseDate(project.endDate);
-
-        x.domain([startDate, endDate]);
-        y.domain([0, 100]);
-
-        const tickInterval = this.getTickInterval(x.domain());
-        const tickFormat = this.getTickFormat(x.domain());
-        svg.append("g").attr("class", "chart-grid").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x).ticks(tickInterval).tickFormat(tickFormat));
-        svg.append("g").attr("class", "chart-grid").call(d3.axisLeft(y).ticks(5).tickFormat(d => `${d}%`));
-
-        const today = new Date();
-        if (today >= startDate && today <= endDate) {
-            svg.append("line").attr("class", "today-line").attr("x1", x(today)).attr("y1", 0).attr("x2", x(today)).attr("y2", height);
-        }
-
-        const scopedPhases = [...project.phases].filter(p => p.startDate && p.endDate).sort((a, b) => this.parseDate(a.startDate) - this.parseDate(b.startDate));
-        const scopePathData = [];
-        if (scopedPhases.length > 0) {
-            scopePathData.push({ date: this.parseDate(scopedPhases[0].startDate), progress: 0 });
-            scopedPhases.forEach((phase, i) => {
-                const progressPerPhase = 100 / scopedPhases.length;
-                const cumulativeProgress = (i + 1) * progressPerPhase;
-                scopePathData.push({ date: this.parseDate(phase.endDate), progress: cumulativeProgress, phaseName: phase.name, id: phase.id });
-            });
-        }
-
-        if (scopePathData.length > 1) {
-            const scopeLine = d3.line().x(d => x(d.date)).y(d => y(d.progress));
-            svg.append("path").datum(scopePathData).attr("class", "planned-line").attr("d", scopeLine).style("fill", "none");
-        }
-
-        svg.append("line").attr("class", "finish-line").attr("x1", x(this.parseDate(project.endDate))).attr("y1", 0).attr("x2", x(this.parseDate(project.endDate))).attr("y2", height);
-        
-        const allTasks = project.phases.flatMap(p => p.tasks).flatMap(t => (t.subtasks && t.subtasks.length > 0) ? t.subtasks : t).filter(item => item.effectiveEndDate || item.endDate);
-        const firstActivityDate = this.parseDate(this.getBoundaryDate(allTasks, 'earliest')) || this.parseDate(project.startDate);
-
-        let pathData = [];
-        if (allTasks.length > 0) {
-            const completedTasks = allTasks.filter(t => t.completed).sort((a, b) => this.parseDate(a.effectiveEndDate || a.endDate) - this.parseDate(b.effectiveEndDate || b.endDate));
-            let lastCompletedDate = firstActivityDate;
-            let lastCompletedProgress = 0;
-
-            if (completedTasks.length > 0) {
-                pathData = completedTasks.map(task => ({
-                    date: this.parseDate(task.effectiveEndDate || task.endDate),
-                    progress: (project.overallProgress / 100) * (completedTasks.filter(ct => this.parseDate(ct.effectiveEndDate || ct.endDate) <= this.parseDate(task.effectiveEndDate || task.endDate)).length / completedTasks.length) * 100
-                }));
-                lastCompletedDate = pathData[pathData.length - 1].date;
-                lastCompletedProgress = project.overallProgress;
+        const container = d3.select(`#chart-${project.id}`);
+        if (container.empty() || !project.startDate || !project.endDate) return;
+        setTimeout(() => {
+            const width = container.node().getBoundingClientRect().width;
+            if (width <= 0) return;
+            container.selectAll("*").remove();
+    
+            let tooltip = d3.select("body").select(".chart-tooltip");
+            if (tooltip.empty()) {
+                tooltip = d3.select("body").append("div").attr("class", "chart-tooltip");
             }
-            
-            pathData.unshift({ date: firstActivityDate, progress: 0 });
+    
+            const margin = { top: 10, right: 20, bottom: 20, left: 40 },
+                chartWidth = width - margin.left - margin.right,
+                height = container.node().getBoundingClientRect().height - margin.top - margin.bottom;
+            const svg = container.append("svg").attr("width", chartWidth + margin.left + margin.right).attr("height", height + margin.top + margin.bottom).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+            const x = d3.scaleTime().range([0, chartWidth]),
+                y = d3.scaleLinear().range([height, 0]);
+    
+            const startDate = project.zoomDomain ? this.parseDate(project.zoomDomain[0]) : this.parseDate(project.startDate);
+            const endDate = project.zoomDomain ? this.parseDate(project.zoomDomain[1]) : this.parseDate(project.endDate);
+    
+            x.domain([startDate, endDate]);
+            y.domain([0, 100]);
 
-            if (project.overallProgress < 100) {
-                 pathData.push({ date: new Date(), progress: lastCompletedProgress });
+            // This section now uses the corrected helper function
+            const tickInterval = this.getTickInterval(x.domain());
+            const tickFormat = this.getTickFormat(x.domain());
+            svg.append("g").attr("class", "chart-grid").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x).ticks(tickInterval).tickFormat(tickFormat));
+
+            svg.append("g").attr("class", "chart-grid").call(d3.axisLeft(y).ticks(5).tickFormat(d => `${d}%`));
+    
+            const endDateChanges = project.logs
+                .filter(log => log.item.includes(`Project '${project.name}' end date`) && log.from)
+                .map(log => log.from);
+            if (project.originalEndDate) {
+                endDateChanges.push(project.originalEndDate);
             }
-        } else {
-            pathData = [{ date: firstActivityDate, progress: 0 }];
-        }
-
-        const line = d3.line().x(d => x(d.date)).y(d => y(d.progress));
-        svg.append("path").datum(pathData).attr("class", `actual-line ${project.overallProgress < this.getDurationProgress(project.startDate, project.endDate) ? 'stroke-red-500' : 'stroke-green-500'}`).attr("d", line);
-        
-        const phaseMarkers = svg.selectAll(".phase-marker").data(scopePathData.slice(1)).enter().append("g").attr("class", d => `phase-marker phase-marker-${d.id}`).attr("transform", d => `translate(${x(d.date)}, ${y(d.progress)})`);
-        phaseMarkers.append("circle").attr("class", "phase-marker-circle");
-        phaseMarkers.append("text").attr("class", "phase-marker-text").text((d, i) => `P${i + 1}`);
-
-        const progressPhaseMarkers = scopePathData.slice(1).map(plannedPhase => {
-            const actualProgressAtDate = y.invert(d3.path().point(x(plannedPhase.date), y(plannedPhase.progress)).node().getPointAtLength(0).y);
-            const actualDateForProgress = this.getPlannedDateForProgress(plannedPhase.progress, pathData, project);
-            
-            return {
-                ...plannedPhase,
-                actualDate: actualDateForProgress,
-                isLate: actualDateForProgress > plannedPhase.date
-            };
-        });
-
-        svg.selectAll(".progress-marker").data(progressPhaseMarkers).enter().append("circle")
-            .attr("class", "progress-marker-circle")
-            .attr("cx", d => x(d.actualDate))
-            .attr("cy", d => y(d.progress))
-            .attr("fill", d => d.isLate ? '#ef4444' : '#22c55e');
-
-        const brush = d3.brushX().extent([[0, 0], [chartWidth, height]]).on("end", (event) => {
-            if (!event.selection) return;
-            const [x0, x1] = event.selection.map(x.invert);
-            project.zoomDomain = [x0.toISOString().split('T')[0], x1.toISOString().split('T')[0]];
-            this.saveState();
-            this.renderProjects();
-        });
-        const brushG = svg.append("g").attr("class", "brush").call(brush);
-        brushG.select(".overlay").style("pointer-events", "none");
-
-        const hoverGroup = svg.append("g").attr("class", "hover-group").style("display", "none");
-        hoverGroup.append("line").attr("class", "hover-line").attr("y1", 0).attr("y2", height);
-        const hoverTooltip = hoverGroup.append("g").attr("class", "hover-tooltip");
-        hoverTooltip.append("rect");
-        hoverTooltip.append("text");
-
-        const bisectDate = d3.bisector(d => d.date).left;
-        svg.append("rect").attr("width", chartWidth).attr("height", height).style("fill", "none").style("pointer-events", "all")
-            .on("mouseover", () => hoverGroup.style("display", null))
-            .on("mouseout", () => hoverGroup.style("display", "none"))
-            .on("mousemove", (event) => {
-                const pointerDate = x.invert(d3.pointer(event)[0]);
-                const i = bisectDate(scopePathData, pointerDate, 1);
-                const p0 = scopePathData[i - 1], p1 = scopePathData[i];
-                const phase = pointerDate - p0.date > p1.date - pointerDate ? p1 : p0;
-
-                hoverGroup.attr("transform", `translate(${x(pointerDate)}, 0)`);
-                const tooltipText = hoverTooltip.select("text").text(`${this.formatDate(pointerDate)} | ${phase.phaseName}`);
-                const bbox = tooltipText.node().getBBox();
-                hoverTooltip.select("rect").attr("x", bbox.x - 4).attr("y", bbox.y - 2).attr("width", bbox.width + 8).attr("height", bbox.height + 4);
-
-                let tooltipX = 10;
-                if (x(pointerDate) + bbox.width > chartWidth) {
-                    tooltipX = -bbox.width - 10;
+            const uniquePriorEndDates = [...new Set(endDateChanges)].filter(d => d !== project.endDate);
+    
+            uniquePriorEndDates.forEach(dateStr => {
+                const date = this.parseDate(dateStr);
+                if (date) {
+                    svg.append("line")
+                        .attr("class", "ghost-finish-line")
+                        .attr("x1", x(date))
+                        .attr("y1", 0)
+                        .attr("x2", x(date))
+                        .attr("y2", height);
                 }
-                hoverTooltip.attr("transform", `translate(${tooltipX}, 15)`);
-            })
-            .on("click", () => {
-                 brushG.select(".overlay").style("pointer-events", "all");
-                 d3.select(window).on("mouseup.brush", () => {
-                     brushG.select(".overlay").style("pointer-events", "none");
-                     d3.select(window).on("mouseup.brush", null);
-                 });
             });
-
-    }, 0);
-}
+    
+            const today = new Date();
+            if (today >= startDate && today <= endDate) {
+                svg.append("line")
+                    .attr("class", "today-line")
+                    .attr("x1", x(today))
+                    .attr("y1", 0)
+                    .attr("x2", x(today))
+                    .attr("y2", height);
+            }
+    
+            const scopedPhases = [...project.phases]
+                .filter(p => p.startDate && p.endDate)
+                .sort((a, b) => this.parseDate(a.startDate) - this.parseDate(b.startDate));
+    
+            const scopePathData = [];
+            if (scopedPhases.length > 0) {
+                scopePathData.push({ date: this.parseDate(scopedPhases[0].startDate), progress: 0 });
+                scopedPhases.forEach((phase, i) => {
+                    const progressPerPhase = 100 / scopedPhases.length;
+                    const cumulativeProgress = (i + 1) * progressPerPhase;
+                    scopePathData.push({ date: this.parseDate(phase.endDate), progress: cumulativeProgress });
+                });
+            }
+    
+            if (scopePathData.length > 1) {
+                const scopeLine = d3.line().x(d => x(d.date)).y(d => y(d.progress));
+                svg.append("path")
+                    .datum(scopePathData)
+                    .attr("class", "planned-line")
+                    .attr("d", scopeLine)
+                    .style("fill", "none");
+            } else {
+                svg.append("line").attr("class", "planned-line").attr("x1", x(this.parseDate(project.startDate))).attr("y1", y(0)).attr("x2", x(this.parseDate(project.endDate))).attr("y2", y(100));
+            }
+    
+            svg.append("line").attr("class", "finish-line").attr("x1", x(this.parseDate(project.endDate))).attr("y1", 0).attr("x2", x(this.parseDate(project.endDate))).attr("y2", height);
+    
+            const allTasks = project.phases.flatMap(phase => phase.tasks).filter(task => task.effectiveEndDate);
+            const firstActivityDate = this.parseDate(this.getBoundaryDate(allTasks, 'earliest')) || this.parseDate(project.startDate);
+            const pathData = [{ date: firstActivityDate, progress: 0 }];
+            let cumulativeProgress = 0;
+    
+            allTasks.sort((a,b) => this.parseDate(a.effectiveEndDate) - this.parseDate(b.effectiveEndDate)).forEach(task => {
+                const dateForPoint = this.parseDate(task.effectiveEndDate);
+                if (dateForPoint) {
+                    cumulativeProgress += 100 / (allTasks.length || 1);
+                    pathData.push({ date: dateForPoint, progress: cumulativeProgress, completed: task.completed, name: task.name });
+                }
+            });
+    
+            const line = d3.line().x(d => x(d.date)).y(d => y(d.progress));
+    
+            for (let i = 0; i < pathData.length - 1; i++) {
+                const segment = [pathData[i], pathData[i+1]];
+                const endPoint = segment[1];
+    
+                const plannedDateForProgress = this.getPlannedDateForProgress(endPoint.progress, scopePathData, project);
+                const actualDate = endPoint.date;
+                const isLate = actualDate > plannedDateForProgress || actualDate > this.parseDate(project.endDate);
+                const colorClass = isLate ? 'stroke-red-500' : 'stroke-green-500';
+    
+                svg.append("path").datum(segment).attr("class", `${endPoint.completed ? 'actual-line' : 'projected-line'} ${colorClass}`).attr("d", line);
+            }
+            svg.selectAll(".actual-point").data(pathData.slice(1).filter(d=>d.completed)).enter().append("circle").attr("class", "actual-point").attr("cx", d => x(d.date)).attr("cy", d => y(d.progress))
+                .attr("fill", d => {
+                    const plannedDateForProgress = this.getPlannedDateForProgress(d.progress, scopePathData, project);
+                    const actualDate = d.date;
+                    const isLate = actualDate > plannedDateForProgress || actualDate > this.parseDate(project.endDate);
+                    return isLate ? '#ef4444' : '#22c55e';
+                });
+    
+            const phaseMarkers = svg.selectAll(".phase-marker")
+                .data(scopedPhases) // Use the same data source as the planned line
+                .enter()
+                .append("g")
+                .attr("class", d => `phase-marker phase-marker-${d.id}`)
+                .attr("transform", (d, i) => {
+                    const phaseEndDate = this.parseDate(d.endDate); // Use the phase's own end date
+                    const progressPerPhase = 100 / scopedPhases.length;
+                    const phaseEndProgress = (i + 1) * progressPerPhase; // Calculate progress the same way as the line
+                    return `translate(${x(phaseEndDate)}, ${y(phaseEndProgress)})`;
+                })
+                .on("mouseover", function(event, d) {
+                    tooltip.style("visibility", "visible")
+                        .html(`<strong>${d.name}</strong><br>Ends: ${timelineApp.formatDate(timelineApp.parseDate(d.effectiveEndDate))}<br>Progress: ${Math.round(d.progress || 0)}%`);
+                    d3.select(this).select('circle').classed('phase-marker-highlight', true);
+                    const phaseRow = document.querySelector(`.phase-row[data-id='${d.id}']`);
+                    if (phaseRow) {
+                        phaseRow.classList.add('phase-row-highlight');
+                    }
+                })
+                .on("mousemove", (event) => {
+                    tooltip.style("top", (event.pageY - 10) + "px").style("left", (event.pageX + 10) + "px");
+                })
+                .on("mouseout", function(event, d) {
+                    tooltip.style("visibility", "hidden");
+                    d3.select(this).select('circle').classed('phase-marker-highlight', false);
+                    const phaseRow = document.querySelector(`.phase-row[data-id='${d.id}']`);
+                    if (phaseRow) {
+                        phaseRow.classList.remove('phase-row-highlight');
+                    }
+                });
+    
+            phaseMarkers.append("circle").attr("class", "phase-marker-circle");
+            phaseMarkers.append("text").attr("class", "phase-marker-text").text((d, i) => `P${i + 1}`);
+    
+            const brush = d3.brushX()
+                .extent([[0, 0], [chartWidth, height]])
+                .on("end", (event) => {
+                    if (!event.selection) return;
+                    const [x0, x1] = event.selection.map(x.invert);
+                    project.zoomDomain = [x0.toISOString().split('T')[0], x1.toISOString().split('T')[0]];
+                    this.saveState();
+                    this.renderProjects();
+                });
+            svg.append("g").attr("class", "brush").call(brush);
+    
+        }, 0);
+    },
 
     resetZoom(projectId) {
         const project = this.projects.find(p => p.id === projectId);
@@ -2570,4 +2594,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+
+
+
+
+
 
