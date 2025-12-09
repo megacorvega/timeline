@@ -2902,7 +2902,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('keydown', (e) => {
         const listPanel = document.getElementById('main-tab-panel-list');
         if (listPanel && !listPanel.classList.contains('hidden')) {
-            punchListApp.handleKeyboard(e);
+            // FIX: Explicitly call window.punchListApp
+            if (window.punchListApp) window.punchListApp.handleKeyboard(e);
         }
     });
 });
