@@ -65,6 +65,29 @@
         </div>
     </div>
 
+    <div id="move-to-project-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[1001] flex items-center justify-center p-4">
+        <div class="modal-card p-6 rounded-lg shadow-xl w-full max-w-sm">
+            <h3 class="text-lg font-bold mb-4">Move to Project</h3>
+            <p class="text-sm modal-text-secondary mb-4">Select where to assign this task:</p>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-secondary mb-1">Project</label>
+                    <select id="move-project-select" class="w-full p-2 border rounded-md input-primary text-sm"></select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-secondary mb-1">Phase</label>
+                    <select id="move-phase-select" class="w-full p-2 border rounded-md input-primary text-sm"></select>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end gap-2">
+                <button id="cancel-move-btn" class="px-4 py-2 rounded-md btn-secondary font-semibold text-sm">Cancel</button>
+                <button id="confirm-move-btn" class="px-4 py-2 rounded-md btn-primary text-white font-semibold text-sm">Move Task</button>
+            </div>
+        </div>
+    </div>
+
     <div id="dependency-banner" class="hidden sticky top-0 dependency-banner-bg border-b-2 border-blue-500 dependency-banner-text text-center py-2 z-40">
         <p><b>Dependency Mode:</b> Click a dependent item to create the link. Press ESC to cancel.</p>
     </div>
@@ -149,11 +172,23 @@
                         <span class="title-secondary">time</span><span class="title-primary">line</span>
                     </h1>
                 </div>
-                <div class="flex-grow flex justify-center">
-                     <div id="main-tabs" class="tabs-pill">
-                        <div class="glider"></div>
+                
+                <div class="flex-grow flex justify-start items-center pl-8">
+                    <div class="relative flex items-center">
+                        
+                        <div id="main-tabs" class="tabs-pill z-10 relative">
+                            <div class="glider"></div>
+                        </div>
+
+                        <div id="project-view-controls" class="tabs-pill absolute left-full top-1/2 -translate-y-1/2 ml-4 w-max hidden">
+                            <div id="project-view-glider" class="glider"></div>
+                            <button id="btn-view-gantt" class="tab-button active" onclick="timelineApp.setProjectView('gantt')">Timeline</button>
+                            <button id="btn-view-linear" class="tab-button" onclick="timelineApp.setProjectView('linear')">All Tasks</button>
+                        </div>
+
                     </div>
                 </div>
+                
                 <div class="flex-none">
                     <div class="flex items-center gap-2">
                         <button id="undo-btn" class="btn-secondary px-3 py-1.5 text-xs font-semibold rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50" disabled>
@@ -219,18 +254,9 @@
                 <div id="overall-load-legend" class="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs"></div>
             </div>
         </div>
-
-        <div id="main-tab-panel-upcoming" class="hidden">
-            <div class="upcoming-card p-3 rounded-xl shadow-md mb-4">
-                <div class="flex items-center">
-                    <label for="upcoming-project-filter" class="text-sm font-medium text-secondary mr-2">Filter by Project:</label>
-                    <select id="upcoming-project-filter" class="theme-select-dropdown flex-grow">
-                        <option value="all">All Projects</option>
-                    </select>
-                </div>
-            </div>
-            <div id="upcoming-tasks-container" class="space-y-4"></div>
-        </div>
+        
+        <div id="upcoming-tasks-container" class="hidden"></div>
+        <select id="upcoming-project-filter" class="hidden"></select>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
