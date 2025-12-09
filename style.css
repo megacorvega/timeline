@@ -1393,3 +1393,21 @@ button:not(:disabled),
     }
 }
 
+/* --- Move to Project Button Enhancements --- */
+
+/* Override Tailwind utility classes to ensure it matches the active Theme */
+.move-to-project-btn {
+    color: var(--text-tertiary) !important;
+    margin-right: 0 !important; /* The flex-gap handles the spacing, this prevents it from being too wide */
+}
+
+.move-to-project-btn:hover {
+    color: var(--accent-primary) !important; /* Use the theme's specific accent color instead of generic blue */
+}
+
+/* Hide the move button when printing the Punch List */
+@media print {
+    .move-to-project-btn {
+        display: none !important;
+    }
+}
