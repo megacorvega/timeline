@@ -10,6 +10,7 @@ const timelineApp = {
     pendingDateChange: null,
     pendingDeletion: null,
     pendingLockChange: null,
+    pendingMoveTask: null,
     dependencyMode: false,
     firstSelectedItem: null,
     pendingClearDependencies: null,
@@ -19,6 +20,7 @@ const timelineApp = {
     tabOrder: ['projects', 'list', 'overall-load', 'upcoming'],
     resizeTimeout: null,
     upcomingProjectFilter: 'all',
+    hideCompletedTasks: false,
 
     // --- DOM ELEMENTS ---
     elements: {},
@@ -35,16 +37,32 @@ const timelineApp = {
     },
 
     init() {
+        window.timelineApp = this;
         this.cacheDOMElements();
+        
+        // Load data first (Active tab, etc.)
         this.loadTabData();
+        
+        // --- FORCE TAB ORDER (Inbox -> Projects -> Review) ---
+        // We set this AFTER loadTabData to override any saved user preference/drag-and-drop
+        // ensuring it is "always" this order on reload.
+        this.tabOrder = ['list', 'projects', 'overall-load']; 
+        
+        this.projectViewMode = 'gantt'; 
+        
         this.renderTabs();
         this.addEventListeners();
-        this.applyTheme(); // Changed from applyTheme()
+        this.applyTheme();
         this.loadProjects();
         this.renderProjects();
         this.showMainTab(this.activeTab, false);
         this.updateUndoRedoButtons();
         this.initializeSharedDatePicker();
+    },
+
+    toggleHideCompleted() {
+        this.hideCompletedTasks = !this.hideCompletedTasks;
+        this.renderLinearView();
     },
 
     cacheDOMElements() {
@@ -64,7 +82,7 @@ const timelineApp = {
             reasonModalTitle: document.getElementById('reason-modal-title'),
             reasonModalDetails: document.getElementById('reason-modal-details'),
             reasonCommentTextarea: document.getElementById('reason-comment'),
-            logChangeCheckbox: document.getElementById('log-change-checkbox'), // ADD THIS LINE
+            logChangeCheckbox: document.getElementById('log-change-checkbox'),
             saveReasonBtn: document.getElementById('save-reason-btn'),
             cancelReasonBtn: document.getElementById('cancel-reason-btn'),
             dependencyBanner: document.getElementById('dependency-banner'),
@@ -82,7 +100,21 @@ const timelineApp = {
             shortcutsModal: document.getElementById('shortcuts-modal'),
             shortcutsModalBackdrop: document.getElementById('shortcuts-modal-backdrop'),
             closeShortcutsBtn: document.getElementById('close-shortcuts-btn'),
-            upcomingProjectFilter: document.getElementById('upcoming-project-filter')
+            upcomingProjectFilter: document.getElementById('upcoming-project-filter'),
+            fullscreenModal: document.getElementById('fullscreen-modal'),
+
+            // --- NEW Header Controls ---
+            projectViewControls: document.getElementById('project-view-controls'),
+            projectViewGlider: document.getElementById('project-view-glider'),
+            btnViewGantt: document.getElementById('btn-view-gantt'),
+            btnViewLinear: document.getElementById('btn-view-linear'),
+
+            // --- NEW: Move to Project Modal Elements ---
+            moveToProjectModal: document.getElementById('move-to-project-modal'),
+            moveProjectSelect: document.getElementById('move-project-select'),
+            movePhaseSelect: document.getElementById('move-phase-select'),
+            cancelMoveBtn: document.getElementById('cancel-move-btn'),
+            confirmMoveBtn: document.getElementById('confirm-move-btn')
         };
     },
 
@@ -90,7 +122,7 @@ addEventListeners() {
         this.elements.themeSelect.addEventListener('change', (e) => {
             document.documentElement.setAttribute('data-theme', e.target.value);
             localStorage.setItem('timeline-theme-name', e.target.value);
-            this.renderProjects(); // Re-render to apply theme to charts
+            this.renderProjects(); 
         });
         this.elements.darkModeToggle.addEventListener('click', () => {
             this.setDarkMode(!document.documentElement.classList.contains('dark'));
@@ -136,9 +168,7 @@ addEventListeners() {
             };
             reader.readAsText(file); e.target.value = null;
         });
-        
-        // REMOVED old pdfBtn event listener
-        
+
         document.querySelector('.container').addEventListener('click', (e) => {
             const icon = e.target.closest('.date-input-icon-wrapper');
             if (icon) {
@@ -154,16 +184,19 @@ addEventListeners() {
                 document.querySelectorAll('.move-task-dropdown').forEach(d => d.classList.remove('show'));
             }
         });
+
         this.elements.addProjectBtn.addEventListener('click', this.addProject.bind(this));
         this.elements.undoBtn.addEventListener('click', this.undo.bind(this));
         this.elements.redoBtn.addEventListener('click', this.redo.bind(this));
         this.elements.toggleDeletedLogBtn.addEventListener('click', this.toggleDeletedLog.bind(this));
         this.elements.saveReasonBtn.addEventListener('click', this.handleSaveReason.bind(this));
         this.elements.cancelReasonBtn.addEventListener('click', this.handleCancelReason.bind(this));
+        
         this.elements.cancelConfirmBtn.addEventListener('click', () => {
             this.elements.confirmModal.classList.add('hidden');
             this.pendingClearDependencies = null;
         });
+
         this.elements.confirmActionBtn.addEventListener('click', () => {
             if (this.pendingClearDependencies) {
                 this.clearDependencies(this.pendingClearDependencies);
@@ -171,6 +204,17 @@ addEventListeners() {
             this.elements.confirmModal.classList.add('hidden');
             this.pendingClearDependencies = null;
         });
+
+        // --- NEW: Listeners for Move Modal ---
+        this.elements.cancelMoveBtn.addEventListener('click', () => {
+            this.elements.moveToProjectModal.classList.add('hidden');
+            this.pendingMoveTask = null;
+        });
+        
+        this.elements.moveProjectSelect.addEventListener('change', () => this.populatePhaseSelectForMove());
+        
+        this.elements.confirmMoveBtn.addEventListener('click', () => this.executeMoveToProject());
+        // -------------------------------------
 
         // Shortcuts Modal Listeners
         this.elements.shortcutsBtn.addEventListener('click', this.toggleShortcutsModal.bind(this));
@@ -297,8 +341,10 @@ addEventListeners() {
         document.body.removeChild(a);
     },
 
-    handleResize() {
+handleResize() {
         this.updateTabIndicator();
+        this.updateProjectViewIndicator(); // Add this line
+        
         if (this.activeTab === 'projects') {
             this.projects.forEach(project => {
                 if (!project.collapsed && project.startDate && project.endDate) {
@@ -661,10 +707,24 @@ addEventListeners() {
         }
     },
 
-renderProjects() {
+    renderProjects() {
         this.calculateRollups();
         this.resolveDependencies();
         this.elements.projectsContainer.innerHTML = '';
+
+        // [REMOVED] The switcher creation code is deleted from here.
+        // It is now handled statically in index.html
+
+        if (this.projectViewMode === 'gantt') {
+            this.renderGanttView();
+        } else {
+            this.renderLinearView();
+        }
+        
+        this.renderDeletedProjectsLog();
+    },
+
+renderGanttView() {
         const sortedProjects = [...this.projects].sort((a, b) => {
             if (a.overallProgress >= 100 && b.overallProgress < 100) return 1;
             if (a.overallProgress < 100 && b.overallProgress >= 100) return -1;
@@ -673,7 +733,8 @@ renderProjects() {
 
         sortedProjects.forEach((project) => {
             const projectCard = document.createElement('div');
-            projectCard.className = `project-card p-3 rounded-xl`;
+            projectCard.className = `project-card p-3 rounded-xl mb-4`; // Added margin-bottom for spacing
+            
             let completionIcon = project.overallProgress >= 100 ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>` : '';
 
             const durationProgress = this.getDurationProgress(project.startDate, project.endDate);
@@ -710,7 +771,6 @@ renderProjects() {
                     <span>Days Left:</span><span>${daysLeftInfo.days !== null ? daysLeftInfo.days : 'N/A'}</span>
                 </div>
             `;
-
 
             const pacingBarHTML = `
                 <div class="duration-scale-container tooltip">
@@ -788,17 +848,137 @@ renderProjects() {
             if (!project.collapsed && project.startDate && project.endDate) {
                 this.drawChart(project);
             } else if (!project.startDate || !project.endDate) {
-                document.getElementById(`chart-${project.id}`).innerHTML = `<div class="flex items-center justify-center h-full text-gray-400">Set project start and end dates to see progress chart.</div>`;
+                const chartContainer = document.getElementById(`chart-${project.id}`);
+                if (chartContainer) {
+                    chartContainer.innerHTML = `<div class="flex items-center justify-center h-full text-gray-400">Set project start and end dates to see progress chart.</div>`;
+                }
             }
         });
-        this.renderDeletedProjectsLog();
-         // Re-render active main tab if it's not the project tab
-        if (this.activeTab === 'overall-load') {
-            this.drawOverallLoadChart();
-        } else if (this.activeTab === 'upcoming') {
-            this.renderUpcomingTasks();
-        }
     },
+
+    renderLinearView() {
+        const container = this.elements.projectsContainer;
+        
+        let allItems = [];
+        this.projects.forEach(project => {
+            // Apply Project Filter
+            if (this.upcomingProjectFilter !== 'all' && project.id.toString() !== this.upcomingProjectFilter) return;
+
+            project.phases.forEach(phase => {
+                phase.tasks.forEach(task => {
+                    if (task.subtasks && task.subtasks.length > 0) {
+                        task.subtasks.forEach(subtask => {
+                            allItems.push({
+                                date: subtask.endDate || 'No Date',
+                                rawDate: subtask.endDate ? this.parseDate(subtask.endDate) : null,
+                                path: `${project.name} > ${phase.name} > ${task.name}`,
+                                name: subtask.name,
+                                completed: subtask.completed,
+                                projectId: project.id, phaseId: phase.id, taskId: task.id, subtaskId: subtask.id
+                            });
+                        });
+                    } else {
+                        allItems.push({
+                            date: task.effectiveEndDate || 'No Date',
+                            rawDate: task.effectiveEndDate ? this.parseDate(task.effectiveEndDate) : null,
+                            path: `${project.name} > ${phase.name}`,
+                            name: task.name,
+                            completed: task.completed,
+                            projectId: project.id, phaseId: phase.id, taskId: task.id, subtaskId: null
+                        });
+                    }
+                });
+            });
+        });
+
+        // --- FILTER LOGIC ---
+        let displayItems = allItems;
+        if (this.hideCompletedTasks) {
+            displayItems = allItems.filter(i => !i.completed);
+        }
+        // --------------------
+
+        // Toggle Switch HTML
+        const toggleHtml = `
+            <div class="flex justify-end items-center mb-4 px-1">
+                <label class="flex items-center text-xs font-semibold text-secondary cursor-pointer select-none hover:text-primary transition-colors">
+                    <input type="checkbox" class="custom-checkbox mr-2" 
+                        ${this.hideCompletedTasks ? 'checked' : ''} 
+                        onchange="timelineApp.toggleHideCompleted()">
+                    Hide Completed Tasks
+                </label>
+            </div>
+        `;
+
+        if (displayItems.length === 0) {
+            const emptyMsg = allItems.length > 0 
+                ? 'All tasks are completed. Uncheck filter to view.' 
+                : 'No tasks found.';
+            
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = toggleHtml + `<div class="upcoming-card p-4 rounded-xl shadow-md text-center text-secondary">${emptyMsg}</div>`;
+            container.innerHTML = ''; // Clear previous content
+            container.appendChild(wrapper);
+            return;
+        }
+
+        // Sorting & Grouping
+        const datedItems = displayItems.filter(i => i.rawDate !== null);
+        const undatedItems = displayItems.filter(i => i.rawDate === null);
+        datedItems.sort((a, b) => a.rawDate - b.rawDate);
+
+        const renderGroup = (title, items, headerClass) => {
+            if (items.length === 0) return '';
+            let html = `<div class="upcoming-card rounded-xl shadow-md mb-4 overflow-hidden">
+                <div class="p-3 border-b border-primary ${headerClass}">
+                    <h3 class="font-bold">${title} <span class="text-sm font-normal opacity-75">(${items.length})</span></h3>
+                </div>
+                <div class="p-3 space-y-2">`;
+                
+            items.forEach(item => {
+                const completedClass = item.completed ? 'line-through opacity-60' : '';
+                html += `<div class="upcoming-task-item flex items-center text-sm ${completedClass}" onclick="timelineApp.navigateToTask(${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'})">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2 text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    <div class="flex-grow min-w-0">
+                        <div class="text-xs text-secondary truncate">${item.path}</div>
+                        <div class="font-medium truncate">${item.name}</div>
+                    </div>
+                </div>`;
+            });
+            return html + `</div></div>`;
+        };
+
+        let groupsHtml = '';
+
+        const groupedByDate = d3.group(datedItems, d => d.date);
+        const today = new Date(); today.setHours(0,0,0,0);
+        const sortedDates = Array.from(groupedByDate.keys()).sort((a,b) => this.parseDate(a) - this.parseDate(b));
+
+        sortedDates.forEach(dateStr => {
+            const items = groupedByDate.get(dateStr);
+            const dueDate = this.parseDate(dateStr);
+            const diffDays = Math.round((dueDate - today) / (1000 * 60 * 60 * 24));
+            
+            let label = this.formatDate(dueDate);
+            let colorClass = 'bg-gray-100 dark:bg-slate-800';
+
+            if (diffDays < 0) { label += ` (Overdue)`; colorClass = 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200'; }
+            else if (diffDays === 0) { label += ` (Today)`; colorClass = 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200'; }
+            else if (diffDays === 1) { label += ` (Tomorrow)`; colorClass = 'bg-orange-200 dark:bg-orange-900/50 text-orange-800 dark:text-orange-300'; }
+            
+            groupsHtml += renderGroup(label, items, colorClass);
+        });
+
+        if (undatedItems.length > 0) {
+            groupsHtml += renderGroup("Backlog / No Due Date", undatedItems, 'bg-gray-200 dark:bg-slate-700 text-secondary');
+        }
+
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = toggleHtml + groupsHtml;
+        container.innerHTML = ''; // Clear previous content
+        container.appendChild(wrapper);
+    },
+
     getDependencyIcon(item) {
         const dependentCount = item.dependents?.length || 0;
         const isDependentSource = dependentCount > 0;
@@ -1389,119 +1569,129 @@ drawChart(project) {
     },
 
     renderUpcomingTasks() {
-        // --- Populate Filter Dropdown ---
+        // Update Filter Dropdown
         const filterDropdown = this.elements.upcomingProjectFilter;
-        const currentFilterValue = this.upcomingProjectFilter; // Save the current value
-        filterDropdown.innerHTML = '<option value="all">All Projects</option>'; // Reset
+        const currentFilterValue = this.upcomingProjectFilter;
+        filterDropdown.innerHTML = '<option value="all">All Projects</option>';
         this.projects.forEach(project => {
             const option = document.createElement('option');
             option.value = project.id;
             option.textContent = project.name;
             filterDropdown.appendChild(option);
         });
-        filterDropdown.value = currentFilterValue; // Restore the saved value
-    
-        // --- Filter and Render Tasks ---
+        filterDropdown.value = currentFilterValue;
+
         const container = document.getElementById('upcoming-tasks-container');
         container.innerHTML = '';
+        
         let allItems = [];
+        
+        // Collect ALL tasks, regardless of date
         this.projects.forEach(project => {
-            // Apply the project filter here
-            if (this.upcomingProjectFilter !== 'all' && project.id.toString() !== this.upcomingProjectFilter) {
-                return; // Skip this project if it doesn't match the filter
-            }
-    
+            if (this.upcomingProjectFilter !== 'all' && project.id.toString() !== this.upcomingProjectFilter) return;
+
             project.phases.forEach(phase => {
                 phase.tasks.forEach(task => {
+                    // Check Subtasks
                     if (task.subtasks && task.subtasks.length > 0) {
                         task.subtasks.forEach(subtask => {
-                            if (subtask.endDate && !subtask.completed) {
-                                allItems.push({
-                                    date: subtask.endDate,
-                                    path: `${project.name} &gt; ${phase.name} &gt; ${task.name}`,
-                                    name: subtask.name,
-                                    completed: subtask.completed,
-                                    projectId: project.id,
-                                    phaseId: phase.id,
-                                    taskId: task.id,
-                                    subtaskId: subtask.id
-                                });
-                            }
+                            allItems.push({
+                                date: subtask.endDate || 'No Date',
+                                rawDate: subtask.endDate ? this.parseDate(subtask.endDate) : null,
+                                path: `${project.name} > ${phase.name} > ${task.name}`,
+                                name: subtask.name,
+                                completed: subtask.completed,
+                                projectId: project.id, phaseId: phase.id, taskId: task.id, subtaskId: subtask.id
+                            });
                         });
                     } else {
-                        if (task.effectiveEndDate && !task.completed) {
-                            allItems.push({
-                                date: task.effectiveEndDate,
-                                path: `${project.name} &gt; ${phase.name}`,
-                                name: task.name,
-                                completed: task.completed,
-                                projectId: project.id,
-                                phaseId: phase.id,
-                                taskId: task.id,
-                                subtaskId: null
-                            });
-                        }
+                        // Check Tasks
+                        allItems.push({
+                            date: task.effectiveEndDate || 'No Date',
+                            rawDate: task.effectiveEndDate ? this.parseDate(task.effectiveEndDate) : null,
+                            path: `${project.name} > ${phase.name}`,
+                            name: task.name,
+                            completed: task.completed,
+                            projectId: project.id, phaseId: phase.id, taskId: task.id, subtaskId: null
+                        });
                     }
                 });
             });
         });
-    
+
         if (allItems.length === 0) {
-            container.innerHTML = `<div class="upcoming-card p-4 rounded-xl shadow-md text-center text-secondary">No upcoming tasks match the filter.</div>`;
+            container.innerHTML = `<div class="upcoming-card p-4 rounded-xl shadow-md text-center text-secondary">No tasks found.</div>`;
             return;
         }
-    
-        allItems.sort((a, b) => this.parseDate(a.date) - this.parseDate(b.date));
-        const groupedByDate = d3.group(allItems, d => d.date);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-    
-        let html = '';
+
+        // Split into Dated and Undated
+        const datedItems = allItems.filter(i => i.rawDate !== null);
+        const undatedItems = allItems.filter(i => i.rawDate === null);
+
+        // Sort Dated Items
+        datedItems.sort((a, b) => a.rawDate - b.rawDate);
+
+        // Helper to render a group of tasks
+        const renderGroup = (title, items, headerClass) => {
+            if (items.length === 0) return '';
+            let html = `<div class="upcoming-card rounded-xl shadow-md mb-4 overflow-hidden">
+                <div class="p-3 border-b border-primary ${headerClass}">
+                    <h3 class="font-bold">${title} <span class="text-sm font-normal opacity-75">(${items.length})</span></h3>
+                </div>
+                <div class="p-3 space-y-2">`;
+                
+            items.forEach(item => {
+                const completedClass = item.completed ? 'line-through opacity-60' : '';
+                html += `<div class="upcoming-task-item flex items-center text-sm ${completedClass}" onclick="timelineApp.navigateToTask(${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'})">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2 text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    <div class="flex-grow min-w-0">
+                        <div class="text-xs text-secondary truncate">${item.path}</div>
+                        <div class="font-medium truncate">${item.name}</div>
+                    </div>
+                </div>`;
+            });
+            return html + `</div></div>`;
+        };
+
+        let fullHtml = '';
+
+        // 1. Render Overdue/Today/Upcoming (Grouped by Date)
+        const groupedByDate = d3.group(datedItems, d => d.date);
+        const today = new Date(); today.setHours(0,0,0,0);
+
+        // Sort the dates
         const sortedDates = Array.from(groupedByDate.keys()).sort((a,b) => this.parseDate(a) - this.parseDate(b));
-    
-        for (const dateStr of sortedDates) {
+
+        sortedDates.forEach(dateStr => {
             const items = groupedByDate.get(dateStr);
             const dueDate = this.parseDate(dateStr);
             const diffDays = Math.round((dueDate - today) / (1000 * 60 * 60 * 24));
-            let dateLabel = '', headerColorClass = 'bg-gray-100 dark:bg-slate-800';
-    
-            if (diffDays < 0) {
-                dateLabel = `${Math.abs(diffDays)} days ago`;
-                headerColorClass = 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200';
-            } else if (diffDays === 0) {
-                dateLabel = 'Today';
-                headerColorClass = 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200';
-            } else if (diffDays === 1) {
-                dateLabel = 'Tomorrow';
-                headerColorClass = 'bg-orange-200 dark:bg-orange-900/50 text-orange-800 dark:text-orange-300';
-            } else if (diffDays > 1 && diffDays <= 7) {
-                dateLabel = `in ${diffDays} days`;
-                headerColorClass = 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200';
-            } else {
-                dateLabel = `in ${diffDays} days`;
+            
+            let label = this.formatDate(dueDate);
+            let colorClass = 'bg-gray-100 dark:bg-slate-800';
+
+            if (diffDays < 0) { 
+                label += ` (Overdue)`; 
+                colorClass = 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200'; 
             }
-    
-            html += `<div class="upcoming-card rounded-xl shadow-md">
-                    <div class="p-3 border-b border-primary ${headerColorClass} rounded-t-xl">
-                        <h3 class="font-bold">${this.formatDate(dueDate)} <span class="text-sm font-normal text-tertiary">(${dateLabel})</span></h3>
-                    </div>
-                    <div class="p-3 space-y-2">`;
-            items.forEach(item => {
-                const isOverdue = diffDays < 0 && !item.completed;
-                const completedClass = item.completed ? 'line-through opacity-60' : '';
-                const overdueClass = isOverdue ? 'text-red-600 dark:text-red-400 font-semibold' : '';
-                const onclickAttr = `onclick="timelineApp.navigateToTask(${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'})"`;
-    
-                html += `<div class="upcoming-task-item flex items-center text-sm ${completedClass}" ${onclickAttr}>
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2 text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
-                        <span class="text-secondary mr-2">${item.path} &gt;</span>
-                        <span class="font-medium ${overdueClass}">${item.name}</span>
-                        ${isOverdue ? '<span class="ml-2 text-xs font-bold text-red-500 bg-red-100 dark:bg-red-900/50 px-2 py-0.5 rounded-full">OVERDUE</span>' : ''}
-                    </div>`;
-            });
-            html += `</div></div>`;
+            else if (diffDays === 0) { 
+                label += ` (Today)`; 
+                colorClass = 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200'; 
+            }
+            else if (diffDays === 1) { 
+                label += ` (Tomorrow)`; 
+                colorClass = 'bg-orange-200 dark:bg-orange-900/50 text-orange-800 dark:text-orange-300'; 
+            }
+            
+            fullHtml += renderGroup(label, items, colorClass);
+        });
+
+        // 2. Render Undated (Linear List at the end)
+        if (undatedItems.length > 0) {
+            fullHtml += renderGroup("Backlog / No Due Date", undatedItems, 'bg-gray-200 dark:bg-slate-700 text-secondary');
         }
-        container.innerHTML = html;
+
+        container.innerHTML = fullHtml;
     },
 
     navigateToTask(projectId, phaseId, taskId, subtaskId) {
@@ -2004,7 +2194,17 @@ generatePrintView(projectId) {
         }
         this.updateTabIndicator();
 
-        ['projects', 'list', 'overall-load', 'upcoming'].forEach(name => {
+        // --- NEW: Toggle visibility of the Project View Switcher ---
+        if (tabName === 'projects') {
+            this.elements.projectViewControls.classList.remove('hidden');
+            // We must update the indicator after removing 'hidden' so dimensions are calculable
+            this.updateProjectViewIndicator(); 
+        } else {
+            this.elements.projectViewControls.classList.add('hidden');
+        }
+        // -----------------------------------------------------------
+
+        ['projects', 'list', 'overall-load'].forEach(name => {
             const panel = document.getElementById(`main-tab-panel-${name}`);
             const btn = document.getElementById(`main-tab-btn-${name}`);
             if (panel) panel.classList.add('hidden');
@@ -2016,11 +2216,8 @@ generatePrintView(projectId) {
         if (activePanel) activePanel.classList.remove('hidden');
         if (activeBtn) activeBtn.classList.add('active');
 
-        this.updateTabIndicator();
-
-        // Conditional rendering based on the new active tab
+        // Conditional rendering
         if (tabName === 'projects') {
-            // Re-draw charts whenever the projects tab becomes visible to ensure they render
             this.projects.forEach(project => {
                 if (!project.collapsed && project.startDate && project.endDate) {
                     this.drawChart(project);
@@ -2028,13 +2225,40 @@ generatePrintView(projectId) {
             });
         } else if (tabName === 'overall-load') {
             this.drawOverallLoadChart();
-        } else if (tabName === 'upcoming') {
-            this.renderUpcomingTasks();
         } else if (tabName === 'list') {
-            punchListApp.init();
+            if (window.punchListApp) punchListApp.init();
         }
     },
 
+    setProjectView(mode) {
+        this.projectViewMode = mode;
+        
+        // Update visual state of buttons
+        this.elements.btnViewGantt.classList.toggle('active', mode === 'gantt');
+        this.elements.btnViewLinear.classList.toggle('active', mode === 'linear');
+
+        // Move the glider
+        this.updateProjectViewIndicator();
+        
+        // Re-render content
+        this.renderProjects();
+    },
+
+    updateProjectViewIndicator() {
+        // Small delay to ensure DOM is painted if it was just unhidden
+        setTimeout(() => {
+            const container = this.elements.projectViewControls;
+            if (!container || container.classList.contains('hidden')) return;
+            
+            const activeBtn = container.querySelector('.tab-button.active');
+            const glider = this.elements.projectViewGlider;
+            
+            if (activeBtn && glider) {
+                glider.style.width = `${activeBtn.offsetWidth}px`;
+                glider.style.left = `${activeBtn.offsetLeft}px`;
+            }
+        }, 50);
+    },
 
     toggleLog(projectId) { document.getElementById(`log-container-${projectId}`).classList.toggle('hidden'); document.getElementById(`log-chevron-${projectId}`).classList.toggle('-rotate-90'); },
     togglePhaseCollapse(projectId, phaseId) { const phase = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId); if (phase) { phase.collapsed = !phase.collapsed; this.saveState(); document.getElementById(`tasks-container-${phaseId}`).classList.toggle('hidden'); document.getElementById(`phase-chevron-${phaseId}`).classList.toggle('-rotate-90'); } },
@@ -2325,13 +2549,17 @@ generatePrintView(projectId) {
         glider.className = 'glider';
         this.elements.mainTabs.appendChild(glider);
 
+        // --- GTD NAMES ---
         const tabNames = {
-            projects: 'Projects',
-            list: 'List',
-            'overall-load': 'Task Load',
-            upcoming: 'Upcoming'
+            list: 'Inbox',           // 1. Capture
+            projects: 'Projects',    // 2. Organize & Engage
+            'overall-load': 'Review' // 3. Reflect
         };
+
+        // Render buttons in the strict order of this.tabOrder
         this.tabOrder.forEach(tabKey => {
+            if (!tabNames[tabKey]) return; // Skip invalid tabs
+
             const button = document.createElement('button');
             button.id = `main-tab-btn-${tabKey}`;
             button.className = 'tab-button';
@@ -2341,6 +2569,11 @@ generatePrintView(projectId) {
             button.onclick = () => this.showMainTab(tabKey);
             this.elements.mainTabs.appendChild(button);
         });
+        
+        // Fallback if active tab is invalid
+        if (!tabNames[this.activeTab]) {
+            this.activeTab = 'list'; // Default to Inbox if lost
+        }
         this.showMainTab(this.activeTab, false);
     },
 
@@ -2548,7 +2781,86 @@ generatePrintView(projectId) {
         }
         return null;
     },
-    
+
+// --- NEW FUNCTION: Trigger the modal ---
+    promptMoveToProject(taskText, successCallback) {
+        if (this.projects.length === 0) {
+            alert("Please create a project first.");
+            return;
+        }
+        this.pendingMoveTask = { text: taskText, cb: successCallback };
+        
+        // Populate Projects Dropdown
+        this.elements.moveProjectSelect.innerHTML = '';
+        this.projects.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = p.name;
+            this.elements.moveProjectSelect.appendChild(opt);
+        });
+        
+        // Populate Phases for the first project in the list
+        this.populatePhaseSelectForMove();
+        
+        this.elements.moveToProjectModal.classList.remove('hidden');
+    },
+
+    // --- NEW FUNCTION: Populate phases based on selected project ---
+    populatePhaseSelectForMove() {
+        const projectId = parseInt(this.elements.moveProjectSelect.value);
+        const project = this.projects.find(p => p.id === projectId);
+        this.elements.movePhaseSelect.innerHTML = '';
+        
+        if (project && project.phases.length > 0) {
+            project.phases.forEach(ph => {
+                const opt = document.createElement('option');
+                opt.value = ph.id;
+                opt.textContent = ph.name;
+                this.elements.movePhaseSelect.appendChild(opt);
+            });
+            this.elements.confirmMoveBtn.disabled = false;
+        } else {
+            const opt = document.createElement('option');
+            opt.textContent = "No phases available";
+            this.elements.movePhaseSelect.appendChild(opt);
+            this.elements.confirmMoveBtn.disabled = true;
+        }
+    },
+
+    // --- NEW FUNCTION: specific action to move the task ---
+    executeMoveToProject() {
+        if (!this.pendingMoveTask) return;
+        
+        const projectId = parseInt(this.elements.moveProjectSelect.value);
+        const phaseId = parseInt(this.elements.movePhaseSelect.value);
+        
+        const project = this.projects.find(p => p.id === projectId);
+        const phase = project?.phases.find(ph => ph.id === phaseId);
+        
+        if (phase) {
+            // Create the new task in the destination project
+            phase.tasks.push({
+                id: Date.now(),
+                name: this.pendingMoveTask.text,
+                startDate: null,
+                endDate: null,
+                completed: false,
+                subtasks: [],
+                dependencies: [],
+                dependents: []
+            });
+            
+            this.saveState();
+            this.renderProjects();
+            
+            // Execute callback (removes item from Punch List)
+            if (this.pendingMoveTask.cb) this.pendingMoveTask.cb();
+            
+            this.elements.moveToProjectModal.classList.add('hidden');
+            this.pendingMoveTask = null;
+        }
+    },
+
 getTickInterval(domain) {
         const [startDate, endDate] = domain;
         const durationDays = (endDate - startDate) / (1000 * 60 * 60 * 24);
@@ -2594,10 +2906,3 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
-
-
-
-
-
-
-
