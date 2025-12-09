@@ -1,5 +1,4 @@
 /* --- punchlist.js --- */
-// Changed 'const punchListApp' to 'window.punchListApp' to make it globally accessible
 window.punchListApp = {
     STORAGE_KEY: 'timelinePunchListData',
     taskList: null,
@@ -82,11 +81,13 @@ window.punchListApp = {
     },
 
     createTaskElement({ text = '', type = 'text', indent = 0, checked = false, highlight = null } = {}) {
+        // 1. Create List Item Container
         const li = document.createElement('li');
         li.className = 'task-item';
         if (indent > 0) li.classList.add(`indent-${indent}`);
         if (checked) li.classList.add('checked');
 
+        // 2. Create Checkbox (if applicable)
         if (type === 'checkbox') {
             const input = document.createElement('input');
             input.type = 'checkbox';
@@ -95,18 +96,24 @@ window.punchListApp = {
             li.appendChild(input);
         }
 
-        // Link to Project Button
+        // 3. Create "Move to Project" Button
         if (type === 'text' || type === 'checkbox') {
             const moveBtn = document.createElement('button');
             moveBtn.className = 'move-to-project-btn text-gray-400 hover:text-blue-500 mr-2 flex-shrink-0 opacity-50 hover:opacity-100 transition-opacity';
             moveBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>`;
             moveBtn.title = "Move to Project";
+            
+            // --- UPDATED CLICK HANDLER ---
             moveBtn.onclick = (e) => {
                 e.stopPropagation(); 
                 const label = li.querySelector('.task-label');
                 if (label && label.innerText.trim()) {
+                    // Check for Purple Highlight
+                    const isFollowUp = label.classList.contains('highlight-purple');
+
                     if (window.timelineApp && typeof window.timelineApp.promptMoveToProject === 'function') {
-                        window.timelineApp.promptMoveToProject(label.innerText.trim(), () => {
+                        // Pass isFollowUp flag to the main app
+                        window.timelineApp.promptMoveToProject(label.innerText.trim(), isFollowUp, () => {
                             li.remove();
                             this.saveList();
                             this.ensureAtLeastOneTask();
@@ -120,6 +127,7 @@ window.punchListApp = {
             li.appendChild(moveBtn);
         }
 
+        // 4. Create Editable Label
         const span = document.createElement('span');
         span.className = 'task-label';
         span.contentEditable = true;
