@@ -81,33 +81,63 @@
             this.updateActiveTaskHighlight();
         },
 
-        createTaskElement({ text = '', type = 'text', indent = 0, checked = false, highlight = null } = {}) {
-            const li = document.createElement('li');
-            li.className = 'task-item';
-            if (indent > 0) li.classList.add(`indent-${indent}`);
-            if (checked) li.classList.add('checked');
+    createTaskElement({ text = '', type = 'text', indent = 0, checked = false, highlight = null } = {}) {
+        const li = document.createElement('li');
+        li.className = 'task-item';
+        if (indent > 0) li.classList.add(`indent-${indent}`);
+        if (checked) li.classList.add('checked');
 
-            if (type === 'checkbox') {
-                const input = document.createElement('input');
-                input.type = 'checkbox';
-                input.className = 'custom-checkbox';
-                input.checked = checked;
-                li.appendChild(input);
-            }
-            const span = document.createElement('span');
-            span.className = 'task-label';
-            span.contentEditable = true;
-            span.spellcheck = false;
-            span.innerText = text;
+        // Checkbox Logic
+        if (type === 'checkbox') {
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.className = 'custom-checkbox';
+            input.checked = checked;
+            li.appendChild(input);
+        }
 
-            if (type === 'header-1') span.classList.add('header-1');
-            else if (type === 'header-2') span.classList.add('header-2');
-            else if (type === 'note') span.classList.add('note-block');
-            if (highlight) span.classList.add(highlight);
+        // --- NEW: Move to Project Button ---
+        // Only show if it's not a header or note
+        if (type === 'text' || type === 'checkbox') {
+            const moveBtn = document.createElement('button');
+            moveBtn.className = 'move-to-project-btn text-gray-400 hover:text-blue-500 mr-2 flex-shrink-0 opacity-50 hover:opacity-100 transition-opacity';
+            moveBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>`;
+            moveBtn.title = "Move to Project";
+            moveBtn.onclick = (e) => {
+                e.stopPropagation(); 
+                const label = li.querySelector('.task-label');
+                if (label && label.innerText.trim()) {
+                    // FIX: Ensure we are looking at the window object for the app
+                    if (window.timelineApp && typeof window.timelineApp.promptMoveToProject === 'function') {
+                        window.timelineApp.promptMoveToProject(label.innerText.trim(), () => {
+                            li.remove();
+                            this.saveList();
+                            this.ensureAtLeastOneTask();
+                        });
+                    } else {
+                        console.error("Timeline App not found on window.timelineApp");
+                        alert("Error: Link to project feature is not ready. Try refreshing the page.");
+                    }
+                }
+            };;
+            li.appendChild(moveBtn);
+        }
 
-            li.appendChild(span);
-            return li;
-        },
+        // Label Logic
+        const span = document.createElement('span');
+        span.className = 'task-label';
+        span.contentEditable = true;
+        span.spellcheck = false;
+        span.innerText = text;
+
+        if (type === 'header-1') span.classList.add('header-1');
+        else if (type === 'header-2') span.classList.add('header-2');
+        else if (type === 'note') span.classList.add('note-block');
+        if (highlight) span.classList.add(highlight);
+
+        li.appendChild(span);
+        return li;
+    },
 
         handleKeyboard(e) {
             const active = document.activeElement;
