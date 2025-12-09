@@ -21,6 +21,7 @@ const timelineApp = {
     resizeTimeout: null,
     upcomingProjectFilter: 'all',
     hideCompletedTasks: false,
+    tagFilter: 'all',
 
     // --- DOM ELEMENTS ---
     elements: {},
@@ -71,6 +72,37 @@ const timelineApp = {
         // --- NEW: Save to LocalStorage ---
         localStorage.setItem('timelineHideCompleted', this.hideCompletedTasks);
         this.renderLinearView();
+    },
+
+// --- NEW FUNCTION: Handle Action Hub Checkbox Clicks ---
+    toggleItemComplete(event, projectId, phaseId, taskId, subtaskId) {
+        event.stopPropagation(); // Stop the row from navigating
+        
+        if (subtaskId && subtaskId !== 'null' && subtaskId !== null) {
+            this.toggleSubtaskComplete(projectId, phaseId, taskId, subtaskId);
+        } else {
+            this.toggleTaskComplete(projectId, phaseId, taskId);
+        }
+    },
+
+    setTagFilter(tag) {
+        this.tagFilter = tag;
+        this.renderLinearView();
+    },
+
+    toggleSubtaskFollowUp(projectId, phaseId, taskId, subtaskId) {
+        const subtask = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId)?.subtasks.find(s => s.id === subtaskId);
+        if (subtask) {
+            subtask.isFollowUp = !subtask.isFollowUp;
+            // Default to tomorrow if turning on and no date exists
+            if (subtask.isFollowUp && !subtask.followUpDate) {
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                subtask.followUpDate = tomorrow.toISOString().split('T')[0];
+            }
+            this.saveState();
+            this.renderProjects();
+        }
     },
 
     cacheDOMElements() {
@@ -716,22 +748,23 @@ const timelineApp = {
             }
         },
 
-    renderProjects() {
+    renderProjects(recalculate = true) {
+        // Only run the heavy math if data has actually changed
+        if (recalculate) {
             this.calculateRollups();
             this.resolveDependencies();
-            this.elements.projectsContainer.innerHTML = '';
+        }
+        
+        this.elements.projectsContainer.innerHTML = '';
 
-            // [REMOVED] The switcher creation code is deleted from here.
-            // It is now handled statically in index.html
-
-            if (this.projectViewMode === 'gantt') {
-                this.renderGanttView();
-            } else {
-                this.renderLinearView();
-            }
-            
-            this.renderDeletedProjectsLog();
-        },
+        if (this.projectViewMode === 'gantt') {
+            this.renderGanttView();
+        } else {
+            this.renderLinearView();
+        }
+        
+        this.renderDeletedProjectsLog();
+    },
 
     renderGanttView() {
             const sortedProjects = [...this.projects].sort((a, b) => {
@@ -866,216 +899,193 @@ const timelineApp = {
         },
 
     renderLinearView() {
-            const container = this.elements.projectsContainer;
-            
-            // 1. COLLECT ALL TASKS
-            let allItems = [];
-            this.projects.forEach(project => {
-                if (this.upcomingProjectFilter !== 'all' && project.id.toString() !== this.upcomingProjectFilter) return;
+        const container = this.elements.projectsContainer;
+        
+        // 1. COLLECT ALL TASKS & EXTRACT TAGS
+        let allItems = [];
+        const allTags = new Set(); // Store unique tags found
 
-                project.phases.forEach(phase => {
-                    phase.tasks.forEach(task => {
-                        // Normalize Item Object
-                        const itemBase = {
-                            path: `${project.name} > ${phase.name}`,
-                            projectId: project.id, phaseId: phase.id, taskId: task.id,
-                            // Pass specific properties for grouping
-                            isFollowUp: task.isFollowUp || false,
-                            followUpDate: task.followUpDate ? this.parseDate(task.followUpDate) : null,
-                        };
+        this.projects.forEach(project => {
+            if (this.upcomingProjectFilter !== 'all' && project.id.toString() !== this.upcomingProjectFilter) return;
 
-                        if (task.subtasks && task.subtasks.length > 0) {
-                            task.subtasks.forEach(subtask => {
-                                allItems.push({
-                                    ...itemBase,
-                                    name: `${task.name}: ${subtask.name}`, // Append Task name for clarity
-                                    date: subtask.endDate || 'No Date',
-                                    rawDate: subtask.endDate ? this.parseDate(subtask.endDate) : null,
-                                    completed: subtask.completed,
-                                    subtaskId: subtask.id
-                                });
-                            });
-                        } else {
+            project.phases.forEach(phase => {
+                phase.tasks.forEach(task => {
+                    // Helper to process text for tags
+                    const processTags = (text) => {
+                        // Regex: Match @Name preceded by space or start of line
+                        const matches = text.match(/(^|\s)(@[a-zA-Z0-9_\-]+)/g);
+                        if (matches) {
+                            matches.forEach(m => allTags.add(m.trim()));
+                        }
+                    };
+
+                    const itemBase = {
+                        path: `${project.name} > ${phase.name}`,
+                        projectId: project.id, phaseId: phase.id, taskId: task.id,
+                        // Parent follow up data (default)
+                        isFollowUp: task.isFollowUp || false,
+                        followUpDate: task.followUpDate ? this.parseDate(task.followUpDate) : null,
+                    };
+
+                    if (task.subtasks && task.subtasks.length > 0) {
+                        task.subtasks.forEach(subtask => {
+                            processTags(subtask.name); 
                             allItems.push({
                                 ...itemBase,
-                                name: task.name,
-                                date: task.effectiveEndDate || 'No Date',
-                                rawDate: task.effectiveEndDate ? this.parseDate(task.effectiveEndDate) : null,
-                                completed: task.completed,
-                                subtaskId: null
+                                name: `${task.name}: ${subtask.name}`,
+                                date: subtask.endDate || 'No Date',
+                                rawDate: subtask.endDate ? this.parseDate(subtask.endDate) : null,
+                                completed: subtask.completed,
+                                subtaskId: subtask.id,
+                                // --- OVERRIDE with Subtask Specific Follow Up Data ---
+                                isFollowUp: subtask.isFollowUp || false,
+                                followUpDate: subtask.followUpDate ? this.parseDate(subtask.followUpDate) : null
                             });
-                        }
-                    });
-                });
-            });
-
-            // 2. FILTER COMPLETED
-            if (this.hideCompletedTasks) {
-                allItems = allItems.filter(i => !i.completed);
-            }
-
-            // Toggle Switch HTML (Keep existing)
-            const toggleHtml = `
-                <div class="flex justify-end items-center mb-4 px-1">
-                    <label class="flex items-center text-xs font-semibold text-secondary cursor-pointer select-none hover:text-primary transition-colors">
-                        <input type="checkbox" class="custom-checkbox mr-2" 
-                            ${this.hideCompletedTasks ? 'checked' : ''} 
-                            onchange="timelineApp.toggleHideCompleted()">
-                        Hide Completed Tasks
-                    </label>
-                </div>
-            `;
-
-            if (allItems.length === 0) {
-                container.innerHTML = toggleHtml + `<div class="upcoming-card p-4 rounded-xl shadow-md text-center text-secondary">No tasks found.</div>`;
-                return;
-            }
-
-            // 3. BUCKET SORTING
-            const today = new Date(); 
-            today.setHours(0,0,0,0);
-
-            const buckets = {
-                waitingFor: [],
-                doNow: [],
-                upcoming: [],
-                backlog: []
-            };
-
-            allItems.forEach(item => {
-                // Priority 1: Waiting For (Follow Up)
-                if (item.isFollowUp) {
-                    buckets.waitingFor.push(item);
-                    return;
-                }
-
-                // Priority 2: Backlog (No Date)
-                if (!item.rawDate) {
-                    buckets.backlog.push(item);
-                    return;
-                }
-
-                // Priority 3: Do Now vs Upcoming
-                const diffDays = Math.round((item.rawDate - today) / (1000 * 60 * 60 * 24));
-                
-                if (diffDays <= 0) { // Overdue or Today
-                    item.diffDays = diffDays; // Store for sorting/styling
-                    buckets.doNow.push(item);
-                } else {
-                    buckets.upcoming.push(item);
-                }
-            });
-
-            // 4. SORTING WITHIN BUCKETS
-            // Waiting For: Sort by Follow Up Date (asc)
-            buckets.waitingFor.sort((a, b) => {
-                const dateA = a.followUpDate || new Date(9999, 0, 1);
-                const dateB = b.followUpDate || new Date(9999, 0, 1);
-                return dateA - dateB;
-            });
-
-            // Do Now: Sort by Due Date (asc), so most overdue is first
-            buckets.doNow.sort((a, b) => a.rawDate - b.rawDate);
-
-            // Upcoming: Sort by Due Date (asc)
-            buckets.upcoming.sort((a, b) => a.rawDate - b.rawDate);
-
-            // 5. RENDER GROUPS
-            const renderGroup = (title, items, headerClass, emptyMsg = null) => {
-                if (items.length === 0) {
-                    return emptyMsg ? `<div class="upcoming-card p-3 rounded-xl shadow-md mb-4 text-center text-secondary text-sm opacity-75">${emptyMsg}</div>` : '';
-                }
-                
-                let html = `<div class="upcoming-card rounded-xl shadow-md mb-4 overflow-hidden">
-                    <div class="p-3 border-b border-primary ${headerClass}">
-                        <h3 class="font-bold flex items-center gap-2">
-                            ${title} 
-                            <span class="text-xs font-normal opacity-75 bg-white bg-opacity-20 px-2 py-0.5 rounded-full">${items.length}</span>
-                        </h3>
-                    </div>
-                    <div class="p-1 space-y-1">`;
-                    
-                items.forEach(item => {
-                    const completedClass = item.completed ? 'line-through opacity-60' : '';
-                    
-                    // Specific styling for Waiting For items
-                    let extraDetails = '';
-                    if (item.isFollowUp) {
-                        const fuDate = item.followUpDate ? this.formatDate(item.followUpDate) : 'No Date';
-                        extraDetails = `<div class="text-[10px] font-bold text-purple-600 dark:text-purple-300 uppercase tracking-wider">Follow Up: ${fuDate}</div>`;
-                    } else if (item.diffDays < 0) {
-                        extraDetails = `<div class="text-[10px] font-bold text-red-600 dark:text-red-300 uppercase tracking-wider">Overdue by ${Math.abs(item.diffDays)} days</div>`;
+                        });
+                    } else {
+                        processTags(task.name); 
+                        allItems.push({
+                            ...itemBase,
+                            name: task.name,
+                            date: task.effectiveEndDate || 'No Date',
+                            rawDate: task.effectiveEndDate ? this.parseDate(task.effectiveEndDate) : null,
+                            completed: task.completed,
+                            subtaskId: null
+                        });
                     }
-
-                    html += `
-                    <div class="upcoming-task-item flex items-center p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors ${completedClass}" 
-                        onclick="timelineApp.navigateToTask(${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'})">
-                        <div class="flex-shrink-0 mr-3">
-                            ${item.completed 
-                                ? `<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>`
-                                : `<div class="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600"></div>`
-                            }
-                        </div>
-                        <div class="flex-grow min-w-0">
-                            <div class="flex justify-between items-baseline">
-                                <div class="text-xs text-secondary truncate w-2/3">${item.path}</div>
-                                <div class="text-xs font-mono text-tertiary">${item.rawDate ? this.formatDate(item.rawDate) : ''}</div>
-                            </div>
-                            <div class="font-medium truncate text-sm">${item.name}</div>
-                            ${extraDetails}
-                        </div>
-                    </div>`;
                 });
-                return html + `</div></div>`;
-            };
+            });
+        });
 
-            let groupsHtml = '';
+        // 2. APPLY FILTERS
+        if (this.hideCompletedTasks) {
+            allItems = allItems.filter(i => !i.completed);
+        }
+        
+        // Filter by Tag
+        if (this.tagFilter !== 'all') {
+            allItems = allItems.filter(i => {
+                const text = i.name;
+                const safeTag = this.tagFilter.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                const regex = new RegExp(`(^|\\s)${safeTag}(?=\\s|$)`);
+                return regex.test(text);
+            });
+        }
 
-            // Render Action Hub Zones
-            // 1. Waiting For
-            if (buckets.waitingFor.length > 0) {
-                groupsHtml += renderGroup(
-                    "Waiting For", 
-                    buckets.waitingFor, 
-                    "bg-purple-100 dark:bg-purple-900/40 text-purple-900 dark:text-purple-100 border-purple-200 dark:border-purple-800"
+        // 3. BUILD CONTROLS HTML
+        const sortedTags = Array.from(allTags).sort();
+        const tagOptions = sortedTags.map(tag => 
+            `<option value="${tag}" ${this.tagFilter === tag ? 'selected' : ''}>${tag}</option>`
+        ).join('');
+
+        const controlsHtml = `
+            <div class="flex justify-between items-center mb-4 px-1 bg-white dark:bg-slate-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+                
+                <div class="flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
+                    <select onchange="timelineApp.setTagFilter(this.value)" class="tag-filter-dropdown">
+                        <option value="all">All Tags</option>
+                        ${tagOptions}
+                    </select>
+                </div>
+
+                <label class="flex items-center text-xs font-semibold text-secondary cursor-pointer select-none hover:text-primary transition-colors">
+                    <input type="checkbox" class="custom-checkbox mr-2" 
+                        ${this.hideCompletedTasks ? 'checked' : ''} 
+                        onchange="timelineApp.toggleHideCompleted()">
+                    Hide Completed Tasks
+                </label>
+            </div>
+        `;
+
+        if (allItems.length === 0) {
+            container.innerHTML = controlsHtml + `<div class="upcoming-card p-4 rounded-xl shadow-md text-center text-secondary">No tasks found matching current filters.</div>`;
+            return;
+        }
+
+        // 4. BUCKET SORTING
+        const today = new Date(); today.setHours(0,0,0,0);
+        const buckets = { waitingFor: [], doNow: [], upcoming: [], backlog: [] };
+
+        allItems.forEach(item => {
+            if (item.isFollowUp) { buckets.waitingFor.push(item); return; }
+            if (!item.rawDate) { buckets.backlog.push(item); return; }
+            const diffDays = Math.round((item.rawDate - today) / (1000 * 60 * 60 * 24));
+            if (diffDays <= 0) { item.diffDays = diffDays; buckets.doNow.push(item); } 
+            else { buckets.upcoming.push(item); }
+        });
+
+        // Sort Buckets
+        buckets.waitingFor.sort((a, b) => (a.followUpDate || new Date(9999,0,1)) - (b.followUpDate || new Date(9999,0,1)));
+        buckets.doNow.sort((a, b) => a.rawDate - b.rawDate);
+        buckets.upcoming.sort((a, b) => a.rawDate - b.rawDate);
+
+        // 5. RENDER GROUPS
+        const renderGroup = (title, items, headerClass) => {
+            if (items.length === 0) return '';
+            
+            let html = `<div class="upcoming-card rounded-xl shadow-md mb-4 overflow-hidden">
+                <div class="p-3 border-b border-primary ${headerClass}">
+                    <h3 class="font-bold flex items-center gap-2">
+                        ${title} 
+                        <span class="text-xs font-normal opacity-75 bg-white bg-opacity-20 px-2 py-0.5 rounded-full">${items.length}</span>
+                    </h3>
+                </div>
+                <div class="p-1 space-y-1">`;
+                
+            items.forEach(item => {
+                const completedClass = item.completed ? 'line-through opacity-60' : '';
+                let extraDetails = '';
+                if (item.isFollowUp) {
+                     const fuDate = item.followUpDate ? this.formatDate(item.followUpDate) : 'No Date';
+                     extraDetails = `<div class="text-[10px] font-bold text-purple-600 dark:text-purple-300 uppercase tracking-wider">Follow Up: ${fuDate}</div>`;
+                } else if (item.diffDays < 0) {
+                     extraDetails = `<div class="text-[10px] font-bold text-red-600 dark:text-red-300 uppercase tracking-wider">Overdue by ${Math.abs(item.diffDays)} days</div>`;
+                }
+
+                // Highlight Tags
+                const highlightedName = item.name.replace(
+                    /(^|\s)@([a-zA-Z0-9_\-]+)/g, 
+                    '$1<span class="tag-badge">$2</span>' 
                 );
-            }
 
-            // 2. Do Now
-            if (buckets.doNow.length > 0) {
-                groupsHtml += renderGroup(
-                    "Do Now", 
-                    buckets.doNow, 
-                    "bg-blue-100 dark:bg-blue-900/40 text-blue-900 dark:text-blue-100 border-blue-200 dark:border-blue-800"
-                );
-            } else if (allItems.length > 0 && !this.hideCompletedTasks) {
-                // Encouraging empty state if they have tasks but nothing due now
-                groupsHtml += `<div class="p-4 mb-4 text-center text-sm text-secondary bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-100 dark:border-green-900">🎉 All caught up on immediate tasks!</div>`;
-            }
+                html += `
+                <div class="upcoming-task-item flex items-center p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors ${completedClass}" 
+                     onclick="timelineApp.navigateToTask(${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'})">
+                    
+                    <div class="flex-shrink-0 mr-3 cursor-pointer group" 
+                         onclick="timelineApp.toggleItemComplete(event, ${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'})">
+                         ${item.completed 
+                            ? `<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>`
+                            : `<div class="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600 group-hover:border-green-500 transition-colors"></div>`
+                         }
+                    </div>
+                    
+                    <div class="flex-grow min-w-0">
+                        <div class="flex justify-between items-baseline">
+                            <div class="text-xs text-secondary truncate w-2/3">${item.path}</div>
+                            <div class="text-xs font-mono text-tertiary">${item.rawDate ? this.formatDate(item.rawDate) : ''}</div>
+                        </div>
+                        <div class="font-medium truncate text-sm pt-1">${highlightedName}</div>
+                        ${extraDetails}
+                    </div>
+                </div>`;
+            });
+            return html + `</div></div>`;
+        };
 
-            // 3. Upcoming
-            if (buckets.upcoming.length > 0) {
-                groupsHtml += renderGroup(
-                    "Upcoming", 
-                    buckets.upcoming, 
-                    "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200"
-                );
-            }
+        let groupsHtml = '';
+        if (buckets.waitingFor.length > 0) groupsHtml += renderGroup("Waiting For", buckets.waitingFor, "bg-purple-100 dark:bg-purple-900/40 text-purple-900 dark:text-purple-100 border-purple-200 dark:border-purple-800");
+        if (buckets.doNow.length > 0) groupsHtml += renderGroup("Do Now", buckets.doNow, "bg-blue-100 dark:bg-blue-900/40 text-blue-900 dark:text-blue-100 border-blue-200 dark:border-blue-800");
+        else if (allItems.length > 0 && !this.hideCompletedTasks && this.tagFilter === 'all') groupsHtml += `<div class="p-4 mb-4 text-center text-sm text-secondary bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-100 dark:border-green-900">🎉 All caught up on immediate tasks!</div>`;
+        if (buckets.upcoming.length > 0) groupsHtml += renderGroup("Upcoming", buckets.upcoming, "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200");
+        if (buckets.backlog.length > 0) groupsHtml += renderGroup("Backlog", buckets.backlog, "bg-gray-200 dark:bg-slate-700/50 text-gray-600 dark:text-gray-400");
 
-            // 4. Backlog
-            if (buckets.backlog.length > 0) {
-                groupsHtml += renderGroup(
-                    "Backlog", 
-                    buckets.backlog, 
-                    "bg-gray-200 dark:bg-slate-700/50 text-gray-600 dark:text-gray-400"
-                );
-            }
-
-            const wrapper = document.createElement('div');
-            wrapper.innerHTML = toggleHtml + groupsHtml;
-            container.innerHTML = '';
-            container.appendChild(wrapper);
-        },
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = controlsHtml + groupsHtml;
+        container.innerHTML = '';
+        container.appendChild(wrapper);
+    },
 
     getDependencyIcon(item) {
             const dependentCount = item.dependents?.length || 0;
@@ -1178,194 +1188,238 @@ const timelineApp = {
         },
 
     renderTaskList(projectId, phaseId, tasks) {
-            let html = '';
-            // Sort: Follow Ups first, then by End Date
-            const sortedTasks = [...tasks].sort((a, b) => {
-                if (a.isFollowUp && !b.isFollowUp) return -1;
-                if (!a.isFollowUp && b.isFollowUp) return 1;
-                if (a.isFollowUp && b.isFollowUp) {
-                    const dateA = a.followUpDate ? new Date(a.followUpDate) : new Date(9999, 11, 31);
-                    const dateB = b.followUpDate ? new Date(b.followUpDate) : new Date(9999, 11, 31);
-                    return dateA - dateB;
-                }
-                return this.sortByEndDate(a, b, 'effectiveEndDate');
-            });
+        let html = '';
+        // Sort: Follow Ups first, then by End Date
+        const sortedTasks = [...tasks].sort((a, b) => {
+            if (a.isFollowUp && !b.isFollowUp) return -1;
+            if (!a.isFollowUp && b.isFollowUp) return 1;
+            if (a.isFollowUp && b.isFollowUp) {
+                const dateA = a.followUpDate ? new Date(a.followUpDate) : new Date(9999, 11, 31);
+                const dateB = b.followUpDate ? new Date(b.followUpDate) : new Date(9999, 11, 31);
+                return dateA - dateB;
+            }
+            return this.sortByEndDate(a, b, 'effectiveEndDate');
+        });
 
-            const iconHtml = `<div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>`;
+        const iconHtml = `<div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>`;
+        
+        sortedTasks.forEach(task => {
+            const hasSubtasks = task.subtasks && task.subtasks.length > 0;
+            let taskControlHtml = hasSubtasks ? `<div class="text-xs font-bold text-secondary w-10 text-center flex-shrink-0">${Math.round(task.progress || 0)}%</div>` : `<input type="checkbox" class="custom-checkbox" onchange="timelineApp.toggleTaskComplete(${projectId}, ${phaseId}, ${task.id})" ${task.completed ? 'checked' : ''}>`;
+            const toggleButton = hasSubtasks ?
+                `<button onclick="timelineApp.toggleTaskCollapse(${projectId}, ${phaseId}, ${task.id})" class="p-1 rounded-full hover-bg-tertiary flex-shrink-0">
+                    <svg id="task-chevron-${task.id}" class="w-4 h-4 text-tertiary chevron ${task.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+                </button>` : `<div class="w-6 h-6 flex-shrink-0"></div>`;
+            const depClass = this.dependencyMode && this.firstSelectedItem?.id !== task.id ? 'dependency-candidate' : '';
+            const selectedClass = this.firstSelectedItem?.id === task.id ? 'dependency-selected' : '';
+            const commentDot = task.comments && task.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
+            const durationProgress = this.getDurationProgress(task.effectiveStartDate, task.effectiveEndDate);
+            let durationBarColorClass = 'bg-blue-500';
+            if (task.completed) {
+                durationBarColorClass = 'bg-green-500';
+            } else if (durationProgress === 100) {
+                durationBarColorClass = 'bg-red-500';
+            } else if (durationProgress > 90) {
+                durationBarColorClass = 'bg-orange-500';
+            } else if (durationProgress > 75) {
+                durationBarColorClass = 'bg-yellow-500';
+            }
+
+            const isStartDateDrivenByDependency = task.isDriven;
+            const isStartDateDisabled = hasSubtasks || isStartDateDrivenByDependency;
+            const startDateInputClasses = isStartDateDisabled ? 'date-input-disabled' : '';
+            const isEndDateDisabled = hasSubtasks;
+            const endDateInputClasses = isEndDateDisabled ? 'date-input-disabled' : '';
+
+            // --- CHANGED: Follow Up Logic (Added ${iconHtml}) ---
+            const followUpClass = task.isFollowUp ? 'follow-up-active' : '';
+            const followUpIconColor = task.isFollowUp ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400 hover:text-purple-500';
             
-            sortedTasks.forEach(task => {
-                const hasSubtasks = task.subtasks && task.subtasks.length > 0;
-                let taskControlHtml = hasSubtasks ? `<div class="text-xs font-bold text-secondary w-10 text-center flex-shrink-0">${Math.round(task.progress || 0)}%</div>` : `<input type="checkbox" class="custom-checkbox" onchange="timelineApp.toggleTaskComplete(${projectId}, ${phaseId}, ${task.id})" ${task.completed ? 'checked' : ''}>`;
-                const toggleButton = hasSubtasks ?
-                    `<button onclick="timelineApp.toggleTaskCollapse(${projectId}, ${phaseId}, ${task.id})" class="p-1 rounded-full hover-bg-tertiary flex-shrink-0">
-                        <svg id="task-chevron-${task.id}" class="w-4 h-4 text-tertiary chevron ${task.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
-                    </button>` : `<div class="w-6 h-6 flex-shrink-0"></div>`;
-                const depClass = this.dependencyMode && this.firstSelectedItem?.id !== task.id ? 'dependency-candidate' : '';
-                const selectedClass = this.firstSelectedItem?.id === task.id ? 'dependency-selected' : '';
-                const commentDot = task.comments && task.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
-                const durationProgress = this.getDurationProgress(task.effectiveStartDate, task.effectiveEndDate);
-                let durationBarColorClass = 'bg-blue-500';
-                if (task.completed) {
-                    durationBarColorClass = 'bg-green-500';
-                } else if (durationProgress === 100) {
-                    durationBarColorClass = 'bg-red-500';
-                } else if (durationProgress > 90) {
-                    durationBarColorClass = 'bg-orange-500';
-                } else if (durationProgress > 75) {
-                    durationBarColorClass = 'bg-yellow-500';
-                }
+            const followUpDateHtml = task.isFollowUp ? `
+                <div class="date-input-container mr-2">
+                    <input type="text" 
+                        value="${task.followUpDate ? this.formatDate(this.parseDate(task.followUpDate)) : ''}" 
+                        class="date-input border-purple-300 dark:border-purple-700 font-bold text-purple-700 dark:text-purple-300" 
+                        placeholder="Follow Up"
+                        data-project-id="${projectId}" 
+                        data-phase-id="${phaseId}" 
+                        data-task-id="${task.id}" 
+                        data-type="task-followup" 
+                        data-date="${task.followUpDate || ''}" 
+                        oninput="timelineApp.formatDateInput(event)" 
+                        onblur="timelineApp.handleManualDateInput(event)" 
+                        onkeydown="timelineApp.handleDateInputKeydown(event)">
+                    ${iconHtml}
+                </div>
+            ` : '';
+            // --------------------------------
 
-                const isStartDateDrivenByDependency = task.isDriven;
-                const isStartDateDisabled = hasSubtasks || isStartDateDrivenByDependency;
-                const startDateInputClasses = isStartDateDisabled ? 'date-input-disabled' : '';
-                const isEndDateDisabled = hasSubtasks;
-                const endDateInputClasses = isEndDateDisabled ? 'date-input-disabled' : '';
-
-                // --- CHANGED: Follow Up Logic ---
-                const followUpClass = task.isFollowUp ? 'follow-up-active' : '';
-                const followUpIconColor = task.isFollowUp ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400 hover:text-purple-500';
-                
-                const followUpDateHtml = task.isFollowUp ? `
-                    <div class="date-input-container mr-2">
-                        <input type="text" 
-                            value="${task.followUpDate ? this.formatDate(this.parseDate(task.followUpDate)) : ''}" 
-                            class="date-input border-purple-300 dark:border-purple-700 font-bold text-purple-700 dark:text-purple-300" 
-                            placeholder="Follow Up"
-                            data-project-id="${projectId}" 
-                            data-phase-id="${phaseId}" 
-                            data-task-id="${task.id}" 
-                            data-type="task-followup" 
-                            data-date="${task.followUpDate || ''}" 
-                            oninput="timelineApp.formatDateInput(event)" 
-                            onblur="timelineApp.handleManualDateInput(event)" 
-                            onkeydown="timelineApp.handleDateInputKeydown(event)">
-                    </div>
-                ` : '';
-                // --------------------------------
-
-                html += `
-                    <div class="task-row rounded-lg px-2 py-1 ${depClass} ${selectedClass} ${followUpClass}" data-id="${task.id}" data-type="task" data-project-id="${projectId}" data-phase-id="${phaseId}">
-                        <div class="flex items-center gap-3 item-main-row">
-                            ${toggleButton}
-                            ${commentDot}
-                            ${taskControlHtml}
-                            <div class="duration-scale-container" title="Duration Progress">
-                                <div class="duration-scale-bar ${durationBarColorClass}" style="width: ${durationProgress}%;"></div>
-                            </div>
-                            <div class="flex-grow flex items-center gap-2">
-                                <span class="font-medium editable-text" onclick="timelineApp.makeEditable(this, 'updateTaskName', ${projectId}, ${phaseId}, ${task.id})">${task.name}</span>
-                                <button onclick="timelineApp.showAddSubtaskInput(${task.id})" class="add-subtask-btn items-center gap-1 text-xs btn-secondary font-semibold rounded-md px-2 py-1 flex-shrink-0">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-                                    <span>Subtask</span>
-                                </button>
-                                <div class="relative">
-                                    <button onclick="timelineApp.toggleMoveTaskDropdown(event, ${projectId}, ${phaseId}, ${task.id})" class="move-task-btn items-center gap-1 text-xs btn-secondary font-semibold rounded-md px-2 py-1 flex-shrink-0">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
-                                        <span>Move</span>
-                                    </button>
-                                    <div id="move-task-dropdown-${task.id}" class="move-task-dropdown"></div>
-                                </div>
-                            </div>
-                            ${this.getDependencyIcon(task)}
-                            
-                            <div class="flex items-center">
-                                ${followUpDateHtml}
-                                <button onclick="timelineApp.toggleTaskFollowUp(${projectId}, ${phaseId}, ${task.id})" 
-                                        class="p-1 rounded-md ${followUpIconColor} transition-colors" 
-                                        title="Toggle Follow Up">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="${task.isFollowUp ? 'currentColor' : 'none'}" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                                    </svg>
-                                </button>
-                            </div>
-                            <div class="flex items-center gap-2 text-sm text-secondary">
-                                <button onclick="timelineApp.toggleCommentSection('task', ${projectId}, ${phaseId}, ${task.id})" class="comment-btn" title="Comments">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-                                </button>
-                                <div class="date-input-container">
-                                    <input type="text" value="${task.effectiveStartDate ? this.formatDate(this.parseDate(task.effectiveStartDate)) : ''}" placeholder="Start" class="date-input ${startDateInputClasses}" ${isStartDateDisabled ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-start" data-date="${task.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
-                                    ${!isStartDateDisabled ? iconHtml : ''}
-                                </div>
-                                <div class="date-input-container">
-                                    <input type="text" value="${task.effectiveEndDate ? this.formatDate(this.parseDate(task.effectiveEndDate)) : ''}" placeholder="End" class="date-input ${endDateInputClasses}" ${isEndDateDisabled ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-end" data-date="${task.endDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
-                                    ${!isEndDateDisabled ? iconHtml : ''}
-                                </div>
-                            </div>
-                            <button onclick="timelineApp.deleteTask(${projectId}, ${phaseId}, ${task.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold">&times;</button>
-                        </div>
-                        <div id="comment-section-task-${task.id}" class="comment-section hidden"></div>
-                        <div id="subtasks-container-${task.id}" class="pl-12 mt-2 space-y-2 pt-2 border-t border-primary ${task.collapsed || !hasSubtasks ? 'hidden' : ''}">
-                            ${this.renderSubtaskList(projectId, phaseId, task.id, task.subtasks || [])}
-                        </div>
-                        <div id="add-subtask-form-${task.id}" class="hidden ml-12 mt-2">
-                            <div class="flex items-center gap-2">
-                                <input type="text" id="new-subtask-name-${task.id}" placeholder="Add subtask..." class="flex-grow w-full px-2 py-1 input-primary rounded-md text-xs h-[28px]" onkeydown="if(event.key==='Enter') timelineApp.addSubtask(${projectId}, ${phaseId}, ${task.id})">
-                                <button onclick="timelineApp.addSubtask(${projectId}, ${phaseId}, ${task.id})" class="btn-secondary font-semibold rounded-md text-xs btn-sm">Add</button>
-                            </div>
-                        </div>
-                    </div>`;
-            });
             html += `
-                <div>
-                    <div class="flex items-center gap-2">
-                        <input type="text" id="new-task-name-${phaseId}" placeholder="Add a new task..." class="flex-grow w-full px-2 py-1 input-primary rounded-md text-xs h-[28px]" onkeydown="if(event.key==='Enter') timelineApp.addTask(${projectId}, ${phaseId})">
-                        <button onclick="timelineApp.addTask(${projectId}, ${phaseId})" class="btn-secondary font-semibold rounded-md text-xs btn-sm">Add</button>
-                    </div>
-                </div>`;
-            return html;
-        },
-
-    renderSubtaskList(projectId, phaseId, taskId, subtasks) {
-            if (!subtasks || subtasks.length === 0) return '';
-            let html = '<div class="ml-12 mt-1 space-y-1 pt-1">';
-            const sortedSubtasks = [...subtasks].sort((a,b) => this.sortByEndDate(a, b, 'endDate'));
-            const iconHtml = `<div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>`;
-            sortedSubtasks.forEach(subtask => {
-                const depClass = this.dependencyMode && this.firstSelectedItem?.id !== subtask.id ? 'dependency-candidate' : '';
-                const selectedClass = this.firstSelectedItem?.id === subtask.id ? 'dependency-selected' : '';
-                const commentDot = subtask.comments && subtask.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
-                const durationProgress = this.getDurationProgress(subtask.startDate, subtask.endDate);
-                let durationBarColorClass = 'bg-blue-500';
-                if (subtask.completed) {
-                    durationBarColorClass = 'bg-green-500';
-                } else if (durationProgress === 100) {
-                    durationBarColorClass = 'bg-red-500';
-                } else if (durationProgress > 90) {
-                    durationBarColorClass = 'bg-orange-500';
-                } else if (durationProgress > 75) {
-                    durationBarColorClass = 'bg-yellow-500';
-                }
-                const dateInputClasses = subtask.isDriven ? 'date-input-disabled' : '';
-
-                html += `
-                    <div class="subtask-row-wrapper">
-                        <div class="flex items-center gap-3 subtask-row ${depClass} ${selectedClass}" data-id="${subtask.id}" data-type="subtask" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}">
-                            ${commentDot}
-                            <input type="checkbox" class="custom-checkbox" onchange="timelineApp.toggleSubtaskComplete(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" ${subtask.completed ? 'checked' : ''}>
-                            <div class="duration-scale-container" title="Duration Progress">
-                                <div class="duration-scale-bar ${durationBarColorClass}" style="width: ${durationProgress}%;"></div>
+                <div class="task-row rounded-lg px-2 py-1 ${depClass} ${selectedClass} ${followUpClass}" data-id="${task.id}" data-type="task" data-project-id="${projectId}" data-phase-id="${phaseId}">
+                    <div class="flex items-center gap-3 item-main-row">
+                         ${toggleButton}
+                        ${commentDot}
+                        ${taskControlHtml}
+                        <div class="duration-scale-container" title="Duration Progress">
+                            <div class="duration-scale-bar ${durationBarColorClass}" style="width: ${durationProgress}%;"></div>
+                        </div>
+                        <div class="flex-grow flex items-center gap-2">
+                            <span class="font-medium editable-text" onclick="timelineApp.makeEditable(this, 'updateTaskName', ${projectId}, ${phaseId}, ${task.id})">${task.name}</span>
+                            <button onclick="timelineApp.showAddSubtaskInput(${task.id})" class="add-subtask-btn items-center gap-1 text-xs btn-secondary font-semibold rounded-md px-2 py-1 flex-shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                                <span>Subtask</span>
+                            </button>
+                            <div class="relative">
+                                <button onclick="timelineApp.toggleMoveTaskDropdown(event, ${projectId}, ${phaseId}, ${task.id})" class="move-task-btn items-center gap-1 text-xs btn-secondary font-semibold rounded-md px-2 py-1 flex-shrink-0">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                                    <span>Move</span>
+                                </button>
+                                <div id="move-task-dropdown-${task.id}" class="move-task-dropdown"></div>
                             </div>
-                            <span class="text-sm flex-grow ${subtask.completed ? 'line-through opacity-60' : ''} editable-text" onclick="timelineApp.makeEditable(this, 'updateSubtaskName', ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})">${subtask.name}</span>
-                            ${this.getDependencyIcon(subtask)}
-                            <button onclick="timelineApp.toggleCommentSection('subtask', ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" class="comment-btn" title="Comments">
+                        </div>
+                        ${this.getDependencyIcon(task)}
+                        
+                        <div class="flex items-center">
+                            ${followUpDateHtml}
+                            <button onclick="timelineApp.toggleTaskFollowUp(${projectId}, ${phaseId}, ${task.id})" 
+                                    class="p-1 rounded-md ${followUpIconColor} transition-colors" 
+                                    title="Toggle Follow Up">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="${task.isFollowUp ? 'currentColor' : 'none'}" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div class="flex items-center gap-2 text-sm text-secondary">
+                            <button onclick="timelineApp.toggleCommentSection('task', ${projectId}, ${phaseId}, ${task.id})" class="comment-btn" title="Comments">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
                             </button>
                             <div class="date-input-container">
-                                    <input type="text" value="${subtask.startDate ? this.formatDate(this.parseDate(subtask.startDate)) : ''}" placeholder="Start" class="date-input ${dateInputClasses}" ${subtask.isDriven ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}" data-subtask-id="${subtask.id}" data-type="subtask-start" data-date="${subtask.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
-                                    ${!subtask.isDriven ? iconHtml : ''}
-                                </div>
-                                <div class="date-input-container">
-                                    <input type="text" value="${subtask.endDate ? this.formatDate(this.parseDate(subtask.endDate)) : ''}" placeholder="End" class="date-input" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}" data-subtask-id="${subtask.id}" data-type="subtask-end" data-date="${subtask.endDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
-                                    ${iconHtml}
-                                </div>
-                            <button onclick="timelineApp.deleteSubtask(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold w-5 text-center flex-shrink-0">&times;</button>
+                                <input type="text" value="${task.effectiveStartDate ? this.formatDate(this.parseDate(task.effectiveStartDate)) : ''}" placeholder="Start" class="date-input ${startDateInputClasses}" ${isStartDateDisabled ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-start" data-date="${task.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
+                                ${!isStartDateDisabled ? iconHtml : ''}
+                            </div>
+                            <div class="date-input-container">
+                                <input type="text" value="${task.effectiveEndDate ? this.formatDate(this.parseDate(task.effectiveEndDate)) : ''}" placeholder="End" class="date-input ${endDateInputClasses}" ${isEndDateDisabled ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${task.id}" data-type="task-end" data-date="${task.endDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
+                                ${!isEndDateDisabled ? iconHtml : ''}
+                            </div>
                         </div>
-                        <div id="comment-section-subtask-${subtask.id}" class="comment-section hidden"></div>
+                        <button onclick="timelineApp.deleteTask(${projectId}, ${phaseId}, ${task.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold">&times;</button>
                     </div>
-                    `;
-            });
-            return html + '</div>';
-        },
+                    <div id="comment-section-task-${task.id}" class="comment-section hidden"></div>
+                    <div id="subtasks-container-${task.id}" class="pl-12 mt-2 space-y-2 pt-2 border-t border-primary ${task.collapsed || !hasSubtasks ? 'hidden' : ''}">
+                        ${this.renderSubtaskList(projectId, phaseId, task.id, task.subtasks || [])}
+                    </div>
+                    <div id="add-subtask-form-${task.id}" class="hidden ml-12 mt-2">
+                         <div class="flex items-center gap-2">
+                            <input type="text" id="new-subtask-name-${task.id}" placeholder="Add subtask..." class="flex-grow w-full px-2 py-1 input-primary rounded-md text-xs h-[28px]" onkeydown="if(event.key==='Enter') timelineApp.addSubtask(${projectId}, ${phaseId}, ${task.id})">
+                            <button onclick="timelineApp.addSubtask(${projectId}, ${phaseId}, ${task.id})" class="btn-secondary font-semibold rounded-md text-xs btn-sm">Add</button>
+                         </div>
+                    </div>
+                </div>`;
+        });
+        html += `
+            <div>
+                <div class="flex items-center gap-2">
+                    <input type="text" id="new-task-name-${phaseId}" placeholder="Add a new task..." class="flex-grow w-full px-2 py-1 input-primary rounded-md text-xs h-[28px]" onkeydown="if(event.key==='Enter') timelineApp.addTask(${projectId}, ${phaseId})">
+                    <button onclick="timelineApp.addTask(${projectId}, ${phaseId})" class="btn-secondary font-semibold rounded-md text-xs btn-sm">Add</button>
+                </div>
+            </div>`;
+        return html;
+    },
+
+    renderSubtaskList(projectId, phaseId, taskId, subtasks) {
+        if (!subtasks || subtasks.length === 0) return '';
+        let html = '<div class="ml-12 mt-1 space-y-1 pt-1">';
+        const sortedSubtasks = [...subtasks].sort((a,b) => {
+             if (a.isFollowUp && !b.isFollowUp) return -1;
+             if (!a.isFollowUp && b.isFollowUp) return 1;
+             if (a.isFollowUp && b.isFollowUp) {
+                const dateA = a.followUpDate ? new Date(a.followUpDate) : new Date(9999, 11, 31);
+                const dateB = b.followUpDate ? new Date(b.followUpDate) : new Date(9999, 11, 31);
+                return dateA - dateB;
+            }
+            return this.sortByEndDate(a, b, 'endDate');
+        });
+
+        const iconHtml = `<div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>`;
+        
+        sortedSubtasks.forEach(subtask => {
+            const depClass = this.dependencyMode && this.firstSelectedItem?.id !== subtask.id ? 'dependency-candidate' : '';
+            const selectedClass = this.firstSelectedItem?.id === subtask.id ? 'dependency-selected' : '';
+            const commentDot = subtask.comments && subtask.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
+            const durationProgress = this.getDurationProgress(subtask.startDate, subtask.endDate);
+            let durationBarColorClass = 'bg-blue-500';
+            if (subtask.completed) durationBarColorClass = 'bg-green-500';
+            else if (durationProgress === 100) durationBarColorClass = 'bg-red-500';
+            else if (durationProgress > 90) durationBarColorClass = 'bg-orange-500';
+            else if (durationProgress > 75) durationBarColorClass = 'bg-yellow-500';
+            
+            const dateInputClasses = subtask.isDriven ? 'date-input-disabled' : '';
+
+            // --- FOLLOW UP UI LOGIC (Added ${iconHtml}) ---
+            const followUpClass = subtask.isFollowUp ? 'follow-up-active' : '';
+            const followUpIconColor = subtask.isFollowUp ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400 hover:text-purple-500';
+            
+            const followUpDateHtml = subtask.isFollowUp ? `
+                <div class="date-input-container mr-2">
+                    <input type="text" 
+                        value="${subtask.followUpDate ? this.formatDate(this.parseDate(subtask.followUpDate)) : ''}" 
+                        class="date-input border-purple-300 dark:border-purple-700 font-bold text-purple-700 dark:text-purple-300" 
+                        placeholder="Follow Up"
+                        data-project-id="${projectId}" 
+                        data-phase-id="${phaseId}" 
+                        data-task-id="${taskId}" 
+                        data-subtask-id="${subtask.id}"
+                        data-type="subtask-followup" 
+                        data-date="${subtask.followUpDate || ''}" 
+                        oninput="timelineApp.formatDateInput(event)" 
+                        onblur="timelineApp.handleManualDateInput(event)" 
+                        onkeydown="timelineApp.handleDateInputKeydown(event)">
+                    ${iconHtml}
+                </div>
+            ` : '';
+
+            html += `
+                <div class="subtask-row-wrapper">
+                    <div class="flex items-center gap-3 subtask-row ${depClass} ${selectedClass} ${followUpClass}" data-id="${subtask.id}" data-type="subtask" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}">
+                        ${commentDot}
+                        <input type="checkbox" class="custom-checkbox" onchange="timelineApp.toggleSubtaskComplete(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" ${subtask.completed ? 'checked' : ''}>
+                        <div class="duration-scale-container" title="Duration Progress">
+                            <div class="duration-scale-bar ${durationBarColorClass}" style="width: ${durationProgress}%;"></div>
+                        </div>
+                        <span class="text-sm flex-grow ${subtask.completed ? 'line-through opacity-60' : ''} editable-text" onclick="timelineApp.makeEditable(this, 'updateSubtaskName', ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})">${subtask.name}</span>
+                        ${this.getDependencyIcon(subtask)}
+                        
+                        <div class="flex items-center">
+                            ${followUpDateHtml}
+                            <button onclick="timelineApp.toggleSubtaskFollowUp(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" 
+                                    class="p-1 rounded-md ${followUpIconColor} transition-colors" 
+                                    title="Toggle Follow Up">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="${subtask.isFollowUp ? 'currentColor' : 'none'}" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                </svg>
+                            </button>
+                        </div>
+                        
+                        <button onclick="timelineApp.toggleCommentSection('subtask', ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" class="comment-btn" title="Comments">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                        </button>
+                        <div class="date-input-container">
+                                <input type="text" value="${subtask.startDate ? this.formatDate(this.parseDate(subtask.startDate)) : ''}" placeholder="Start" class="date-input ${dateInputClasses}" ${subtask.isDriven ? 'readonly disabled' : ''} data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}" data-subtask-id="${subtask.id}" data-type="subtask-start" data-date="${subtask.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
+                                ${!subtask.isDriven ? iconHtml : ''}
+                            </div>
+                            <div class="date-input-container">
+                                <input type="text" value="${subtask.endDate ? this.formatDate(this.parseDate(subtask.endDate)) : ''}" placeholder="End" class="date-input" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}" data-subtask-id="${subtask.id}" data-type="subtask-end" data-date="${subtask.endDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
+                                ${iconHtml}
+                            </div>
+                        <button onclick="timelineApp.deleteSubtask(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold w-5 text-center flex-shrink-0">&times;</button>
+                    </div>
+                    <div id="comment-section-subtask-${subtask.id}" class="comment-section hidden"></div>
+                </div>
+                `;
+        });
+        return html + '</div>';
+    },
 
     renderLog(project) {
             if (!project.logs || project.logs.length === 0) return '<p class="text-xs text-secondary">No changes logged.</p>';
@@ -1837,42 +1891,49 @@ const timelineApp = {
             container.innerHTML = fullHtml;
         },
 
-    navigateToTask(projectId, phaseId, taskId, subtaskId) {
-            this.showMainTab('projects');
+navigateToTask(projectId, phaseId, taskId, subtaskId) {
+        this.showMainTab('projects');
 
-            const project = this.projects.find(p => p.id === projectId);
-            if (!project) return;
-            project.collapsed = false;
+        const project = this.projects.find(p => p.id === projectId);
+        if (!project) return;
+        project.collapsed = false;
 
-            const phase = project.phases.find(ph => ph.id === phaseId);
-            if (!phase) return;
-            phase.collapsed = false;
+        const phase = project.phases.find(ph => ph.id === phaseId);
+        if (!phase) return;
+        phase.collapsed = false;
 
-            const task = phase.tasks.find(t => t.id === taskId);
-            if (task && subtaskId) {
-                task.collapsed = false;
+        const task = phase.tasks.find(t => t.id === taskId);
+        if (task) {
+            task.collapsed = false;
+        }
+
+        // Force switch to Gantt view so the rows exist in the DOM
+        this.projectViewMode = 'gantt';
+        this.elements.btnViewGantt.classList.add('active');
+        this.elements.btnViewLinear.classList.remove('active');
+        this.updateProjectViewIndicator();
+
+        // OPTIMIZATION: Pass false to skip recalculation
+        this.renderProjects(false);
+
+        // Scroll to the element
+        setTimeout(() => {
+            let element;
+            if (subtaskId && subtaskId !== 'null') {
+                element = document.querySelector(`.subtask-row[data-id='${subtaskId}']`);
+            } else {
+                element = document.querySelector(`.task-row[data-id='${taskId}']`);
             }
 
-            this.renderProjects();
-
-            // Use setTimeout to allow the DOM to update after renderProjects()
-            setTimeout(() => {
-                let element;
-                if (subtaskId) {
-                    element = document.querySelector(`.subtask-row[data-id='${subtaskId}']`);
-                } else {
-                    element = document.querySelector(`.task-row[data-id='${taskId}']`);
-                }
-
-                if (element) {
-                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    element.classList.add('highlight-task');
-                    setTimeout(() => {
-                        element.classList.remove('highlight-task');
-                    }, 2000);
-                }
-            }, 100);
-        },
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                element.classList.add('highlight-task');
+                setTimeout(() => {
+                    element.classList.remove('highlight-task');
+                }, 2000);
+            }
+        }, 100);
+    },
 
     generatePrintView(projectId) {
             const project = this.projects.find(p => p.id === projectId);
@@ -2203,62 +2264,68 @@ const timelineApp = {
     updateTaskName(projectId, phaseId, taskId, newName) { const t = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId); if (t) { t.name = newName; this.saveState(); } },
     updateSubtaskName(projectId, phaseId, taskId, subtaskId, newName) { const s = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId)?.subtasks.find(st => st.id === subtaskId); if (s) { s.name = newName; this.saveState(); } },
 
-    updateDate(context, value, comment = null, shouldLog = true) {
-            const { projectId, phaseId, taskId, subtaskId, type } = context; 
-            const project = this.projects.find(p => p.id === projectId); 
-            if (!project) return; 
+updateDate(context, value, comment = null, shouldLog = true) {
+        const { projectId, phaseId, taskId, subtaskId, type } = context; 
+        const project = this.projects.find(p => p.id === projectId); 
+        if (!project) return; 
+        
+        let targetItem, dateField, itemName;
+        
+        if (type.startsWith('project')) { 
+            targetItem = project; 
+            dateField = type.endsWith('start') ? 'startDate' : 'endDate'; 
+            itemName = `Project '${project.name}' ${dateField.replace('Date','')} date`; 
+        } else {
+            const phase = project.phases.find(ph => ph.id === phaseId); 
+            if (!phase) return;
             
-            let targetItem, dateField, itemName;
-            
-            if (type.startsWith('project')) { 
-                targetItem = project; 
-                dateField = type.endsWith('start') ? 'startDate' : 'endDate'; 
-                itemName = `Project '${project.name}' ${dateField.replace('Date','')} date`; 
+            if (type.startsWith('phase')) {
+                targetItem = phase;
+                dateField = type.endsWith('start') ? 'startDate' : 'endDate';
+                itemName = `Phase '${phase.name}' ${dateField.replace('Date','')} date`;
             } else {
-                const phase = project.phases.find(ph => ph.id === phaseId); 
-                if (!phase) return;
+                const task = phase.tasks.find(t => t.id === taskId); 
+                if (!task) return; 
+                itemName = `Task '${task.name}'`;
                 
-                if (type.startsWith('phase')) {
-                    targetItem = phase;
-                    dateField = type.endsWith('start') ? 'startDate' : 'endDate';
-                    itemName = `Phase '${phase.name}' ${dateField.replace('Date','')} date`;
-                } else {
-                    const task = phase.tasks.find(t => t.id === taskId); 
-                    if (!task) return; 
-                    itemName = `Task '${task.name}'`;
+                if (type.startsWith('task')) { 
+                    targetItem = task; 
+                    if (type === 'task-followup') {
+                        dateField = 'followUpDate';
+                        itemName += ` Follow Up date`;
+                    } else {
+                        dateField = type.endsWith('start') ? 'startDate' : 'endDate'; 
+                        itemName += ` ${dateField.replace('Date','')} date`; 
+                    }
+                } else if (type.startsWith('subtask')) { 
+                    const subtask = task.subtasks.find(st => st.id === subtaskId); 
+                    if (!subtask) return; 
+                    targetItem = subtask; 
                     
-                    if (type.startsWith('task')) { 
-                        targetItem = task; 
-                        // --- CHANGED: Handle normal dates vs follow up dates ---
-                        if (type === 'task-followup') {
-                            dateField = 'followUpDate';
-                            itemName += ` Follow Up date`;
-                        } else {
-                            dateField = type.endsWith('start') ? 'startDate' : 'endDate'; 
-                            itemName += ` ${dateField.replace('Date','')} date`; 
-                        }
-                        // ------------------------------------------------------
-                    } else if (type.startsWith('subtask')) { 
-                        const subtask = task.subtasks.find(st => st.id === subtaskId); 
-                        if (!subtask) return; 
-                        targetItem = subtask; 
+                    // --- CHANGED: Handle subtask follow up ---
+                    if (type === 'subtask-followup') {
+                        dateField = 'followUpDate';
+                        itemName = `Subtask '${subtask.name}' Follow Up date`;
+                    } else {
                         dateField = type.endsWith('start') ? 'startDate' : 'endDate'; 
                         itemName = `Subtask '${subtask.name}' ${dateField.replace('Date','')} date`; 
                     }
+                    // ----------------------------------------
                 }
             }
-            
-            if (targetItem && dateField) {
-                const oldDate = targetItem[dateField];
-                if (comment && shouldLog) {
-                    if (!project.logs) project.logs = [];
-                    project.logs.push({ timestamp: new Date().toISOString(), item: itemName, from: oldDate, to: value, comment });
-                }
-                targetItem[dateField] = value;
+        }
+        
+        if (targetItem && dateField) {
+            const oldDate = targetItem[dateField];
+            if (comment && shouldLog) {
+                if (!project.logs) project.logs = [];
+                project.logs.push({ timestamp: new Date().toISOString(), item: itemName, from: oldDate, to: value, comment });
             }
-            this.saveState(); 
-            this.renderProjects();
-        },
+            targetItem[dateField] = value;
+        }
+        this.saveState(); 
+        this.renderProjects();
+    },
 
     toggleTaskComplete(projectId, phaseId, taskId) { const t = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId); if (t) { t.completed = !t.completed; this.saveState(); this.renderProjects(); } },
     toggleSubtaskComplete(projectId, phaseId, taskId, subtaskId) { const s = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId)?.subtasks.find(st => st.id === subtaskId); if (s) { s.completed = !s.completed; this.saveState(); this.renderProjects(); } },
@@ -2421,18 +2488,15 @@ const timelineApp = {
 
 setProjectView(mode) {
         this.projectViewMode = mode;
-        // --- NEW: Save to LocalStorage ---
         localStorage.setItem('timelineProjectViewMode', mode);
         
-        // Update visual state of buttons
         this.elements.btnViewGantt.classList.toggle('active', mode === 'gantt');
         this.elements.btnViewLinear.classList.toggle('active', mode === 'linear');
 
-        // Move the glider
         this.updateProjectViewIndicator();
         
-        // Re-render content
-        this.renderProjects();
+        // OPTIMIZATION: Pass false to skip heavy dependency recalculations
+        this.renderProjects(false); 
     },
 
     updateProjectViewIndicator() {
