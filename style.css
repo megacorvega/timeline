@@ -1411,3 +1411,32 @@ button:not(:disabled),
         display: none !important;
     }
 }
+
+/* --- FOLLOW UP FEATURE STYLES --- */
+
+/* Light Mode: Purple Background with strong left border */
+.task-row.follow-up-active {
+    background-color: #f3e8ff; /* purple-100 */
+    border-left: 4px solid #9333ea; /* purple-600 */
+}
+
+/* Dark Mode: Deep Purple Background */
+.dark .task-row.follow-up-active {
+    background-color: #3b0764; /* purple-950 */
+    border-left: 4px solid #a855f7; /* purple-500 */
+    border-color: #581c87; /* purple-900 */
+}
+
+/* Ensure the date input stands out against the purple background */
+.task-row.follow-up-active .date-input {
+    background-color: #ffffff;
+    border-color: #d8b4fe; /* purple-300 */
+    color: #7e22ce; /* purple-700 */
+    font-weight: 700;
+}
+
+.dark .task-row.follow-up-active .date-input {
+    background-color: #1e1b4b; /* very dark purple */
+    border-color: #6b21a8; /* purple-800 */
+    color: #e9d5ff; /* purple-200 */
+}
