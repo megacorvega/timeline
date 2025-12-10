@@ -74,7 +74,6 @@ const timelineApp = {
         this.renderLinearView();
     },
 
-// --- NEW FUNCTION: Handle Action Hub Checkbox Clicks ---
     toggleItemComplete(event, projectId, phaseId, taskId, subtaskId) {
         event.stopPropagation(); // Stop the row from navigating
         
@@ -222,6 +221,15 @@ const timelineApp = {
                 }
                 if (!e.target.closest('.move-task-btn') && !e.target.closest('.move-task-dropdown')) {
                     document.querySelectorAll('.move-task-dropdown').forEach(d => d.classList.remove('show'));
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                // [Existing logic for datepicker, dependency, etc...]
+                
+                // NEW: Close tag dropdowns when clicking outside
+                if (!e.target.closest('.tag-menu-dropdown') && !e.target.closest('.add-tag-btn')) {
+                    document.querySelectorAll('.tag-menu-dropdown').forEach(el => el.classList.add('hidden'));
                 }
             });
 
@@ -402,7 +410,6 @@ const timelineApp = {
             }
         },
 
-        // --- DATA & UTILS ---
     saveState() {
             this.history.push(JSON.parse(JSON.stringify(this.projects)));
             if (this.history.length > this.MAX_HISTORY) {
@@ -444,56 +451,199 @@ const timelineApp = {
         },
 
     loadProjects() {
-            const savedData = localStorage.getItem('projectTimelineData');
-            let loadedProjects = [];
-            if (savedData) {
-                try {
-                    const parsedData = JSON.parse(savedData);
-                    if (Array.isArray(parsedData)) {
-                        loadedProjects = parsedData;
-                    }
-                } catch (error) { console.error("Error parsing projects from localStorage:", error); }
-            }
-            this.projects = loadedProjects;
-            this.projects.forEach(project => {
-                if (!project.originalStartDate) project.originalStartDate = project.startDate;
-                if (!project.originalEndDate) project.originalEndDate = project.endDate;
-                if (project.locked === undefined) project.locked = false;
-                if (!project.phases) project.phases = [];
-                if (project.zoomDomain === undefined) project.zoomDomain = null;
-                project.phases.forEach(phase => {
-                    if(phase.collapsed === undefined) phase.collapsed = false;
-                    if (phase.locked === undefined) phase.locked = false;
-                    if(!phase.dependencies) phase.dependencies = [];
-                    if(!phase.dependents) phase.dependents = [];
-                    phase.tasks.forEach(task => {
-                        if(task.collapsed === undefined) task.collapsed = false;
-                        if(!task.dependencies) task.dependencies = [];
-                        if(!task.dependents) task.dependents = [];
-                        if(task.subtasks) {
-                            task.subtasks.forEach(subtask => {
-                                if(!subtask.dependencies) subtask.dependencies = [];
-                                if(!subtask.dependents) subtask.dependents = [];
-                            });
-                        }
-                    });
-                });
-                if (!project.logs) project.logs = [];
-                if (project.collapsed === undefined) project.collapsed = false;
-                if (typeof project.startDate !== 'string' || project.startDate.trim() === '') project.startDate = null;
-                if (typeof project.endDate !== 'string' || project.endDate.trim() === '') project.endDate = null;
-            });
-
-            const savedDeletedLogs = localStorage.getItem('projectTimelineDeletedLogs');
-            if (savedDeletedLogs) {
-                try {
-                    this.deletedProjectLogs = JSON.parse(savedDeletedLogs);
-                } catch (error) {
-                    console.error("Error parsing deleted project logs from localStorage:", error);
-                    this.deletedProjectLogs = [];
+        const savedData = localStorage.getItem('projectTimelineData');
+        let loadedProjects = [];
+        if (savedData) {
+            try {
+                const parsedData = JSON.parse(savedData);
+                if (Array.isArray(parsedData)) {
+                    loadedProjects = parsedData;
                 }
+            } catch (error) { console.error("Error parsing projects from localStorage:", error); }
+        }
+        this.projects = loadedProjects;
+        
+        let hasMigrated = false; // Flag to track changes
+
+        // --- MIGRATION & NORMALIZATION ---
+        this.projects.forEach(project => {
+            if (!project.originalStartDate) project.originalStartDate = project.startDate;
+            if (!project.originalEndDate) project.originalEndDate = project.endDate;
+            if (project.locked === undefined) project.locked = false;
+            if (!project.phases) project.phases = [];
+            if (project.zoomDomain === undefined) project.zoomDomain = null;
+            
+            project.phases.forEach(phase => {
+                if(phase.collapsed === undefined) phase.collapsed = false;
+                if (phase.locked === undefined) phase.locked = false;
+                if(!phase.dependencies) phase.dependencies = [];
+                if(!phase.dependents) phase.dependents = [];
+                
+                phase.tasks.forEach(task => {
+                    if(this.migrateTagsForItem(task)) hasMigrated = true; // Check migration
+                    if(task.collapsed === undefined) task.collapsed = false;
+                    if(!task.dependencies) task.dependencies = [];
+                    if(!task.dependents) task.dependents = [];
+                    if(task.subtasks) {
+                        task.subtasks.forEach(subtask => {
+                            if(this.migrateTagsForItem(subtask)) hasMigrated = true; // Check migration
+                            if(!subtask.dependencies) subtask.dependencies = [];
+                            if(!subtask.dependents) subtask.dependents = [];
+                        });
+                    }
+                });
+            });
+            if (!project.logs) project.logs = [];
+            if (project.collapsed === undefined) project.collapsed = false;
+            if (typeof project.startDate !== 'string' || project.startDate.trim() === '') project.startDate = null;
+            if (typeof project.endDate !== 'string' || project.endDate.trim() === '') project.endDate = null;
+        });
+        
+        // Save cleaned names immediately so they don't reappear
+        if(hasMigrated) {
+            this.saveState();
+        }
+
+        const savedDeletedLogs = localStorage.getItem('projectTimelineDeletedLogs');
+        if (savedDeletedLogs) {
+            try {
+                this.deletedProjectLogs = JSON.parse(savedDeletedLogs);
+            } catch (error) {
+                console.error("Error parsing deleted project logs from localStorage:", error);
+                this.deletedProjectLogs = [];
             }
-        },
+        }
+    },
+
+    migrateTagsForItem(item) {
+        if (!item.tags) item.tags = [];
+        const regex = /(^|\s)(@[a-zA-Z0-9_\-]+)/g;
+        const matches = item.name.match(regex);
+        if (matches) {
+            matches.forEach(m => {
+                const tag = m.trim().substring(1); 
+                if (!item.tags.includes(tag)) item.tags.push(tag);
+            });
+            item.name = item.name.replace(regex, ' ').trim();
+            return true; // Indicate change occurred
+        }
+        return false;
+    },
+
+    getAllTags() {
+        const tags = new Set();
+        this.projects.forEach(p => p.phases.forEach(ph => ph.tasks.forEach(t => {
+            if (t.tags) t.tags.forEach(tag => tags.add(tag));
+            if (t.subtasks) t.subtasks.forEach(st => {
+                if (st.tags) st.tags.forEach(tag => tags.add(tag));
+            });
+        })));
+        return Array.from(tags).sort();
+    },
+
+    addTag(projectId, phaseId, taskId, subtaskId, tagName) {
+        // FIX: Check if subtaskId exists to determine type
+        const type = (subtaskId && subtaskId !== 'null' && subtaskId !== null) ? 'subtask' : 'task';
+        const item = this.getItem(type, projectId, phaseId, taskId, subtaskId);
+
+        if (item) {
+            if (!item.tags) item.tags = [];
+            const cleanTag = tagName.trim();
+            if (cleanTag && !item.tags.includes(cleanTag)) {
+                item.tags.push(cleanTag);
+                this.saveState();
+                this.renderProjects();
+            }
+        }
+    },
+
+    removeTag(projectId, phaseId, taskId, subtaskId, tagName) {
+        // FIX: Check if subtaskId exists to determine type
+        const type = (subtaskId && subtaskId !== 'null' && subtaskId !== null) ? 'subtask' : 'task';
+        const item = this.getItem(type, projectId, phaseId, taskId, subtaskId);
+
+        if (item && item.tags) {
+            item.tags = item.tags.filter(t => t !== tagName);
+            this.saveState();
+            this.renderProjects();
+        }
+    },
+
+    renderTagOptions(projectId, phaseId, taskId, subtaskId, filter = '') {
+        const id = subtaskId || taskId;
+        const container = document.getElementById(`tag-options-${id}`);
+        if (!container) return;
+
+        const allTags = this.getAllTags();
+        
+        // FIX: Check if subtaskId exists to determine type
+        const type = (subtaskId && subtaskId !== 'null' && subtaskId !== null) ? 'subtask' : 'task';
+        const item = this.getItem(type, projectId, phaseId, taskId, subtaskId);
+        
+        const currentTags = item ? (item.tags || []) : [];
+        
+        const filteredTags = allTags.filter(tag => tag.toLowerCase().includes(filter.toLowerCase()));
+        
+        let html = '';
+        
+        if (filter && !allTags.includes(filter) && !currentTags.includes(filter)) {
+             html += `
+                <div class="tag-option create-new" onclick="timelineApp.addTag(${projectId}, ${phaseId}, ${taskId}, ${subtaskId ? subtaskId : 'null'}, '${filter}')">
+                    Create "${filter}"
+                </div>
+             `;
+        }
+
+        filteredTags.forEach(tag => {
+            const isSelected = currentTags.includes(tag);
+            if (!isSelected) {
+                html += `
+                    <div class="tag-option" onclick="timelineApp.addTag(${projectId}, ${phaseId}, ${taskId}, ${subtaskId ? subtaskId : 'null'}, '${tag}')">
+                        ${tag}
+                    </div>
+                `;
+            }
+        });
+        
+        if (html === '' && !filter) {
+            html = '<div class="text-xs text-gray-500 p-2 text-center">No existing tags. Type to create.</div>';
+        }
+
+        container.innerHTML = html;
+    },
+
+    toggleTagMenu(event, projectId, phaseId, taskId, subtaskId) {
+        event.stopPropagation();
+        const id = subtaskId || taskId;
+        const menuId = `tag-menu-${id}`;
+        
+        // Close all other open menus
+        document.querySelectorAll('.tag-menu-dropdown').forEach(el => {
+            if (el.id !== menuId) el.classList.add('hidden');
+        });
+
+        const menu = document.getElementById(menuId);
+        if (menu) {
+            menu.classList.toggle('hidden');
+            if (!menu.classList.contains('hidden')) {
+                const input = document.getElementById(`tag-input-${id}`);
+                if(input) {
+                    input.value = '';
+                    input.focus();
+                }
+                this.renderTagOptions(projectId, phaseId, taskId, subtaskId);
+            }
+        }
+    },
+
+    handleTagInput(event, projectId, phaseId, taskId, subtaskId) {
+        const filter = event.target.value;
+        if (event.key === 'Enter' && filter) {
+            this.addTag(projectId, phaseId, taskId, subtaskId, filter);
+            return;
+        }
+        this.renderTagOptions(projectId, phaseId, taskId, subtaskId, filter);
+    },
 
     parseDate: d3.timeParse("%Y-%m-%d"),
     formatDate: d3.timeFormat("%m/%d/%y"),
@@ -903,33 +1053,22 @@ const timelineApp = {
         
         // 1. COLLECT ALL TASKS & EXTRACT TAGS
         let allItems = [];
-        const allTags = new Set(); // Store unique tags found
+        const allTags = new Set(this.getAllTags());
 
         this.projects.forEach(project => {
             if (this.upcomingProjectFilter !== 'all' && project.id.toString() !== this.upcomingProjectFilter) return;
 
             project.phases.forEach(phase => {
                 phase.tasks.forEach(task => {
-                    // Helper to process text for tags
-                    const processTags = (text) => {
-                        // Regex: Match @Name preceded by space or start of line
-                        const matches = text.match(/(^|\s)(@[a-zA-Z0-9_\-]+)/g);
-                        if (matches) {
-                            matches.forEach(m => allTags.add(m.trim()));
-                        }
-                    };
-
                     const itemBase = {
                         path: `${project.name} > ${phase.name}`,
                         projectId: project.id, phaseId: phase.id, taskId: task.id,
-                        // Parent follow up data (default)
                         isFollowUp: task.isFollowUp || false,
                         followUpDate: task.followUpDate ? this.parseDate(task.followUpDate) : null,
                     };
 
                     if (task.subtasks && task.subtasks.length > 0) {
                         task.subtasks.forEach(subtask => {
-                            processTags(subtask.name); 
                             allItems.push({
                                 ...itemBase,
                                 name: `${task.name}: ${subtask.name}`,
@@ -937,20 +1076,20 @@ const timelineApp = {
                                 rawDate: subtask.endDate ? this.parseDate(subtask.endDate) : null,
                                 completed: subtask.completed,
                                 subtaskId: subtask.id,
-                                // --- OVERRIDE with Subtask Specific Follow Up Data ---
                                 isFollowUp: subtask.isFollowUp || false,
-                                followUpDate: subtask.followUpDate ? this.parseDate(subtask.followUpDate) : null
+                                followUpDate: subtask.followUpDate ? this.parseDate(subtask.followUpDate) : null,
+                                tags: subtask.tags || []
                             });
                         });
                     } else {
-                        processTags(task.name); 
                         allItems.push({
                             ...itemBase,
                             name: task.name,
                             date: task.effectiveEndDate || 'No Date',
                             rawDate: task.effectiveEndDate ? this.parseDate(task.effectiveEndDate) : null,
                             completed: task.completed,
-                            subtaskId: null
+                            subtaskId: null,
+                            tags: task.tags || []
                         });
                     }
                 });
@@ -962,14 +1101,9 @@ const timelineApp = {
             allItems = allItems.filter(i => !i.completed);
         }
         
-        // Filter by Tag
+        // Filter by Tag (Updated to check array)
         if (this.tagFilter !== 'all') {
-            allItems = allItems.filter(i => {
-                const text = i.name;
-                const safeTag = this.tagFilter.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-                const regex = new RegExp(`(^|\\s)${safeTag}(?=\\s|$)`);
-                return regex.test(text);
-            });
+            allItems = allItems.filter(i => i.tags && i.tags.includes(this.tagFilter));
         }
 
         // 3. BUILD CONTROLS HTML
@@ -1015,7 +1149,6 @@ const timelineApp = {
             else { buckets.upcoming.push(item); }
         });
 
-        // Sort Buckets
         buckets.waitingFor.sort((a, b) => (a.followUpDate || new Date(9999,0,1)) - (b.followUpDate || new Date(9999,0,1)));
         buckets.doNow.sort((a, b) => a.rawDate - b.rawDate);
         buckets.upcoming.sort((a, b) => a.rawDate - b.rawDate);
@@ -1043,11 +1176,7 @@ const timelineApp = {
                      extraDetails = `<div class="text-[10px] font-bold text-red-600 dark:text-red-300 uppercase tracking-wider">Overdue by ${Math.abs(item.diffDays)} days</div>`;
                 }
 
-                // Highlight Tags
-                const highlightedName = item.name.replace(
-                    /(^|\s)@([a-zA-Z0-9_\-]+)/g, 
-                    '$1<span class="tag-badge">$2</span>' 
-                );
+                const tagsHtml = (item.tags || []).map(t => `<span class="tag-badge">${t}</span>`).join('');
 
                 html += `
                 <div class="upcoming-task-item flex items-center p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors ${completedClass}" 
@@ -1066,7 +1195,10 @@ const timelineApp = {
                             <div class="text-xs text-secondary truncate w-2/3">${item.path}</div>
                             <div class="text-xs font-mono text-tertiary">${item.rawDate ? this.formatDate(item.rawDate) : ''}</div>
                         </div>
-                        <div class="font-medium truncate text-sm pt-1">${highlightedName}</div>
+                        <div class="font-medium truncate text-sm pt-1 flex items-center gap-2">
+                            <span>${item.name}</span>
+                            ${tagsHtml}
+                        </div>
                         ${extraDetails}
                     </div>
                 </div>`;
@@ -1231,7 +1363,6 @@ const timelineApp = {
             const isEndDateDisabled = hasSubtasks;
             const endDateInputClasses = isEndDateDisabled ? 'date-input-disabled' : '';
 
-            // --- CHANGED: Follow Up Logic (Added ${iconHtml}) ---
             const followUpClass = task.isFollowUp ? 'follow-up-active' : '';
             const followUpIconColor = task.isFollowUp ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400 hover:text-purple-500';
             
@@ -1252,7 +1383,30 @@ const timelineApp = {
                     ${iconHtml}
                 </div>
             ` : '';
-            // --------------------------------
+
+            // --- TAGS UI ---
+            const tags = task.tags || [];
+            const tagHtml = tags.map(tag => `
+                <span class="tag-badge">
+                    ${tag}
+                    <span onclick="event.stopPropagation(); timelineApp.removeTag(${projectId}, ${phaseId}, ${task.id}, null, '${tag}')" class="tag-remove">&times;</span>
+                </span>
+            `).join('');
+
+            const tagMenuHtml = `
+                <div class="relative inline-block ml-2">
+                    <button onclick="timelineApp.toggleTagMenu(event, ${projectId}, ${phaseId}, ${task.id}, null)" class="add-tag-btn" title="Add Tag">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
+                        <span class="ml-0.5 text-[10px]">+</span>
+                    </button>
+                    <div id="tag-menu-${task.id}" class="tag-menu-dropdown hidden" onclick="event.stopPropagation()">
+                        <input type="text" id="tag-input-${task.id}" class="tag-menu-input" placeholder="Search or create..." 
+                               onkeyup="timelineApp.handleTagInput(event, ${projectId}, ${phaseId}, ${task.id}, null)">
+                        <div id="tag-options-${task.id}" class="tag-menu-options"></div>
+                    </div>
+                </div>
+            `;
+            // ----------------
 
             html += `
                 <div class="task-row rounded-lg px-2 py-1 ${depClass} ${selectedClass} ${followUpClass}" data-id="${task.id}" data-type="task" data-project-id="${projectId}" data-phase-id="${phaseId}">
@@ -1263,8 +1417,9 @@ const timelineApp = {
                         <div class="duration-scale-container" title="Duration Progress">
                             <div class="duration-scale-bar ${durationBarColorClass}" style="width: ${durationProgress}%;"></div>
                         </div>
-                        <div class="flex-grow flex items-center gap-2">
+                        <div class="flex-grow flex items-center gap-2 flex-wrap">
                             <span class="font-medium editable-text" onclick="timelineApp.makeEditable(this, 'updateTaskName', ${projectId}, ${phaseId}, ${task.id})">${task.name}</span>
+                            <div class="flex items-center">${tagHtml}${tagMenuHtml}</div>
                             <button onclick="timelineApp.showAddSubtaskInput(${task.id})" class="add-subtask-btn items-center gap-1 text-xs btn-secondary font-semibold rounded-md px-2 py-1 flex-shrink-0">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
                                 <span>Subtask</span>
@@ -1356,7 +1511,6 @@ const timelineApp = {
             
             const dateInputClasses = subtask.isDriven ? 'date-input-disabled' : '';
 
-            // --- FOLLOW UP UI LOGIC (Added ${iconHtml}) ---
             const followUpClass = subtask.isFollowUp ? 'follow-up-active' : '';
             const followUpIconColor = subtask.isFollowUp ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400 hover:text-purple-500';
             
@@ -1379,6 +1533,30 @@ const timelineApp = {
                 </div>
             ` : '';
 
+            // --- TAGS UI ---
+            const tags = subtask.tags || [];
+            const tagHtml = tags.map(tag => `
+                <span class="tag-badge">
+                    ${tag}
+                    <span onclick="event.stopPropagation(); timelineApp.removeTag(${projectId}, ${phaseId}, ${taskId}, ${subtask.id}, '${tag}')" class="tag-remove">&times;</span>
+                </span>
+            `).join('');
+
+            const tagMenuHtml = `
+                <div class="relative inline-block ml-2">
+                    <button onclick="timelineApp.toggleTagMenu(event, ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" class="add-tag-btn" title="Add Tag">
+                         <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
+                         <span class="ml-0.5 text-[10px]">+</span>
+                    </button>
+                    <div id="tag-menu-${subtask.id}" class="tag-menu-dropdown hidden" onclick="event.stopPropagation()">
+                        <input type="text" id="tag-input-${subtask.id}" class="tag-menu-input" placeholder="Search or create..." 
+                               onkeyup="timelineApp.handleTagInput(event, ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})">
+                        <div id="tag-options-${subtask.id}" class="tag-menu-options"></div>
+                    </div>
+                </div>
+            `;
+            // ----------------
+
             html += `
                 <div class="subtask-row-wrapper">
                     <div class="flex items-center gap-3 subtask-row ${depClass} ${selectedClass} ${followUpClass}" data-id="${subtask.id}" data-type="subtask" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}">
@@ -1387,7 +1565,10 @@ const timelineApp = {
                         <div class="duration-scale-container" title="Duration Progress">
                             <div class="duration-scale-bar ${durationBarColorClass}" style="width: ${durationProgress}%;"></div>
                         </div>
-                        <span class="text-sm flex-grow ${subtask.completed ? 'line-through opacity-60' : ''} editable-text" onclick="timelineApp.makeEditable(this, 'updateSubtaskName', ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})">${subtask.name}</span>
+                        <div class="flex-grow flex items-center flex-wrap gap-2">
+                            <span class="text-sm ${subtask.completed ? 'line-through opacity-60' : ''} editable-text" onclick="timelineApp.makeEditable(this, 'updateSubtaskName', ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})">${subtask.name}</span>
+                            <div class="flex items-center">${tagHtml}${tagMenuHtml}</div>
+                        </div>
                         ${this.getDependencyIcon(subtask)}
                         
                         <div class="flex items-center">
@@ -2486,7 +2667,7 @@ updateDate(context, value, comment = null, shouldLog = true) {
             }
         },
 
-setProjectView(mode) {
+    setProjectView(mode) {
         this.projectViewMode = mode;
         localStorage.setItem('timelineProjectViewMode', mode);
         
@@ -2497,6 +2678,11 @@ setProjectView(mode) {
         
         // OPTIMIZATION: Pass false to skip heavy dependency recalculations
         this.renderProjects(false); 
+
+        // NEW: Reset scroll to top when switching to Action Hub
+        if (mode === 'linear') {
+            window.scrollTo(0, 0);
+        }
     },
 
     updateProjectViewIndicator() {
