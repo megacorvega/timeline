@@ -1589,26 +1589,27 @@ button:not(:disabled),
 
 /* Reduce Phase Name Font Size (Default was ~16px) */
 .phase-row .editable-text {
-    font-size: 12px; 
+    font-size: 14px; 
 }
 
 /* Reduce Task Name Font Size (Default was ~16px) */
 .task-row .editable-text {
-    font-size: 11px;
+    font-size: 12px;
 }
 
 /* Reduce Subtask Name Font Size (Default was 14px) */
 .subtask-row .editable-text {
-    font-size: 11px;
+    font-size: 12px;
 }
 
 /* Make Phase rows more compact */
 .phase-row {
-    padding: 4px 8px !important; /* Overrides 'p-2' (8px) */
+    padding: 2px 4px !important; /* Overrides 'p-2' (8px) */
 }
 
 /* Make Task rows more compact */
 .task-row {
-    padding-top: 2px !important;    /* Overrides 'py-1' (4px) */
-    padding-bottom: 2px !important;
+    padding-top: 1px !important;    /* Overrides 'py-1' (4px) */
+    padding-bottom: 1px !important;
 }
+
