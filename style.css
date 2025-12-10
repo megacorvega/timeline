@@ -1489,3 +1489,98 @@ button:not(:disabled),
     background-color: var(--bg-primary);
     color: var(--text-primary);
 }
+
+/* --- Tag System Styles --- */
+.tag-badge {
+    display: inline-flex;
+    align-items: center;
+    background-color: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border-radius: 4px;
+    padding: 1px 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin-right: 2px;
+    border: 1px solid var(--border-primary);
+    white-space: nowrap;
+}
+
+.tag-remove {
+    margin-left: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    opacity: 0.6;
+}
+.tag-remove:hover {
+    opacity: 1;
+    color: var(--red);
+}
+
+.add-tag-btn {
+    display: flex;
+    align-items: center;
+    color: var(--text-tertiary);
+    border: 1px dashed var(--border-primary);
+    border-radius: 4px;
+    padding: 0 4px;
+    transition: all 0.2s;
+}
+.add-tag-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--accent-primary);
+    background-color: var(--bg-tertiary);
+}
+
+.tag-menu-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 4px;
+    width: 200px;
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-primary);
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    border-radius: 6px;
+    z-index: 50;
+    padding: 4px;
+}
+
+.tag-menu-input {
+    width: 100%;
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    border: 1px solid var(--border-primary);
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    border-radius: 4px;
+    margin-bottom: 4px;
+}
+
+.tag-menu-options {
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.tag-option {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    color: var(--text-primary);
+    border-radius: 4px;
+}
+
+.tag-option:hover {
+    background-color: var(--bg-secondary);
+}
+
+.tag-option.create-new {
+    color: var(--accent-primary);
+    font-weight: 600;
+    border-top: 1px solid var(--border-primary);
+    margin-top: 2px;
+}
+
+/* Ensure dropdown doesn't get cut off in rows */
+.subtask-row, .task-row {
+    overflow: visible !important; 
+}
