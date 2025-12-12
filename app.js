@@ -2377,7 +2377,36 @@ navigateToTask(projectId, phaseId, taskId, subtaskId) {
             const name = this.elements.newProjectNameInput.value.trim(); if (!name) return;
             const startDateInput = document.getElementById('new-project-start-date'), endDateInput = document.getElementById('new-project-end-date');
             const startDate = startDateInput.dataset.date || null, endDate = endDateInput.dataset.date || null;
-            this.projects.push({ id: Date.now(), name, startDate, endDate, originalStartDate: startDate, originalEndDate: endDate, collapsed: false, phases: [], logs: [], zoomDomain: null });
+            
+            // --- MODIFIED SECTION START ---
+            const defaultPhaseNames = ["Initiation", "Evaluation", "Disposition", "Implementation", "Release"];
+            const baseId = Date.now();
+
+            const phases = defaultPhaseNames.map((phaseName, index) => ({
+                id: baseId + index + 1, // Offset ID slightly to ensure uniqueness vs project ID
+                name: phaseName,
+                startDate: null,
+                endDate: null,
+                collapsed: false,
+                tasks: [],
+                dependencies: [],
+                dependents: []
+            }));
+
+            this.projects.push({ 
+                id: baseId, 
+                name, 
+                startDate, 
+                endDate, 
+                originalStartDate: startDate, 
+                originalEndDate: endDate, 
+                collapsed: false, 
+                phases: phases, // Use the new default phases array
+                logs: [], 
+                zoomDomain: null 
+            });
+            // --- MODIFIED SECTION END ---
+
             this.saveState();
             this.elements.newProjectNameInput.value = '';
             startDateInput.value = ''; endDateInput.value = ''; delete startDateInput.dataset.date; delete endDateInput.dataset.date;
@@ -3374,3 +3403,4 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
