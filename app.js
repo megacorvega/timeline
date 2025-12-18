@@ -5,6 +5,7 @@ const timelineApp = {
     history: [],
     redoStack: [],
     standaloneTasks: [],
+    moveModalSelectedTags: [], // New state to track tags picked in the modal
     MAX_HISTORY: 10,
     sharedPicker: null,
     currentPickerContext: null,
@@ -2286,28 +2287,39 @@ const timelineApp = {
     formatDateInput(event) { let value = event.target.value.replace(/\D/g, ''); if (value.length > 2) value = value.substring(0, 2) + '/' + value.substring(2); if (value.length > 5) value = value.substring(0, 5) + '/' + value.substring(5, 7); event.target.value = value; },
 
     handleManualDateInput(event) {
-            const input = event.target, dateStr = input.value;
-            const revert = () => { input.value = input.dataset.date ? this.formatDate(this.parseDate(input.dataset.date)) : ''; };
-            if (dateStr && !/^\d{2}\/\d{2}\/\d{2}$/.test(dateStr)) { revert(); return; }
-            if (!dateStr) {
+        const input = event.target, dateStr = input.value;
+        const revert = () => { input.value = input.dataset.date ? this.formatDate(this.parseDate(input.dataset.date)) : ''; };
+        if (dateStr && !/^\d{2}\/\d{2}\/\d{2}$/.test(dateStr)) { revert(); return; }
+        
+        if (!dateStr) {
+            if (!input.dataset.type.startsWith('new-project') && !input.dataset.type.startsWith('move')) {
                 this.updateDate({ type: input.dataset.type, projectId: parseInt(input.dataset.projectId), phaseId: parseInt(input.dataset.phaseId), taskId: parseInt(input.dataset.taskId), subtaskId: parseInt(input.dataset.subtaskId), element: input }, null);
-                return;
             }
-            const [month, day, year] = dateStr.split('/').map(p => parseInt(p, 10));
-            const dateObj = new Date(year + 2000, month - 1, day);
-            if (dateObj.getFullYear() !== year + 2000 || dateObj.getMonth() !== month - 1 || dateObj.getDate() !== day) { revert(); return; }
-            const newDate = dateObj.toISOString().split('T')[0], oldDate = input.dataset.date || null;
+            return;
+        }
+
+        const [month, day, year] = dateStr.split('/').map(p => parseInt(p, 10));
+        const dateObj = new Date(year + 2000, month - 1, day);
+        const newDate = dateObj.toISOString().split('T')[0], oldDate = input.dataset.date || null;
+        
+        // NEW: Handle modal-specific types
+        if (input.dataset.type === 'new-project-start' || input.dataset.type === 'new-project-end' || input.dataset.type === 'move-followup') {
+            input.dataset.date = newDate;
+            return;
+        }
+        
+        // Original reason-modal logic for existing tasks...
+        if (oldDate && oldDate !== newDate) {
             const context = { type: input.dataset.type, projectId: parseInt(input.dataset.projectId), phaseId: parseInt(input.dataset.phaseId), taskId: parseInt(input.dataset.taskId), subtaskId: parseInt(input.dataset.subtaskId), element: input };
-            if (input.dataset.type.startsWith('new-project')) { input.dataset.date = newDate; return; }
-            if (oldDate && oldDate !== newDate) {
-                this.pendingDateChange = { context, newDate };
-                this.elements.reasonModalTitle.textContent = 'Reason for Date Change';
-                this.elements.reasonModalDetails.textContent = `Changing date from ${this.formatDate(this.parseDate(oldDate))} to ${this.formatDate(this.parseDate(newDate))}.`;
-                this.elements.reasonModal.classList.remove('hidden');
-                this.elements.reasonCommentTextarea.focus();
-            }
-            else if (!oldDate && newDate) { this.updateDate(context, newDate); }
-        },
+            this.pendingDateChange = { context, newDate };
+            this.elements.reasonModalTitle.textContent = 'Reason for Date Change';
+            this.elements.reasonModalDetails.textContent = `Changing date from ${this.formatDate(this.parseDate(oldDate))} to ${this.formatDate(this.parseDate(newDate))}.`;
+            this.elements.reasonModal.classList.remove('hidden');
+            this.elements.reasonCommentTextarea.focus();
+        } else if (!oldDate && newDate) {
+            this.updateDate({ type: input.dataset.type, projectId: parseInt(input.dataset.projectId), phaseId: parseInt(input.dataset.phaseId), taskId: parseInt(input.dataset.taskId), subtaskId: parseInt(input.dataset.subtaskId), element: input }, newDate);
+        }
+    },
 
     handleDateInputKeydown(event) { if (event.key === 'Enter') { event.preventDefault(); event.target.blur(); } },
 
@@ -3235,8 +3247,23 @@ const timelineApp = {
 
         this.pendingMoveTask = { text: taskText, isFollowUp: isFollowUp, cb: successCallback };
         
+        // Reset Modal Fields
+        this.moveModalSelectedTags = [];
+        document.getElementById('move-tag-input').value = '';
+        document.getElementById('move-selected-tags').innerHTML = '';
+        document.getElementById('move-delegate-input').value = '';
+        
+        // Default follow-up date to tomorrow
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = tomorrow.toISOString().split('T')[0];
+        const dateInput = document.getElementById('move-followup-input');
+        dateInput.value = this.formatDate(tomorrow);
+        dateInput.dataset.date = tomorrowStr;
+
+        // Populate Projects with "None" option
         const projSelect = this.elements.moveProjectSelect;
-        projSelect.innerHTML = '<option value="none">None (Standalone)</option>';
+        projSelect.innerHTML = '<option value="none">None (Standalone Action)</option>';
         this.projects.forEach(p => {
             const opt = document.createElement('option');
             opt.value = p.id;
@@ -3244,22 +3271,7 @@ const timelineApp = {
             projSelect.appendChild(opt);
         });
         
-        const datalist = document.getElementById('delegate-suggestions');
-        if (datalist) {
-            const existingDelegates = new Set();
-            this.projects.forEach(p => p.phases.forEach(ph => ph.tasks.forEach(t => {
-                if (t.delegatedTo) existingDelegates.add(t.delegatedTo);
-                if (t.subtasks) {
-                    t.subtasks.forEach(st => { if (st.delegatedTo) existingDelegates.add(st.delegatedTo); });
-                }
-            })));
-            this.standaloneTasks.forEach(t => { if (t.delegatedTo) existingDelegates.add(t.delegatedTo); });
-            
-            datalist.innerHTML = Array.from(existingDelegates)
-                .map(name => `<option value="${name}">`)
-                .join('');
-        }
-
+        this.populatePhaseSelectForMove();
         this.toggleMoveModalFields();
         this.elements.moveToProjectModal.classList.remove('hidden');
     },
@@ -3291,20 +3303,85 @@ const timelineApp = {
         const projectGroup = document.getElementById('project-select-group');
         const phaseGroup = document.getElementById('move-phase-group');
         const delegationGroup = document.getElementById('delegation-group');
+        const followupGroup = document.getElementById('move-followup-group');
         const projectSelect = document.getElementById('move-project-select');
         
+        // Show project selection for Multi-step and Delegated
         if (type === 'project' || type === 'waiting') {
             projectGroup.classList.remove('hidden');
             delegationGroup.classList.toggle('hidden', type !== 'waiting');
+            followupGroup.classList.toggle('hidden', type !== 'waiting');
             
+            // Hide phase if "None" (Standalone) is selected
             const isStandalone = projectSelect.value === 'none';
-            if (phaseGroup) {
-                phaseGroup.classList.toggle('hidden', isStandalone);
-            }
+            if (phaseGroup) phaseGroup.classList.toggle('hidden', isStandalone);
         } else {
+            // Single Action
             projectGroup.classList.add('hidden');
             delegationGroup.classList.add('hidden');
+            followupGroup.classList.add('hidden');
         }
+    },
+
+    handleMoveTagInput(event) {
+        const filter = event.target.value.trim();
+        const dropdown = document.getElementById('move-tag-options');
+        
+        if (event.key === 'Enter' && filter) {
+            this.addTagToMoveModal(filter);
+            return;
+        }
+        
+        if (filter.length > 0) {
+            dropdown.classList.remove('hidden');
+            this.renderMoveModalTagOptions(filter);
+        } else {
+            dropdown.classList.add('hidden');
+        }
+    },
+
+    renderMoveModalTagOptions(filter = '') {
+        const container = document.getElementById('move-tag-options');
+        const allTags = this.getAllTags();
+        const filteredTags = allTags.filter(tag => 
+            tag.toLowerCase().includes(filter.toLowerCase()) && 
+            !this.moveModalSelectedTags.includes(tag)
+        );
+        
+        let html = '';
+        if (filter && !allTags.includes(filter)) {
+            html += `<div class="tag-option create-new" onclick="timelineApp.addTagToMoveModal('${filter}')">Create "${filter}"</div>`;
+        }
+
+        filteredTags.forEach(tag => {
+            html += `<div class="tag-option" onclick="timelineApp.addTagToMoveModal('${tag}')">${tag}</div>`;
+        });
+        
+        container.innerHTML = html || '<div class="p-2 text-xs text-secondary text-center">No tags found</div>';
+    },
+
+    addTagToMoveModal(tagName) {
+        if (tagName && !this.moveModalSelectedTags.includes(tagName)) {
+            this.moveModalSelectedTags.push(tagName);
+            this.renderMoveModalSelectedTags();
+        }
+        document.getElementById('move-tag-input').value = '';
+        document.getElementById('move-tag-options').classList.add('hidden');
+    },
+
+    removeTagFromMoveModal(tagName) {
+        this.moveModalSelectedTags = this.moveModalSelectedTags.filter(t => t !== tagName);
+        this.renderMoveModalSelectedTags();
+    },
+
+    renderMoveModalSelectedTags() {
+        const container = document.getElementById('move-selected-tags');
+        container.innerHTML = this.moveModalSelectedTags.map(tag => `
+            <span class="tag-badge">
+                ${tag}
+                <span onclick="timelineApp.removeTagFromMoveModal('${tag}')" class="tag-remove">&times;</span>
+            </span>
+        `).join('');
     },
 
         // --- NEW FUNCTION: specific action to move the task ---
@@ -3313,9 +3390,9 @@ const timelineApp = {
         
         const moveType = document.getElementById('move-type-select').value;
         const projectId = this.elements.moveProjectSelect.value;
-        const phaseIdInput = document.getElementById('move-phase-select');
-        const phaseId = phaseIdInput ? parseInt(phaseIdInput.value) : null;
+        const phaseId = parseInt(this.elements.movePhaseSelect.value);
         const delegateTo = document.getElementById('move-delegate-input').value.trim();
+        const customFollowUpDate = document.getElementById('move-followup-input').dataset.date;
         
         const isDelegated = moveType === 'waiting';
         const isStandalone = moveType === 'standalone' || projectId === 'none';
@@ -3329,9 +3406,10 @@ const timelineApp = {
             subtasks: [],
             dependencies: [],
             dependents: [],
+            tags: [...(this.moveModalSelectedTags || [])],
             isFollowUp: isDelegated || this.pendingMoveTask.isFollowUp,
             delegatedTo: isDelegated ? delegateTo : null,
-            followUpDate: isDelegated ? new Date(Date.now() + 86400000).toISOString().split('T')[0] : null
+            followUpDate: isDelegated ? customFollowUpDate : null
         };
 
         if (isStandalone) {
@@ -3340,9 +3418,7 @@ const timelineApp = {
         } else {
             const project = this.projects.find(p => p.id === parseInt(projectId));
             const phase = project?.phases.find(ph => ph.id === phaseId);
-            if (phase) {
-                phase.tasks.push(newTask);
-            }
+            if (phase) phase.tasks.push(newTask);
         }
         
         this.saveState();
@@ -3350,7 +3426,6 @@ const timelineApp = {
         if (this.pendingMoveTask.cb) this.pendingMoveTask.cb();
         
         this.elements.moveToProjectModal.classList.add('hidden');
-        document.getElementById('move-delegate-input').value = '';
         this.pendingMoveTask = null;
     },
 

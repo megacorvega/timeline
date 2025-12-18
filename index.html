@@ -97,6 +97,36 @@
                     <input type="text" id="move-delegate-input" list="delegate-suggestions" class="w-full p-2 border rounded-md input-primary text-sm" placeholder="Who are you waiting on?">
                     <datalist id="delegate-suggestions"></datalist>
                 </div>
+
+                <div id="move-followup-group" class="hidden">
+                    <label class="block text-xs font-bold text-secondary mb-1">Follow Up Date</label>
+                    <div class="date-input-container">
+                        <input type="text" id="move-followup-input" 
+                               placeholder="Select Date" 
+                               class="date-input w-full" 
+                               data-type="move-followup" 
+                               oninput="timelineApp.formatDateInput(event)" 
+                               onblur="timelineApp.handleManualDateInput(event)" 
+                               onkeydown="timelineApp.handleDateInputKeydown(event)">
+                        <div class="date-input-icon-wrapper" onclick="timelineApp.handleDateTrigger(document.getElementById('move-followup-input'))">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="move-tag-group" class="space-y-2">
+                    <label class="block text-xs font-bold text-secondary mb-1">Tags</label>
+                    <div id="move-selected-tags" class="flex flex-wrap gap-1 mb-1"></div>
+                    <div class="relative">
+                        <input type="text" id="move-tag-input" 
+                               class="w-full p-2 border rounded-md input-primary text-sm" 
+                               placeholder="Search or create tags..." 
+                               onkeyup="timelineApp.handleMoveTagInput(event)">
+                        <div id="move-tag-options" class="tag-menu-dropdown hidden w-full left-0"></div>
+                    </div>
+                </div>
             </div>
 
             <div class="mt-6 flex justify-end gap-2">
