@@ -1635,23 +1635,39 @@ button:not(:disabled),
     line-height: 1.6;
 }
 
-/* Fix width for date containers in Action Hub to prevent icon overlap */
+/* Fix for Action Hub date input and icon spacing */
 .upcoming-task-item .date-input-container {
-    width: 115px;
+    width: 120px; /* Slightly wider to provide breathing room */
+    position: relative;
     display: flex;
     align-items: center;
 }
 
-/* Correct sizing and font for inline date inputs */
 .upcoming-task-item .date-input {
-    width: 110px;
-    height: 30px;
+    width: 100%;
+    height: 32px;
+    padding-left: 8px;
+    padding-right: 32px; /* Ensure text doesn't hide under the icon */
     font-size: 13px;
-    padding-left: 6px;
-    padding-right: 28px;
-    background-color: var(--bg-primary);
-    border: 1px solid var(--border-primary);
     border-radius: 6px;
+    border: 1px solid var(--border-primary);
+}
+
+.upcoming-task-item .date-input-icon-wrapper {
+    position: absolute;
+    right: 8px; /* Move icon in from the far right edge */
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.upcoming-task-item .date-input-icon-wrapper:hover {
+    opacity: 1;
 }
 
 /* Standardize badge dimensions for tags and delegation labels */
