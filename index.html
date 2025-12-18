@@ -84,9 +84,9 @@
                 <div id="project-select-group" class="space-y-4">
                     <div>
                         <label class="block text-xs font-bold text-secondary mb-1">Project</label>
-                        <select id="move-project-select" class="w-full p-2 border rounded-md input-primary text-sm"></select>
+                        <select id="move-project-select" class="w-full p-2 border rounded-md input-primary text-sm" onchange="timelineApp.toggleMoveModalFields(); timelineApp.populatePhaseSelectForMove()"></select>
                     </div>
-                    <div>
+                    <div id="move-phase-group">
                         <label class="block text-xs font-bold text-secondary mb-1">Phase</label>
                         <select id="move-phase-select" class="w-full p-2 border rounded-md input-primary text-sm"></select>
                     </div>
@@ -94,7 +94,8 @@
 
                 <div id="delegation-group" class="hidden">
                     <label class="block text-xs font-bold text-secondary mb-1">Delegated To</label>
-                    <input type="text" id="move-delegate-input" class="w-full p-2 border rounded-md input-primary text-sm" placeholder="Who are you waiting on?">
+                    <input type="text" id="move-delegate-input" list="delegate-suggestions" class="w-full p-2 border rounded-md input-primary text-sm" placeholder="Who are you waiting on?">
+                    <datalist id="delegate-suggestions"></datalist>
                 </div>
             </div>
 

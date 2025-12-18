@@ -1056,12 +1056,9 @@ const timelineApp = {
 
     renderLinearView() {
         const container = this.elements.projectsContainer;
-        
-        // 1. COLLECT ALL TASKS (from Projects and Standalone) & EXTRACT TAGS
         let allItems = [];
         const allTags = new Set(this.getAllTags());
 
-        // Collect from Standalone Tasks (Single Actions / Delegated)
         if (this.standaloneTasks) {
             this.standaloneTasks.forEach(task => {
                 allItems.push({
@@ -1080,10 +1077,8 @@ const timelineApp = {
             });
         }
 
-        // Collect from Projects
         this.projects.forEach(project => {
             if (this.upcomingProjectFilter !== 'all' && project.id.toString() !== this.upcomingProjectFilter) return;
-
             project.phases.forEach(phase => {
                 phase.tasks.forEach(task => {
                     const itemBase = {
@@ -1093,7 +1088,6 @@ const timelineApp = {
                         followUpDate: task.followUpDate ? this.parseDate(task.followUpDate) : null,
                         delegatedTo: task.delegatedTo
                     };
-
                     if (task.subtasks && task.subtasks.length > 0) {
                         task.subtasks.forEach(subtask => {
                             allItems.push({
@@ -1123,20 +1117,11 @@ const timelineApp = {
             });
         });
 
-        // 2. APPLY FILTERS
-        if (this.hideCompletedTasks) {
-            allItems = allItems.filter(i => !i.completed);
-        }
-        
-        if (this.tagFilter !== 'all') {
-            allItems = allItems.filter(i => i.tags && i.tags.includes(this.tagFilter));
-        }
+        if (this.hideCompletedTasks) allItems = allItems.filter(i => !i.completed);
+        if (this.tagFilter !== 'all') allItems = allItems.filter(i => i.tags && i.tags.includes(this.tagFilter));
 
-        // 3. BUILD CONTROLS HTML
         const sortedTags = Array.from(allTags).sort();
-        const tagOptions = sortedTags.map(tag => 
-            `<option value="${tag}" ${this.tagFilter === tag ? 'selected' : ''}>${tag}</option>`
-        ).join('');
+        const tagOptions = sortedTags.map(tag => `<option value="${tag}" ${this.tagFilter === tag ? 'selected' : ''}>${tag}</option>`).join('');
 
         const controlsHtml = `
             <div class="flex justify-between items-center mb-4 px-1 bg-white dark:bg-slate-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
@@ -1147,22 +1132,17 @@ const timelineApp = {
                         ${tagOptions}
                     </select>
                 </div>
-
                 <label class="flex items-center text-xs font-semibold text-secondary cursor-pointer select-none hover:text-primary transition-colors">
-                    <input type="checkbox" class="custom-checkbox mr-2" 
-                        ${this.hideCompletedTasks ? 'checked' : ''} 
-                        onchange="timelineApp.toggleHideCompleted()">
+                    <input type="checkbox" class="custom-checkbox mr-2" ${this.hideCompletedTasks ? 'checked' : ''} onchange="timelineApp.toggleHideCompleted()">
                     Hide Completed Tasks
                 </label>
-            </div>
-        `;
+            </div>`;
 
         if (allItems.length === 0) {
-            container.innerHTML = controlsHtml + `<div class="upcoming-card p-4 rounded-xl shadow-md text-center text-secondary">No tasks found matching current filters.</div>`;
+            container.innerHTML = controlsHtml + `<div class="upcoming-card p-4 rounded-xl shadow-md text-center text-secondary">No tasks found.</div>`;
             return;
         }
 
-        // 4. BUCKET SORTING
         const today = new Date(); today.setHours(0,0,0,0);
         const buckets = { waitingFor: [], doNow: [], upcoming: [], backlog: [] };
 
@@ -1174,77 +1154,38 @@ const timelineApp = {
             else { buckets.upcoming.push(item); }
         });
 
-        buckets.waitingFor.sort((a, b) => (a.followUpDate || new Date(9999,0,1)) - (b.followUpDate || new Date(9999,0,1)));
-        buckets.doNow.sort((a, b) => a.rawDate - b.rawDate);
-        buckets.upcoming.sort((a, b) => a.rawDate - b.rawDate);
-
-        // 5. RENDER GROUPS
         const renderGroup = (title, items, headerClass) => {
             if (items.length === 0) return '';
-            
-            let html = `<div class="upcoming-card rounded-xl shadow-md mb-4 overflow-hidden">
-                <div class="p-3 border-b border-primary ${headerClass}">
-                    <h3 class="font-bold flex items-center gap-2">
-                        ${title} 
-                        <span class="text-xs font-normal opacity-75 bg-white bg-opacity-20 px-2 py-0.5 rounded-full">${items.length}</span>
-                    </h3>
-                </div>
-                <div class="p-1 space-y-1">`;
-                
+            let html = `<div class="upcoming-card rounded-xl shadow-md mb-4 overflow-hidden"><div class="p-3 border-b border-primary ${headerClass}"><h3 class="font-bold flex items-center gap-2">${title} <span class="text-xs font-normal opacity-75 bg-white bg-opacity-20 px-2 py-0.5 rounded-full">${items.length}</span></h3></div><div class="p-1 space-y-1">`;
             items.forEach(item => {
                 const completedClass = item.completed ? 'line-through opacity-60' : '';
                 let extraDetails = '';
                 if (item.isFollowUp) {
                     const fuDate = item.followUpDate ? this.formatDate(item.followUpDate) : 'No Date';
-                    const label = item.delegatedTo ? `Waiting on: ${item.delegatedTo}` : `Follow Up: ${fuDate}`;
-                    extraDetails = `<div class="text-[10px] font-bold text-purple-600 dark:text-purple-300 uppercase tracking-wider">${label}</div>`;
+                    const delegateBadge = item.delegatedTo ? `<span class="tag-badge ml-1">${item.delegatedTo}</span>` : '';
+                    const label = item.delegatedTo ? `Waiting on: ${delegateBadge}` : `Follow Up: ${fuDate}`;
+                    extraDetails = `<div class="text-[10px] font-bold text-purple-600 dark:text-purple-300 uppercase tracking-wider flex items-center">${label}</div>`;
                 } else if (item.diffDays < 0) {
                     extraDetails = `<div class="text-[10px] font-bold text-red-600 dark:text-red-300 uppercase tracking-wider">Overdue by ${Math.abs(item.diffDays)} days</div>`;
                 }
-
                 const tagsHtml = (item.tags || []).map(t => `<span class="tag-badge">${t}</span>`).join('');
-
-                const navClass = item.isStandalone ? 'no-nav' : 'cursor-pointer';
-                html += `
-                <div class="upcoming-task-item flex items-center p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${completedClass} ${navClass}" 
-                    onclick="${item.isStandalone ? '' : `timelineApp.navigateToTask(${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'})`}">
-                    
-                    <div class="flex-shrink-0 mr-3 cursor-pointer group" 
-                        onclick="event.stopPropagation(); timelineApp.toggleItemComplete(event, ${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'})">
-                        ${item.completed 
-                            ? `<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>`
-                            : `<div class="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600 group-hover:border-green-500 transition-colors"></div>`
-                        }
-                    </div>
-                    
-                    <div class="flex-grow min-w-0">
-                        <div class="flex justify-between items-baseline">
-                            <div class="text-xs text-secondary truncate w-2/3">${item.path}</div>
-                            <div class="text-xs font-mono text-tertiary">${item.rawDate ? this.formatDate(item.rawDate) : ''}</div>
-                        </div>
-                        <div class="font-medium truncate text-sm pt-1 flex items-center gap-2">
-                            <span>${item.name}</span>
-                            ${tagsHtml}
-                        </div>
-                        ${extraDetails}
-                    </div>
-                </div>`;
+                html += `<div class="upcoming-task-item flex items-center p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${completedClass} ${item.isStandalone ? 'no-nav' : 'cursor-pointer'}" onclick="${item.isStandalone ? '' : `timelineApp.navigateToTask(${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'})`}">
+                    <div class="flex-shrink-0 mr-3 cursor-pointer group" onclick="event.stopPropagation(); timelineApp.toggleItemComplete(event, ${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'})">${item.completed ? `<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>` : `<div class="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600 group-hover:border-green-500 transition-colors"></div>`}</div>
+                    <div class="flex-grow min-w-0"><div class="flex justify-between items-baseline"><div class="text-xs text-secondary truncate w-2/3">${item.path}</div><div class="text-xs font-mono text-tertiary">${item.rawDate ? this.formatDate(item.rawDate) : ''}</div></div><div class="font-medium truncate text-sm pt-1 flex items-center gap-2"><span>${item.name}</span>${tagsHtml}</div>${extraDetails}</div></div>`;
             });
             return html + `</div></div>`;
         };
 
-        let groupsHtml = '';
-        if (buckets.waitingFor.length > 0) groupsHtml += renderGroup("Waiting For", buckets.waitingFor, "bg-purple-100 dark:bg-purple-900/40 text-purple-900 dark:text-purple-100 border-purple-200 dark:border-purple-800");
-        if (buckets.doNow.length > 0) groupsHtml += renderGroup("Do Now", buckets.doNow, "bg-blue-100 dark:bg-blue-900/40 text-blue-900 dark:text-blue-100 border-blue-200 dark:border-blue-800");
-        else if (allItems.length > 0 && !this.hideCompletedTasks && this.tagFilter === 'all') groupsHtml += `<div class="p-4 mb-4 text-center text-sm text-secondary bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-100 dark:border-green-900">🎉 All caught up on immediate tasks!</div>`;
-        if (buckets.upcoming.length > 0) groupsHtml += renderGroup("Upcoming", buckets.upcoming, "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200");
-        if (buckets.backlog.length > 0) groupsHtml += renderGroup("Backlog", buckets.backlog, "bg-gray-200 dark:bg-slate-700/50 text-gray-600 dark:text-gray-400");
+        let groupsHtml = renderGroup("Waiting For", buckets.waitingFor, "bg-purple-100 dark:bg-purple-900/40 text-purple-900 dark:text-purple-100 border-purple-200 dark:border-purple-800") +
+                        renderGroup("Do Now", buckets.doNow, "bg-blue-100 dark:bg-blue-900/40 text-blue-900 dark:text-blue-100 border-blue-200 dark:border-blue-800") +
+                        renderGroup("Upcoming", buckets.upcoming, "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200") +
+                        renderGroup("Backlog", buckets.backlog, "bg-gray-200 dark:bg-slate-700/50 text-gray-600 dark:text-gray-400");
 
         const wrapper = document.createElement('div');
         wrapper.innerHTML = controlsHtml + groupsHtml;
         container.innerHTML = '';
         container.appendChild(wrapper);
-        },
+    },
 
     getDependencyIcon(item) {
             const dependentCount = item.dependents?.length || 0;
@@ -2099,49 +2040,49 @@ const timelineApp = {
             container.innerHTML = fullHtml;
         },
 
-navigateToTask(projectId, phaseId, taskId, subtaskId) {
-        this.showMainTab('projects');
+    navigateToTask(projectId, phaseId, taskId, subtaskId) {
+            this.showMainTab('projects');
 
-        const project = this.projects.find(p => p.id === projectId);
-        if (!project) return;
-        project.collapsed = false;
+            const project = this.projects.find(p => p.id === projectId);
+            if (!project) return;
+            project.collapsed = false;
 
-        const phase = project.phases.find(ph => ph.id === phaseId);
-        if (!phase) return;
-        phase.collapsed = false;
+            const phase = project.phases.find(ph => ph.id === phaseId);
+            if (!phase) return;
+            phase.collapsed = false;
 
-        const task = phase.tasks.find(t => t.id === taskId);
-        if (task) {
-            task.collapsed = false;
-        }
-
-        // Force switch to Gantt view so the rows exist in the DOM
-        this.projectViewMode = 'gantt';
-        this.elements.btnViewGantt.classList.add('active');
-        this.elements.btnViewLinear.classList.remove('active');
-        this.updateProjectViewIndicator();
-
-        // OPTIMIZATION: Pass false to skip recalculation
-        this.renderProjects(false);
-
-        // Scroll to the element
-        setTimeout(() => {
-            let element;
-            if (subtaskId && subtaskId !== 'null') {
-                element = document.querySelector(`.subtask-row[data-id='${subtaskId}']`);
-            } else {
-                element = document.querySelector(`.task-row[data-id='${taskId}']`);
+            const task = phase.tasks.find(t => t.id === taskId);
+            if (task) {
+                task.collapsed = false;
             }
 
-            if (element) {
-                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                element.classList.add('highlight-task');
-                setTimeout(() => {
-                    element.classList.remove('highlight-task');
-                }, 2000);
-            }
-        }, 100);
-    },
+            // Force switch to Gantt view so the rows exist in the DOM
+            this.projectViewMode = 'gantt';
+            this.elements.btnViewGantt.classList.add('active');
+            this.elements.btnViewLinear.classList.remove('active');
+            this.updateProjectViewIndicator();
+
+            // OPTIMIZATION: Pass false to skip recalculation
+            this.renderProjects(false);
+
+            // Scroll to the element
+            setTimeout(() => {
+                let element;
+                if (subtaskId && subtaskId !== 'null') {
+                    element = document.querySelector(`.subtask-row[data-id='${subtaskId}']`);
+                } else {
+                    element = document.querySelector(`.task-row[data-id='${taskId}']`);
+                }
+
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    element.classList.add('highlight-task');
+                    setTimeout(() => {
+                        element.classList.remove('highlight-task');
+                    }, 2000);
+                }
+            }, 100);
+        },  
 
     generatePrintView(projectId) {
             const project = this.projects.find(p => p.id === projectId);
@@ -2501,68 +2442,68 @@ navigateToTask(projectId, phaseId, taskId, subtaskId) {
     updateTaskName(projectId, phaseId, taskId, newName) { const t = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId); if (t) { t.name = newName; this.saveState(); } },
     updateSubtaskName(projectId, phaseId, taskId, subtaskId, newName) { const s = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId)?.subtasks.find(st => st.id === subtaskId); if (s) { s.name = newName; this.saveState(); } },
 
-updateDate(context, value, comment = null, shouldLog = true) {
-        const { projectId, phaseId, taskId, subtaskId, type } = context; 
-        const project = this.projects.find(p => p.id === projectId); 
-        if (!project) return; 
-        
-        let targetItem, dateField, itemName;
-        
-        if (type.startsWith('project')) { 
-            targetItem = project; 
-            dateField = type.endsWith('start') ? 'startDate' : 'endDate'; 
-            itemName = `Project '${project.name}' ${dateField.replace('Date','')} date`; 
-        } else {
-            const phase = project.phases.find(ph => ph.id === phaseId); 
-            if (!phase) return;
+    updateDate(context, value, comment = null, shouldLog = true) {
+            const { projectId, phaseId, taskId, subtaskId, type } = context; 
+            const project = this.projects.find(p => p.id === projectId); 
+            if (!project) return; 
             
-            if (type.startsWith('phase')) {
-                targetItem = phase;
-                dateField = type.endsWith('start') ? 'startDate' : 'endDate';
-                itemName = `Phase '${phase.name}' ${dateField.replace('Date','')} date`;
+            let targetItem, dateField, itemName;
+            
+            if (type.startsWith('project')) { 
+                targetItem = project; 
+                dateField = type.endsWith('start') ? 'startDate' : 'endDate'; 
+                itemName = `Project '${project.name}' ${dateField.replace('Date','')} date`; 
             } else {
-                const task = phase.tasks.find(t => t.id === taskId); 
-                if (!task) return; 
-                itemName = `Task '${task.name}'`;
+                const phase = project.phases.find(ph => ph.id === phaseId); 
+                if (!phase) return;
                 
-                if (type.startsWith('task')) { 
-                    targetItem = task; 
-                    if (type === 'task-followup') {
-                        dateField = 'followUpDate';
-                        itemName += ` Follow Up date`;
-                    } else {
-                        dateField = type.endsWith('start') ? 'startDate' : 'endDate'; 
-                        itemName += ` ${dateField.replace('Date','')} date`; 
-                    }
-                } else if (type.startsWith('subtask')) { 
-                    const subtask = task.subtasks.find(st => st.id === subtaskId); 
-                    if (!subtask) return; 
-                    targetItem = subtask; 
+                if (type.startsWith('phase')) {
+                    targetItem = phase;
+                    dateField = type.endsWith('start') ? 'startDate' : 'endDate';
+                    itemName = `Phase '${phase.name}' ${dateField.replace('Date','')} date`;
+                } else {
+                    const task = phase.tasks.find(t => t.id === taskId); 
+                    if (!task) return; 
+                    itemName = `Task '${task.name}'`;
                     
-                    // --- CHANGED: Handle subtask follow up ---
-                    if (type === 'subtask-followup') {
-                        dateField = 'followUpDate';
-                        itemName = `Subtask '${subtask.name}' Follow Up date`;
-                    } else {
-                        dateField = type.endsWith('start') ? 'startDate' : 'endDate'; 
-                        itemName = `Subtask '${subtask.name}' ${dateField.replace('Date','')} date`; 
+                    if (type.startsWith('task')) { 
+                        targetItem = task; 
+                        if (type === 'task-followup') {
+                            dateField = 'followUpDate';
+                            itemName += ` Follow Up date`;
+                        } else {
+                            dateField = type.endsWith('start') ? 'startDate' : 'endDate'; 
+                            itemName += ` ${dateField.replace('Date','')} date`; 
+                        }
+                    } else if (type.startsWith('subtask')) { 
+                        const subtask = task.subtasks.find(st => st.id === subtaskId); 
+                        if (!subtask) return; 
+                        targetItem = subtask; 
+                        
+                        // --- CHANGED: Handle subtask follow up ---
+                        if (type === 'subtask-followup') {
+                            dateField = 'followUpDate';
+                            itemName = `Subtask '${subtask.name}' Follow Up date`;
+                        } else {
+                            dateField = type.endsWith('start') ? 'startDate' : 'endDate'; 
+                            itemName = `Subtask '${subtask.name}' ${dateField.replace('Date','')} date`; 
+                        }
+                        // ----------------------------------------
                     }
-                    // ----------------------------------------
                 }
             }
-        }
-        
-        if (targetItem && dateField) {
-            const oldDate = targetItem[dateField];
-            if (comment && shouldLog) {
-                if (!project.logs) project.logs = [];
-                project.logs.push({ timestamp: new Date().toISOString(), item: itemName, from: oldDate, to: value, comment });
+            
+            if (targetItem && dateField) {
+                const oldDate = targetItem[dateField];
+                if (comment && shouldLog) {
+                    if (!project.logs) project.logs = [];
+                    project.logs.push({ timestamp: new Date().toISOString(), item: itemName, from: oldDate, to: value, comment });
+                }
+                targetItem[dateField] = value;
             }
-            targetItem[dateField] = value;
-        }
-        this.saveState(); 
-        this.renderProjects();
-    },
+            this.saveState(); 
+            this.renderProjects();
+        },
 
     toggleTaskComplete(projectId, phaseId, taskId) { const t = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId); if (t) { t.completed = !t.completed; this.saveState(); this.renderProjects(); } },
     toggleSubtaskComplete(projectId, phaseId, taskId, subtaskId) { const s = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId)?.subtasks.find(st => st.id === subtaskId); if (s) { s.completed = !s.completed; this.saveState(); this.renderProjects(); } },
@@ -3286,36 +3227,40 @@ updateDate(context, value, comment = null, shouldLog = true) {
             return null;
         },
 
-// --- Trigger the modal ---
     promptMoveToProject(taskText, isFollowUp = false, successCallback) {
-        // Handle legacy calls where only (taskText, callback) were passed
-        // This ensures the app doesn't break if an older part of the code calls this function
         if (typeof isFollowUp === 'function') {
             successCallback = isFollowUp;
             isFollowUp = false;
         }
 
-        if (this.projects.length === 0) {
-            alert("Please create a project first.");
-            return;
-        }
-
-        // Store the task text AND the follow-up status in the pending object
-        // This 'isFollowUp' flag will be used later by executeMoveToProject
         this.pendingMoveTask = { text: taskText, isFollowUp: isFollowUp, cb: successCallback };
         
-        // Populate Projects Dropdown
-        this.elements.moveProjectSelect.innerHTML = '';
+        const projSelect = this.elements.moveProjectSelect;
+        projSelect.innerHTML = '<option value="none">None (Standalone)</option>';
         this.projects.forEach(p => {
             const opt = document.createElement('option');
             opt.value = p.id;
             opt.textContent = p.name;
-            this.elements.moveProjectSelect.appendChild(opt);
+            projSelect.appendChild(opt);
         });
         
-        // Populate Phases for the first project in the list
-        this.populatePhaseSelectForMove();
-        
+        const datalist = document.getElementById('delegate-suggestions');
+        if (datalist) {
+            const existingDelegates = new Set();
+            this.projects.forEach(p => p.phases.forEach(ph => ph.tasks.forEach(t => {
+                if (t.delegatedTo) existingDelegates.add(t.delegatedTo);
+                if (t.subtasks) {
+                    t.subtasks.forEach(st => { if (st.delegatedTo) existingDelegates.add(st.delegatedTo); });
+                }
+            })));
+            this.standaloneTasks.forEach(t => { if (t.delegatedTo) existingDelegates.add(t.delegatedTo); });
+            
+            datalist.innerHTML = Array.from(existingDelegates)
+                .map(name => `<option value="${name}">`)
+                .join('');
+        }
+
+        this.toggleMoveModalFields();
         this.elements.moveToProjectModal.classList.remove('hidden');
     },
 
@@ -3344,14 +3289,18 @@ updateDate(context, value, comment = null, shouldLog = true) {
     toggleMoveModalFields() {
         const type = document.getElementById('move-type-select').value;
         const projectGroup = document.getElementById('project-select-group');
+        const phaseGroup = document.getElementById('move-phase-group');
         const delegationGroup = document.getElementById('delegation-group');
+        const projectSelect = document.getElementById('move-project-select');
         
-        if (type === 'project') {
+        if (type === 'project' || type === 'waiting') {
             projectGroup.classList.remove('hidden');
-            delegationGroup.classList.add('hidden');
-        } else if (type === 'waiting') {
-            projectGroup.classList.add('hidden');
-            delegationGroup.classList.remove('hidden');
+            delegationGroup.classList.toggle('hidden', type !== 'waiting');
+            
+            const isStandalone = projectSelect.value === 'none';
+            if (phaseGroup) {
+                phaseGroup.classList.toggle('hidden', isStandalone);
+            }
         } else {
             projectGroup.classList.add('hidden');
             delegationGroup.classList.add('hidden');
@@ -3362,43 +3311,47 @@ updateDate(context, value, comment = null, shouldLog = true) {
     executeMoveToProject() {
         if (!this.pendingMoveTask) return;
         
-        const projectId = parseInt(this.elements.moveProjectSelect.value);
-        const phaseId = parseInt(this.elements.movePhaseSelect.value);
+        const moveType = document.getElementById('move-type-select').value;
+        const projectId = this.elements.moveProjectSelect.value;
+        const phaseIdInput = document.getElementById('move-phase-select');
+        const phaseId = phaseIdInput ? parseInt(phaseIdInput.value) : null;
+        const delegateTo = document.getElementById('move-delegate-input').value.trim();
         
-        const project = this.projects.find(p => p.id === projectId);
-        const phase = project?.phases.find(ph => ph.id === phaseId);
-        
-        if (phase) {
-            // Calculate follow up date if needed (default to tomorrow)
-            let fuDate = null;
-            if (this.pendingMoveTask.isFollowUp) {
-                const tomorrow = new Date();
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                fuDate = tomorrow.toISOString().split('T')[0];
-            }
+        const isDelegated = moveType === 'waiting';
+        const isStandalone = moveType === 'standalone' || projectId === 'none';
 
-            phase.tasks.push({
-                id: Date.now(),
-                name: this.pendingMoveTask.text,
-                startDate: null,
-                endDate: null,
-                completed: false,
-                subtasks: [],
-                dependencies: [],
-                dependents: [],
-                // --- APPLY THE FLAG ---
-                isFollowUp: this.pendingMoveTask.isFollowUp,
-                followUpDate: fuDate
-            });
-            
-            this.saveState();
-            this.renderProjects();
-            
-            if (this.pendingMoveTask.cb) this.pendingMoveTask.cb();
-            
-            this.elements.moveToProjectModal.classList.add('hidden');
-            this.pendingMoveTask = null;
+        const newTask = {
+            id: Date.now(),
+            name: this.pendingMoveTask.text,
+            startDate: null,
+            endDate: null,
+            completed: false,
+            subtasks: [],
+            dependencies: [],
+            dependents: [],
+            isFollowUp: isDelegated || this.pendingMoveTask.isFollowUp,
+            delegatedTo: isDelegated ? delegateTo : null,
+            followUpDate: isDelegated ? new Date(Date.now() + 86400000).toISOString().split('T')[0] : null
+        };
+
+        if (isStandalone) {
+            if (!this.standaloneTasks) this.standaloneTasks = [];
+            this.standaloneTasks.push(newTask);
+        } else {
+            const project = this.projects.find(p => p.id === parseInt(projectId));
+            const phase = project?.phases.find(ph => ph.id === phaseId);
+            if (phase) {
+                phase.tasks.push(newTask);
+            }
         }
+        
+        this.saveState();
+        this.renderProjects();
+        if (this.pendingMoveTask.cb) this.pendingMoveTask.cb();
+        
+        this.elements.moveToProjectModal.classList.add('hidden');
+        document.getElementById('move-delegate-input').value = '';
+        this.pendingMoveTask = null;
     },
 
     getTickInterval(domain) {
