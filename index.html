@@ -280,6 +280,15 @@
                     </button>
                 </div>
             </div>
+
+            <div class="flex justify-end mb-4 px-1">
+                <label class="flex items-center text-xs font-semibold text-secondary cursor-pointer select-none hover:text-primary transition-colors">
+                    <input type="checkbox" id="hide-completed-projects-toggle" class="custom-checkbox mr-2" 
+                           onchange="timelineApp.toggleHideCompletedProjects()">
+                    Hide Completed Projects
+                </label>
+            </div>
+
             <div id="projects-container" class="space-y-4"></div>
             <div class="mt-6">
                 <button id="toggle-deleted-log-btn" class="text-xs font-semibold text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-1 mb-2 hidden">

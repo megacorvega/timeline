@@ -23,6 +23,7 @@ const timelineApp = {
     resizeTimeout: null,
     upcomingProjectFilter: 'all',
     hideCompletedTasks: false,
+    hideCompletedProjects: false,
     tagFilter: 'all',
 
     // --- DOM ELEMENTS ---
@@ -924,290 +925,296 @@ const timelineApp = {
     },
 
     renderGanttView() {
-            const sortedProjects = [...this.projects].sort((a, b) => {
-                if (a.overallProgress >= 100 && b.overallProgress < 100) return 1;
-                if (a.overallProgress < 100 && b.overallProgress >= 100) return -1;
-                return this.sortByEndDate(a, b, 'endDate');
-            });
+        // Filter projects based on completion if toggle is active
+        let filteredProjects = [...this.projects];
+        if (this.hideCompletedProjects) {
+            filteredProjects = filteredProjects.filter(p => p.overallProgress < 100);
+        }
 
-            sortedProjects.forEach((project) => {
-                const projectCard = document.createElement('div');
-                projectCard.className = `project-card p-3 rounded-xl mb-4`; // Added margin-bottom for spacing
-                
-                let completionIcon = project.overallProgress >= 100 ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>` : '';
-
-                const durationProgress = this.getDurationProgress(project.startDate, project.endDate);
-                const daysLeftInfo = this.getDaysLeft(project.endDate);
-                const overallProgress = Math.round(project.overallProgress);
-
-                let progressColor = 'var(--green)';
-                let statusText = '';
-                let statusColorClass = ''; // For tooltip styling
-
-                if (project.overallProgress >= 100) {
-                    progressColor = 'var(--green)';
-                    statusText = 'Complete';
-                    statusColorClass = 'status-complete';
-                } else if (daysLeftInfo.isOverdue) {
-                    progressColor = 'var(--red)';
-                    statusText = 'Late';
-                    statusColorClass = 'status-late';
-                } else if (overallProgress < durationProgress) {
-                    progressColor = 'var(--amber)';
-                    statusText = 'At Risk';
-                    statusColorClass = 'status-at-risk';
-                } else {
-                    progressColor = 'var(--blue)';
-                    statusText = 'On Track';
-                    statusColorClass = 'status-on-track';
-                }
-                
-                const tooltipText = `
-                    <div class="tooltip-grid">
-                        <span>Status:</span><span class="status-pill ${statusColorClass}">${statusText}</span>
-                        <span>Completion:</span><span>${overallProgress}%</span>
-                        <span>Time Elapsed:</span><span>${Math.round(durationProgress)}%</span>
-                        <span>Days Left:</span><span>${daysLeftInfo.days !== null ? daysLeftInfo.days : 'N/A'}</span>
-                    </div>
-                `;
-
-                const pacingBarHTML = `
-                    <div class="duration-scale-container tooltip">
-                        <span class="tooltip-text">${tooltipText}</span>
-                        <div class="relative h-2 w-full rounded-full" style="background-color: var(--bg-tertiary);">
-                            <div class="absolute h-2 top-0 left-0 rounded-full" style="background-color: var(--bg-tertiary); width: ${durationProgress}%; z-index: 1;"></div>
-                            <div class="absolute h-2 top-0 left-0 rounded-full" style="background-color: ${progressColor}; width: ${overallProgress}%; z-index: 2;"></div>
-                        </div>
-                    </div>
-                `;
-
-                const daysLeftPillHTML = `
-                    <div class="days-left-pill ${daysLeftInfo.className}" title="${daysLeftInfo.tooltip}">
-                        ${daysLeftInfo.text}
-                    </div>
-                `;
-
-                const lockIcon = project.locked
-                    ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>`
-                    : `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h5V3a3 3 0 0 1 6 0v4a.5.5 0 0 1-1 0V3a2 2 0 0 0-2-2z"/></svg>`;
-                
-                const commentDot = project.comments && project.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
-
-                projectCard.innerHTML = `
-                    <div class="flex justify-between items-center mb-3 project-header">
-                        <div class="flex items-center gap-2 flex-grow min-w-0">
-                            ${completionIcon}
-                            <button onclick="timelineApp.toggleProjectCollapse(${project.id})" class="p-1 rounded-full hover-bg-secondary flex-shrink-0">
-                                <svg id="chevron-${project.id}" class="w-5 h-5 text-tertiary chevron ${project.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
-                            </button>
-                            ${commentDot}
-                            <h3 class="text-xl font-bold truncate editable-text" onclick="timelineApp.makeEditable(this, 'updateProjectName', ${project.id})">${project.name}</h3>
-                            ${pacingBarHTML}
-                            ${daysLeftPillHTML}
-                        </div>
-                        <div class="flex items-center gap-2 text-sm text-secondary flex-shrink-0">
-                            <button onclick="timelineApp.generatePrintView(${project.id})" class="print-btn" title="Print Project">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clip-rule="evenodd" /></svg>
-                            </button>
-                            <button onclick="timelineApp.toggleCommentSection('project', ${project.id})" class="comment-btn" title="Comments">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-                            </button>
-                            <button onclick="timelineApp.toggleProjectLock(${project.id})" class="lock-toggle-btn" title="${project.locked ? 'Unlock Project Dates' : 'Lock Project Dates'}">
-                                ${lockIcon}
-                            </button>
-                            <div class="date-input-container">
-                                <input type="text" value="${project.startDate ? this.formatDate(this.parseDate(project.startDate)) : ''}" placeholder="Start Date" class="date-input" data-project-id="${project.id}" data-type="project-start" data-date="${project.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)" ${project.locked ? 'disabled' : ''}>
-                                <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
-                            </div>
-                            <div class="date-input-container">
-                                <input type="text" value="${project.endDate ? this.formatDate(this.parseDate(project.endDate)) : ''}" placeholder="End Date" class="date-input" data-project-id="${project.id}" data-type="project-end" data-date="${project.endDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)" ${project.locked ? 'disabled' : ''}>
-                                <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
-                            </div>
-                        </div>
-                        <button onclick="timelineApp.deleteProject(${project.id})" class="text-gray-400 hover:text-red-500 transition-colors text-xl font-bold ml-4 flex-shrink-0">&times;</button>
-                    </div>
-                    <div id="project-body-${project.id}" class="${project.collapsed ? 'hidden' : ''}">
-                        <div id="comment-section-project-${project.id}" class="comment-section hidden"></div>
-                        <div class="relative">
-                            <button onclick="timelineApp.resetZoom(${project.id})" class="reset-zoom-btn btn-secondary px-2 py-1 text-xs font-semibold rounded-md ${!project.zoomDomain ? 'hidden' : ''}">Reset Zoom</button>
-                            <div id="chart-${project.id}" class="w-full h-48 mb-3 relative"></div>
-                        </div>
-                        <div id="phases-${project.id}" class="space-y-1"></div>
-                        <div class="mt-3">
-                            <button onclick="timelineApp.toggleLog(${project.id})" class="text-xs font-semibold text-tertiary hover-text-primary flex items-center gap-1">
-                                <svg id="log-chevron-${project.id}" class="w-4 h-4 chevron -rotate-90" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
-                                Change Log
-                            </button>
-                            <div id="log-container-${project.id}" class="hidden mt-2 p-2 log-container-bg rounded-md">${this.renderLog(project)}</div>
-                        </div>
-                    </div>
-                `;
-                this.elements.projectsContainer.appendChild(projectCard);
-                this.renderPhaseList(project);
-                if (!project.collapsed && project.startDate && project.endDate) {
-                    this.drawChart(project);
-                } else if (!project.startDate || !project.endDate) {
-                    const chartContainer = document.getElementById(`chart-${project.id}`);
-                    if (chartContainer) {
-                        chartContainer.innerHTML = `<div class="flex items-center justify-center h-full text-gray-400">Set project start and end dates to see progress chart.</div>`;
-                    }
-                }
-            });
-        },
-
-renderLinearView() {
-    const container = this.elements.projectsContainer;
-    let allItems = [];
-    const allTags = new Set(this.getAllTags());
-
-    // 1. Collect Standalone Tasks (Inbox items)
-    if (this.standaloneTasks) {
-        this.standaloneTasks.forEach(task => {
-            allItems.push({
-                path: 'Inbox',
-                projectId: null, phaseId: null, taskId: task.id,
-                name: task.name,
-                date: task.endDate || task.followUpDate,
-                rawDate: (task.endDate || task.followUpDate) ? this.parseDate(task.endDate || task.followUpDate) : null,
-                completed: task.completed,
-                isFollowUp: task.isFollowUp,
-                delegatedTo: task.delegatedTo,
-                tags: task.tags || [],
-                isStandalone: true
-            });
+        const sortedProjects = filteredProjects.sort((a, b) => {
+            if (a.overallProgress >= 100 && b.overallProgress < 100) return 1;
+            if (a.overallProgress < 100 && b.overallProgress >= 100) return -1;
+            return this.sortByEndDate(a, b, 'endDate');
         });
-    }
 
-    // 2. Collect Project Tasks
-    this.projects.forEach(project => {
-        project.phases.forEach(phase => {
-            phase.tasks.forEach(task => {
-                const itemBase = {
-                    path: `${project.name} > ${phase.name}`,
-                    projectId: project.id, phaseId: phase.id, taskId: task.id,
+        sortedProjects.forEach((project) => {
+            const projectCard = document.createElement('div');
+            projectCard.className = `project-card p-3 rounded-xl mb-4`;
+            
+            const isComplete = project.overallProgress >= 100;
+            let completionIcon = isComplete ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>` : '';
+
+            const durationProgress = this.getDurationProgress(project.startDate, project.endDate);
+            const daysLeftInfo = this.getDaysLeft(project.endDate);
+            const overallProgress = Math.round(project.overallProgress);
+
+            let progressColor = 'var(--green)';
+            let statusText = '';
+            let statusColorClass = '';
+
+            if (isComplete) {
+                progressColor = 'var(--green)';
+                statusText = 'Complete';
+                statusColorClass = 'status-complete';
+            } else if (daysLeftInfo.isOverdue) {
+                progressColor = 'var(--red)';
+                statusText = 'Late';
+                statusColorClass = 'status-late';
+            } else if (overallProgress < durationProgress) {
+                progressColor = 'var(--amber)';
+                statusText = 'At Risk';
+                statusColorClass = 'status-at-risk';
+            } else {
+                progressColor = 'var(--blue)';
+                statusText = 'On Track';
+                statusColorClass = 'status-on-track';
+            }
+            
+            const tooltipText = `
+                <div class="tooltip-grid">
+                    <span>Status:</span><span class="status-pill ${statusColorClass}">${statusText}</span>
+                    <span>Completion:</span><span>${overallProgress}%</span>
+                    <span>Time Elapsed:</span><span>${Math.round(durationProgress)}%</span>
+                    <span>Days Left:</span><span>${daysLeftInfo.days !== null ? daysLeftInfo.days : 'N/A'}</span>
+                </div>
+            `;
+
+            const pacingBarHTML = `
+                <div class="duration-scale-container tooltip">
+                    <span class="tooltip-text">${tooltipText}</span>
+                    <div class="relative h-2 w-full rounded-full" style="background-color: var(--bg-tertiary);">
+                        <div class="absolute h-2 top-0 left-0 rounded-full" style="background-color: var(--bg-tertiary); width: ${durationProgress}%; z-index: 1;"></div>
+                        <div class="absolute h-2 top-0 left-0 rounded-full" style="background-color: ${progressColor}; width: ${overallProgress}%; z-index: 2;"></div>
+                    </div>
+                </div>
+            `;
+
+            // FIX: Removed the overdue bubble if the project is complete
+            const daysLeftPillHTML = (isComplete || !daysLeftInfo.text || daysLeftInfo.text === '-') 
+                ? '' 
+                : `<div class="days-left-pill ${daysLeftInfo.className}" title="${daysLeftInfo.tooltip}">${daysLeftInfo.text}</div>`;
+
+            const lockIcon = project.locked
+                ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>`
+                : `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h5V3a3 3 0 0 1 6 0v4a.5.5 0 0 1-1 0V3a2 2 0 0 0-2-2z"/></svg>`;
+            
+            const commentDot = project.comments && project.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
+
+            projectCard.innerHTML = `
+                <div class="flex justify-between items-center mb-3 project-header">
+                    <div class="flex items-center gap-2 flex-grow min-w-0">
+                        ${completionIcon}
+                        <button onclick="timelineApp.toggleProjectCollapse(${project.id})" class="p-1 rounded-full hover-bg-secondary flex-shrink-0">
+                            <svg id="chevron-${project.id}" class="w-5 h-5 text-tertiary chevron ${project.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+                        </button>
+                        ${commentDot}
+                        <h3 class="text-xl font-bold truncate editable-text" onclick="timelineApp.makeEditable(this, 'updateProjectName', ${project.id})">${project.name}</h3>
+                        ${pacingBarHTML}
+                        ${daysLeftPillHTML}
+                    </div>
+                    <div class="flex items-center gap-2 text-sm text-secondary flex-shrink-0">
+                        <button onclick="timelineApp.generatePrintView(${project.id})" class="print-btn" title="Print Project">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clip-rule="evenodd" /></svg>
+                        </button>
+                        <button onclick="timelineApp.toggleCommentSection('project', ${project.id})" class="comment-btn" title="Comments">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                        </button>
+                        <button onclick="timelineApp.toggleProjectLock(${project.id})" class="lock-toggle-btn" title="${project.locked ? 'Unlock Project Dates' : 'Lock Project Dates'}">
+                            ${lockIcon}
+                        </button>
+                        <div class="date-input-container">
+                            <input type="text" value="${project.startDate ? this.formatDate(this.parseDate(project.startDate)) : ''}" placeholder="Start Date" class="date-input" data-project-id="${project.id}" data-type="project-start" data-date="${project.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)" ${project.locked ? 'disabled' : ''}>
+                            <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
+                        </div>
+                        <div class="date-input-container">
+                            <input type="text" value="${project.endDate ? this.formatDate(this.parseDate(project.endDate)) : ''}" placeholder="End Date" class="date-input" data-project-id="${project.id}" data-type="project-end" data-date="${project.endDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)" ${project.locked ? 'disabled' : ''}>
+                            <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
+                        </div>
+                    </div>
+                    <button onclick="timelineApp.deleteProject(${project.id})" class="text-gray-400 hover:text-red-500 transition-colors text-xl font-bold ml-4 flex-shrink-0">&times;</button>
+                </div>
+                <div id="project-body-${project.id}" class="${project.collapsed ? 'hidden' : ''}">
+                    <div id="comment-section-project-${project.id}" class="comment-section hidden"></div>
+                    <div class="relative">
+                        <button onclick="timelineApp.resetZoom(${project.id})" class="reset-zoom-btn btn-secondary px-2 py-1 text-xs font-semibold rounded-md ${!project.zoomDomain ? 'hidden' : ''}">Reset Zoom</button>
+                        <div id="chart-${project.id}" class="w-full h-48 mb-3 relative"></div>
+                    </div>
+                    <div id="phases-${project.id}" class="space-y-1"></div>
+                    <div class="mt-3">
+                        <button onclick="timelineApp.toggleLog(${project.id})" class="text-xs font-semibold text-tertiary hover-text-primary flex items-center gap-1">
+                            <svg id="log-chevron-${project.id}" class="w-4 h-4 chevron -rotate-90" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+                            Change Log
+                        </button>
+                        <div id="log-container-${project.id}" class="hidden mt-2 p-2 log-container-bg rounded-md">${this.renderLog(project)}</div>
+                    </div>
+                </div>
+            `;
+            this.elements.projectsContainer.appendChild(projectCard);
+            this.renderPhaseList(project);
+            if (!project.collapsed && project.startDate && project.endDate) {
+                this.drawChart(project);
+            } else if (!project.startDate || !project.endDate) {
+                const chartContainer = document.getElementById(`chart-${project.id}`);
+                if (chartContainer) {
+                    chartContainer.innerHTML = `<div class="flex items-center justify-center h-full text-gray-400">Set project start and end dates to see progress chart.</div>`;
+                }
+            }
+        });
+    },
+
+    renderLinearView() {
+        const container = this.elements.projectsContainer;
+        let allItems = [];
+        const allTags = new Set(this.getAllTags());
+
+        // 1. Collect Standalone Tasks (Inbox items)
+        if (this.standaloneTasks) {
+            this.standaloneTasks.forEach(task => {
+                allItems.push({
+                    path: 'Inbox',
+                    projectId: null, phaseId: null, taskId: task.id,
+                    name: task.name,
+                    date: task.endDate || task.followUpDate,
+                    rawDate: (task.endDate || task.followUpDate) ? this.parseDate(task.endDate || task.followUpDate) : null,
+                    completed: task.completed,
                     isFollowUp: task.isFollowUp,
-                    delegatedTo: task.delegatedTo
-                };
-                if (task.subtasks?.length > 0) {
-                    task.subtasks.forEach(st => {
+                    delegatedTo: task.delegatedTo,
+                    tags: task.tags || [],
+                    isStandalone: true
+                });
+            });
+        }
+
+        // 2. Collect Project Tasks
+        this.projects.forEach(project => {
+            project.phases.forEach(phase => {
+                phase.tasks.forEach(task => {
+                    const itemBase = {
+                        path: `${project.name} > ${phase.name}`,
+                        projectId: project.id, phaseId: phase.id, taskId: task.id,
+                        isFollowUp: task.isFollowUp,
+                        delegatedTo: task.delegatedTo
+                    };
+                    if (task.subtasks?.length > 0) {
+                        task.subtasks.forEach(st => {
+                            allItems.push({
+                                ...itemBase,
+                                name: `${task.name}: ${st.name}`,
+                                subtaskId: st.id,
+                                date: st.endDate,
+                                rawDate: st.endDate ? this.parseDate(st.endDate) : null,
+                                completed: st.completed,
+                                tags: st.tags || []
+                            });
+                        });
+                    } else {
                         allItems.push({
                             ...itemBase,
-                            name: `${task.name}: ${st.name}`,
-                            subtaskId: st.id,
-                            date: st.endDate,
-                            rawDate: st.endDate ? this.parseDate(st.endDate) : null,
-                            completed: st.completed,
-                            tags: st.tags || []
+                            subtaskId: null,
+                            name: task.name,
+                            date: task.effectiveEndDate || task.endDate,
+                            rawDate: (task.effectiveEndDate || task.endDate) ? this.parseDate(task.effectiveEndDate || task.endDate) : null,
+                            completed: task.completed,
+                            tags: task.tags || []
                         });
-                    });
-                } else {
-                    allItems.push({
-                        ...itemBase,
-                        subtaskId: null,
-                        name: task.name,
-                        date: task.effectiveEndDate || task.endDate,
-                        rawDate: (task.effectiveEndDate || task.endDate) ? this.parseDate(task.effectiveEndDate || task.endDate) : null,
-                        completed: task.completed,
-                        tags: task.tags || []
-                    });
-                }
+                    }
+                });
             });
         });
-    });
 
-    if (this.hideCompletedTasks) allItems = allItems.filter(i => !i.completed);
-    if (this.tagFilter !== 'all') allItems = allItems.filter(i => i.tags?.includes(this.tagFilter));
+        if (this.hideCompletedTasks) allItems = allItems.filter(i => !i.completed);
+        if (this.tagFilter !== 'all') allItems = allItems.filter(i => i.tags?.includes(this.tagFilter));
 
-    const today = new Date(); today.setHours(0,0,0,0);
-    const buckets = { waitingFor: [], doNow: [], upcoming: [], backlog: [] };
+        const today = new Date(); today.setHours(0,0,0,0);
+        const buckets = { waitingFor: [], doNow: [], upcoming: [], backlog: [] };
 
-    allItems.forEach(item => {
-        if (item.isFollowUp || item.delegatedTo) { buckets.waitingFor.push(item); return; }
-        if (!item.rawDate) { buckets.backlog.push(item); return; }
-        const diffDays = Math.round((item.rawDate - today) / 86400000);
-        if (diffDays <= 0) buckets.doNow.push(item); 
-        else buckets.upcoming.push(item);
-    });
-
-    const renderGroup = (title, items, headerClass) => {
-        if (items.length === 0) return '';
-        let groupHtml = `<div class="upcoming-card rounded-xl shadow-md mb-4 overflow-hidden">
-            <div class="p-3 border-b border-primary ${headerClass}">
-                <h3 class="font-bold flex items-center gap-2">${title} 
-                    <span class="text-xs font-normal opacity-75 bg-white bg-opacity-20 px-2 py-0.5 rounded-full">${items.length}</span>
-                </h3>
-            </div>
-            <div class="p-1 space-y-1">`;
-        
-        items.forEach(item => {
-            const tagsHtml = (item.tags || []).map(tag => `
-                <span class="tag-badge">${tag}
-                    <span onclick="event.stopPropagation(); timelineApp.removeTag(${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'}, '${tag}')" class="tag-remove">&times;</span>
-                </span>`).join('');
-            
-            const delegationHtml = item.delegatedTo ? `<span class="tag-badge bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 border-purple-200">Waiting: ${item.delegatedTo}</span>` : '';
-            
-            const iconHtml = `<div class="date-input-icon-wrapper" onclick="event.stopPropagation(); timelineApp.handleDateTrigger(this.previousElementSibling)">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-            </div>`;
-
-            groupHtml += `
-            <div class="upcoming-task-item flex items-center p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${item.completed ? 'line-through opacity-60' : ''} ${item.isStandalone ? 'no-nav' : 'cursor-pointer'}" 
-                 onclick="${item.isStandalone ? '' : `timelineApp.navigateToTask(${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'})`}">
-                
-                <div class="flex-shrink-0 mr-3 cursor-pointer group" onclick="event.stopPropagation(); timelineApp.toggleItemComplete(event, ${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'})">
-                    ${item.completed 
-                        ? `<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>` 
-                        : `<div class="w-5 h-5 rounded-full border-2 border-gray-300 group-hover:border-green-500"></div>`
-                    }
-                </div>
-
-                <div class="flex-grow min-w-0">
-                    <div class="text-[10px] text-secondary truncate w-2/3">${item.path}</div>
-                    <div class="font-medium truncate text-sm pt-0.5 flex items-center gap-1 flex-wrap">
-                        <span class="editable-text" onclick="event.stopPropagation(); timelineApp.makeEditable(this, '${item.subtaskId ? 'updateSubtaskName' : 'updateTaskName'}', ${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || ''})">${item.name}</span>
-                        ${delegationHtml} ${tagsHtml}
-                    </div>
-                </div>
-
-                <div class="flex-shrink-0 ml-2" onclick="event.stopPropagation()">
-                    <div class="date-input-container">
-                        <input type="text" value="${item.date ? this.formatDate(this.parseDate(item.date)) : ''}" placeholder="End Date" class="date-input" 
-                            data-project-id="${item.projectId}" data-phase-id="${item.phaseId}" data-task-id="${item.taskId}" data-subtask-id="${item.subtaskId || 'null'}"
-                            data-type="${item.subtaskId ? 'subtask-end' : 'task-end'}" data-date="${item.date || ''}" 
-                            oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
-                        ${iconHtml}
-                    </div>
-                </div>
-            </div>`;
+        allItems.forEach(item => {
+            if (item.isFollowUp || item.delegatedTo) { buckets.waitingFor.push(item); return; }
+            if (!item.rawDate) { buckets.backlog.push(item); return; }
+            const diffDays = Math.round((item.rawDate - today) / 86400000);
+            if (diffDays <= 0) buckets.doNow.push(item); 
+            else buckets.upcoming.push(item);
         });
-        return groupHtml + `</div></div>`;
-    };
 
-    const sortedTags = Array.from(allTags).sort();
-    const tagOptions = sortedTags.map(tag => `<option value="${tag}" ${this.tagFilter === tag ? 'selected' : ''}>${tag}</option>`).join('');
+        const renderGroup = (title, items, headerClass) => {
+            if (items.length === 0) return '';
+            let groupHtml = `<div class="upcoming-card rounded-xl shadow-md mb-4 overflow-hidden">
+                <div class="p-3 border-b border-primary ${headerClass}">
+                    <h3 class="font-bold flex items-center gap-2">${title} 
+                        <span class="text-xs font-normal opacity-75 bg-white bg-opacity-20 px-2 py-0.5 rounded-full">${items.length}</span>
+                    </h3>
+                </div>
+                <div class="p-1 space-y-1">`;
+            
+            items.forEach(item => {
+                const tagsHtml = (item.tags || []).map(tag => `
+                    <span class="tag-badge">${tag}
+                        <span onclick="event.stopPropagation(); timelineApp.removeTag(${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'}, '${tag}')" class="tag-remove">&times;</span>
+                    </span>`).join('');
+                
+                const delegationHtml = item.delegatedTo ? `<span class="tag-badge bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 border-purple-200">Waiting: ${item.delegatedTo}</span>` : '';
+                
+                const iconHtml = `<div class="date-input-icon-wrapper" onclick="event.stopPropagation(); timelineApp.handleDateTrigger(this.previousElementSibling)">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                </div>`;
 
-    container.innerHTML = `
-        <div class="flex justify-between items-center mb-4 px-1 bg-white dark:bg-slate-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-            <div class="flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
-                <select onchange="timelineApp.setTagFilter(this.value)" class="tag-filter-dropdown bg-transparent text-xs font-semibold focus:outline-none">
-                    <option value="all">All Tags</option>
-                    ${tagOptions}
-                </select>
-            </div>
-            <label class="flex items-center text-xs font-semibold text-secondary cursor-pointer select-none">
-                <input type="checkbox" class="custom-checkbox mr-2" ${this.hideCompletedTasks ? 'checked' : ''} onchange="timelineApp.toggleHideCompleted()">
-                Hide Completed Tasks
-            </label>
-        </div>` + 
-        renderGroup("Waiting For", buckets.waitingFor, "bg-purple-100 dark:bg-purple-900/40 text-purple-900 dark:text-purple-100 border-purple-200") +
-        renderGroup("Do Now", buckets.doNow, "bg-blue-100 dark:bg-blue-900/40 text-blue-900 dark:text-blue-100 border-blue-200") +
-        renderGroup("Upcoming", buckets.upcoming, "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200") +
-        renderGroup("Backlog", buckets.backlog, "bg-gray-200 dark:bg-slate-700/50 text-gray-600 dark:text-gray-400");
-},
+                groupHtml += `
+                <div class="upcoming-task-item flex items-center p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${item.completed ? 'line-through opacity-60' : ''} ${item.isStandalone ? 'no-nav' : 'cursor-pointer'}" 
+                    onclick="${item.isStandalone ? '' : `timelineApp.navigateToTask(${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'})`}">
+                    
+                    <div class="flex-shrink-0 mr-3 cursor-pointer group" onclick="event.stopPropagation(); timelineApp.toggleItemComplete(event, ${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'})">
+                        ${item.completed 
+                            ? `<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>` 
+                            : `<div class="w-5 h-5 rounded-full border-2 border-gray-300 group-hover:border-green-500"></div>`
+                        }
+                    </div>
+
+                    <div class="flex-grow min-w-0">
+                        <div class="text-[10px] text-secondary truncate w-2/3">${item.path}</div>
+                        <div class="font-medium truncate text-sm pt-0.5 flex items-center gap-1 flex-wrap">
+                            <span class="editable-text" onclick="event.stopPropagation(); timelineApp.makeEditable(this, '${item.subtaskId ? 'updateSubtaskName' : 'updateTaskName'}', ${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || ''})">${item.name}</span>
+                            ${delegationHtml} ${tagsHtml}
+                        </div>
+                    </div>
+
+                    <div class="flex-shrink-0 ml-2" onclick="event.stopPropagation()">
+                        <div class="date-input-container">
+                            <input type="text" value="${item.date ? this.formatDate(this.parseDate(item.date)) : ''}" placeholder="End Date" class="date-input" 
+                                data-project-id="${item.projectId}" data-phase-id="${item.phaseId}" data-task-id="${item.taskId}" data-subtask-id="${item.subtaskId || 'null'}"
+                                data-type="${item.subtaskId ? 'subtask-end' : 'task-end'}" data-date="${item.date || ''}" 
+                                oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
+                            ${iconHtml}
+                        </div>
+                    </div>
+                </div>`;
+            });
+            return groupHtml + `</div></div>`;
+        };
+
+        const sortedTags = Array.from(allTags).sort();
+        const tagOptions = sortedTags.map(tag => `<option value="${tag}" ${this.tagFilter === tag ? 'selected' : ''}>${tag}</option>`).join('');
+
+        container.innerHTML = `
+            <div class="flex justify-between items-center mb-4 px-1 bg-white dark:bg-slate-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+                <div class="flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
+                    <select onchange="timelineApp.setTagFilter(this.value)" class="tag-filter-dropdown bg-transparent text-xs font-semibold focus:outline-none">
+                        <option value="all">All Tags</option>
+                        ${tagOptions}
+                    </select>
+                </div>
+                <label class="flex items-center text-xs font-semibold text-secondary cursor-pointer select-none">
+                    <input type="checkbox" class="custom-checkbox mr-2" ${this.hideCompletedTasks ? 'checked' : ''} onchange="timelineApp.toggleHideCompleted()">
+                    Hide Completed Tasks
+                </label>
+            </div>` + 
+            renderGroup("Waiting For", buckets.waitingFor, "bg-purple-100 dark:bg-purple-900/40 text-purple-900 dark:text-purple-100 border-purple-200") +
+            renderGroup("Do Now", buckets.doNow, "bg-blue-100 dark:bg-blue-900/40 text-blue-900 dark:text-blue-100 border-blue-200") +
+            renderGroup("Upcoming", buckets.upcoming, "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200") +
+            renderGroup("Backlog", buckets.backlog, "bg-gray-200 dark:bg-slate-700/50 text-gray-600 dark:text-gray-400");
+    },
 
     getDependencyIcon(item) {
             const dependentCount = item.dependents?.length || 0;
@@ -3307,20 +3314,23 @@ renderLinearView() {
         dateInput.value = this.formatDate(tomorrow);
         dateInput.dataset.date = tomorrowStr;
 
-        // Populate Projects with "None" option
+        // Populate Projects with "None" and filter out completed ones
         const projSelect = this.elements.moveProjectSelect;
         projSelect.innerHTML = '<option value="none">None (Standalone Action)</option>';
-        this.projects.forEach(p => {
-            const opt = document.createElement('option');
-            opt.value = p.id;
-            opt.textContent = p.name;
-            projSelect.appendChild(opt);
-        });
+        
+        this.projects
+            .filter(p => p.overallProgress < 100) // Filter out completed projects
+            .forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = p.name;
+                projSelect.appendChild(opt);
+            });
         
         this.populatePhaseSelectForMove();
         this.toggleMoveModalFields();
         this.elements.moveToProjectModal.classList.remove('hidden');
-        },
+    },
 
     populatePhaseSelectForMove() {
         const projectSelectValue = this.elements.moveProjectSelect.value;
@@ -3375,51 +3385,6 @@ renderLinearView() {
         delegationGroup.classList.add('hidden');
         followupGroup.classList.add('hidden');
     }
-        },
-
-    promptMoveToProject(taskText, isFollowUp = false, successCallback) {
-        if (typeof isFollowUp === 'function') {
-            successCallback = isFollowUp;
-            isFollowUp = false;
-        }
-
-        this.pendingMoveTask = { text: taskText, isFollowUp: isFollowUp, cb: successCallback };
-        
-        this.moveModalSelectedTags = [];
-        document.getElementById('move-tag-input').value = '';
-        document.getElementById('move-selected-tags').innerHTML = '';
-        document.getElementById('move-delegate-input').value = '';
-        
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const tomorrowStr = tomorrow.toISOString().split('T')[0];
-        const dateInput = document.getElementById('move-followup-input');
-        dateInput.value = this.formatDate(tomorrow);
-        dateInput.dataset.date = tomorrowStr;
-
-        const projSelect = this.elements.moveProjectSelect;
-        projSelect.innerHTML = '<option value="none">None (Standalone Action)</option>';
-        this.projects.forEach(p => {
-            const opt = document.createElement('option');
-            opt.value = p.id;
-            opt.textContent = p.name;
-            projSelect.appendChild(opt);
-        });
-        
-        const datalist = document.getElementById('delegate-suggestions');
-        if (datalist) {
-            const existingDelegates = new Set();
-            this.projects.forEach(p => p.phases.forEach(ph => ph.tasks.forEach(t => {
-                if (t.delegatedTo) existingDelegates.add(t.delegatedTo);
-                if (t.subtasks) t.subtasks.forEach(st => { if (st.delegatedTo) existingDelegates.add(st.delegatedTo); });
-            })));
-            this.standaloneTasks.forEach(t => { if (t.delegatedTo) existingDelegates.add(t.delegatedTo); });
-            datalist.innerHTML = Array.from(existingDelegates).map(name => `<option value="${name}">`).join('');
-        }
-
-        this.populatePhaseSelectForMove();
-        this.toggleMoveModalFields();
-        this.elements.moveToProjectModal.classList.remove('hidden');
         },
 
     executeMoveToProject() {
@@ -3518,6 +3483,43 @@ renderLinearView() {
             </span>
         `).join('');
         },
+
+    toggleHideCompletedProjects() {
+        this.hideCompletedProjects = !this.hideCompletedProjects;
+        localStorage.setItem('timelineHideCompletedProjects', this.hideCompletedProjects);
+        this.renderProjects();
+    },
+
+    loadTabData() {
+        const savedTab = localStorage.getItem('timelineActiveTab');
+        if (savedTab) this.activeTab = savedTab;
+
+        const savedOrder = localStorage.getItem('timelineTabOrder');
+        if (savedOrder) {
+            try {
+                const parsedOrder = JSON.parse(savedOrder);
+                if(Array.isArray(parsedOrder) && parsedOrder.length === this.tabOrder.length && parsedOrder.every(t => this.tabOrder.includes(t))) {
+                    this.tabOrder = parsedOrder;
+                }
+            } catch(e) { console.error("Could not parse tab order", e); }
+        }
+
+        // Load View Preference
+        const savedViewMode = localStorage.getItem('timelineProjectViewMode');
+        this.projectViewMode = savedViewMode || 'gantt'; 
+
+        // Load Task Visibility Preference
+        const savedHideCompleted = localStorage.getItem('timelineHideCompleted');
+        this.hideCompletedTasks = savedHideCompleted === 'true';
+
+        // NEW: Load Project Visibility Preference
+        const savedHideProjects = localStorage.getItem('timelineHideCompletedProjects');
+        this.hideCompletedProjects = savedHideProjects === 'true';
+        
+        // Update the checkbox in the UI if it exists
+        const toggle = document.getElementById('hide-completed-projects-toggle');
+        if (toggle) toggle.checked = this.hideCompletedProjects;
+    },
 
     getTickInterval(domain) {
             const [startDate, endDate] = domain;
