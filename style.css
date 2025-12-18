@@ -1290,7 +1290,7 @@ button:not(:disabled),
     body, html {
         background-color: #fff !important;
         -webkit-print-color-adjust: exact;
-        color-adjust: exact;
+        print-color-adjust: exact;
     }
 
     :root {
@@ -1613,3 +1613,45 @@ button:not(:disabled),
     padding-bottom: 1px !important;
 }
 
+/* --- GTD ENHANCEMENTS --- */
+
+/* 1. Handling non-navigable tasks in Action Hub */
+/* Single Actions don't navigate to the Project View, so we remove the pointer cursor */
+.upcoming-task-item.no-nav {
+    cursor: default;
+}
+
+.upcoming-task-item.no-nav:hover {
+    background-color: transparent; /* Remove hover effect if it's not interactive */
+}
+
+/* 2. Enhanced Delegation Labels in Action Hub */
+/* Provides a theme-aware color for the "Waiting on" text */
+.waiting-on-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    color: #9333ea; /* Default Purple-600 */
+}
+
+.dark .waiting-on-label {
+    color: #c084fc; /* Purple-400 for better visibility in dark mode */
+}
+
+/* 3. Modal Delegation Input Styling */
+/* Ensures the new delegation input field in the modal is clearly focused */
+#move-delegate-input:focus {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-primary) 20%, transparent);
+    outline: none;
+}
+
+/* 4. Standalone Task Path Styling */
+/* Makes "Single Action" or "Delegated" paths stand out from Project > Phase paths */
+.upcoming-task-item .text-secondary:contains("Single Action"),
+.upcoming-task-item .text-secondary:contains("Delegated") {
+    font-weight: 600;
+    color: var(--accent-primary);
+    opacity: 0.8;
+}

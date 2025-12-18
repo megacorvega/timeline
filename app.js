@@ -4,6 +4,7 @@ const timelineApp = {
     deletedProjectLogs: [],
     history: [],
     redoStack: [],
+    standaloneTasks: [],
     MAX_HISTORY: 10,
     sharedPicker: null,
     currentPickerContext: null,
@@ -447,6 +448,7 @@ const timelineApp = {
 
     saveProjects() {
             localStorage.setItem('projectTimelineData', JSON.stringify(this.projects));
+            localStorage.setItem('projectStandaloneTasks', JSON.stringify(this.standaloneTasks)); // NEW
             localStorage.setItem('projectTimelineDeletedLogs', JSON.stringify(this.deletedProjectLogs));
         },
 
@@ -462,6 +464,10 @@ const timelineApp = {
             } catch (error) { console.error("Error parsing projects from localStorage:", error); }
         }
         this.projects = loadedProjects;
+
+        // Load Standalone Tasks
+        const savedStandalone = localStorage.getItem('projectStandaloneTasks');
+        this.standaloneTasks = savedStandalone ? JSON.parse(savedStandalone) : [];
         
         let hasMigrated = false; // Flag to track changes
 
@@ -1051,10 +1057,30 @@ const timelineApp = {
     renderLinearView() {
         const container = this.elements.projectsContainer;
         
-        // 1. COLLECT ALL TASKS & EXTRACT TAGS
+        // 1. COLLECT ALL TASKS (from Projects and Standalone) & EXTRACT TAGS
         let allItems = [];
         const allTags = new Set(this.getAllTags());
 
+        // Collect from Standalone Tasks (Single Actions / Delegated)
+        if (this.standaloneTasks) {
+            this.standaloneTasks.forEach(task => {
+                allItems.push({
+                    path: task.delegatedTo ? 'Delegated' : 'Single Action',
+                    projectId: null, phaseId: null, taskId: task.id,
+                    name: task.name,
+                    date: task.endDate || 'No Date',
+                    rawDate: task.endDate ? this.parseDate(task.endDate) : null,
+                    completed: task.completed,
+                    isFollowUp: task.isFollowUp,
+                    followUpDate: task.followUpDate ? this.parseDate(task.followUpDate) : null,
+                    delegatedTo: task.delegatedTo,
+                    tags: task.tags || [],
+                    isStandalone: true
+                });
+            });
+        }
+
+        // Collect from Projects
         this.projects.forEach(project => {
             if (this.upcomingProjectFilter !== 'all' && project.id.toString() !== this.upcomingProjectFilter) return;
 
@@ -1065,6 +1091,7 @@ const timelineApp = {
                         projectId: project.id, phaseId: phase.id, taskId: task.id,
                         isFollowUp: task.isFollowUp || false,
                         followUpDate: task.followUpDate ? this.parseDate(task.followUpDate) : null,
+                        delegatedTo: task.delegatedTo
                     };
 
                     if (task.subtasks && task.subtasks.length > 0) {
@@ -1101,7 +1128,6 @@ const timelineApp = {
             allItems = allItems.filter(i => !i.completed);
         }
         
-        // Filter by Tag (Updated to check array)
         if (this.tagFilter !== 'all') {
             allItems = allItems.filter(i => i.tags && i.tags.includes(this.tagFilter));
         }
@@ -1114,7 +1140,6 @@ const timelineApp = {
 
         const controlsHtml = `
             <div class="flex justify-between items-center mb-4 px-1 bg-white dark:bg-slate-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-                
                 <div class="flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
                     <select onchange="timelineApp.setTagFilter(this.value)" class="tag-filter-dropdown">
@@ -1170,24 +1195,26 @@ const timelineApp = {
                 const completedClass = item.completed ? 'line-through opacity-60' : '';
                 let extraDetails = '';
                 if (item.isFollowUp) {
-                     const fuDate = item.followUpDate ? this.formatDate(item.followUpDate) : 'No Date';
-                     extraDetails = `<div class="text-[10px] font-bold text-purple-600 dark:text-purple-300 uppercase tracking-wider">Follow Up: ${fuDate}</div>`;
+                    const fuDate = item.followUpDate ? this.formatDate(item.followUpDate) : 'No Date';
+                    const label = item.delegatedTo ? `Waiting on: ${item.delegatedTo}` : `Follow Up: ${fuDate}`;
+                    extraDetails = `<div class="text-[10px] font-bold text-purple-600 dark:text-purple-300 uppercase tracking-wider">${label}</div>`;
                 } else if (item.diffDays < 0) {
-                     extraDetails = `<div class="text-[10px] font-bold text-red-600 dark:text-red-300 uppercase tracking-wider">Overdue by ${Math.abs(item.diffDays)} days</div>`;
+                    extraDetails = `<div class="text-[10px] font-bold text-red-600 dark:text-red-300 uppercase tracking-wider">Overdue by ${Math.abs(item.diffDays)} days</div>`;
                 }
 
                 const tagsHtml = (item.tags || []).map(t => `<span class="tag-badge">${t}</span>`).join('');
 
+                const navClass = item.isStandalone ? 'no-nav' : 'cursor-pointer';
                 html += `
-                <div class="upcoming-task-item flex items-center p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors ${completedClass}" 
-                     onclick="timelineApp.navigateToTask(${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'})">
+                <div class="upcoming-task-item flex items-center p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${completedClass} ${navClass}" 
+                    onclick="${item.isStandalone ? '' : `timelineApp.navigateToTask(${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'})`}">
                     
                     <div class="flex-shrink-0 mr-3 cursor-pointer group" 
-                         onclick="timelineApp.toggleItemComplete(event, ${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'})">
-                         ${item.completed 
+                        onclick="event.stopPropagation(); timelineApp.toggleItemComplete(event, ${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'})">
+                        ${item.completed 
                             ? `<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>`
                             : `<div class="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600 group-hover:border-green-500 transition-colors"></div>`
-                         }
+                        }
                     </div>
                     
                     <div class="flex-grow min-w-0">
@@ -1217,7 +1244,7 @@ const timelineApp = {
         wrapper.innerHTML = controlsHtml + groupsHtml;
         container.innerHTML = '';
         container.appendChild(wrapper);
-    },
+        },
 
     getDependencyIcon(item) {
             const dependentCount = item.dependents?.length || 0;
@@ -3313,6 +3340,23 @@ updateDate(context, value, comment = null, shouldLog = true) {
                 this.elements.confirmMoveBtn.disabled = true;
             }
         },
+
+    toggleMoveModalFields() {
+        const type = document.getElementById('move-type-select').value;
+        const projectGroup = document.getElementById('project-select-group');
+        const delegationGroup = document.getElementById('delegation-group');
+        
+        if (type === 'project') {
+            projectGroup.classList.remove('hidden');
+            delegationGroup.classList.add('hidden');
+        } else if (type === 'waiting') {
+            projectGroup.classList.add('hidden');
+            delegationGroup.classList.remove('hidden');
+        } else {
+            projectGroup.classList.add('hidden');
+            delegationGroup.classList.add('hidden');
+        }
+    },
 
         // --- NEW FUNCTION: specific action to move the task ---
     executeMoveToProject() {

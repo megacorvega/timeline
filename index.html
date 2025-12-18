@@ -19,6 +19,7 @@
                 margin: 0;
                 padding: 0;
                 -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
             }
             @page {
                 size: landscape;
@@ -67,23 +68,39 @@
 
     <div id="move-to-project-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[1001] flex items-center justify-center p-4">
         <div class="modal-card p-6 rounded-lg shadow-xl w-full max-w-sm">
-            <h3 class="text-lg font-bold mb-4">Move to Project</h3>
-            <p class="text-sm modal-text-secondary mb-4">Select where to assign this task:</p>
+            <h3 class="text-lg font-bold mb-4">Process Inbox Item</h3>
+            <p class="text-sm modal-text-secondary mb-4">How should this task be handled?</p>
             
             <div class="space-y-4">
                 <div>
-                    <label class="block text-xs font-bold text-secondary mb-1">Project</label>
-                    <select id="move-project-select" class="w-full p-2 border rounded-md input-primary text-sm"></select>
+                    <label class="block text-xs font-bold text-secondary mb-1">GTD Category</label>
+                    <select id="move-type-select" class="w-full p-2 border rounded-md input-primary text-sm" onchange="timelineApp.toggleMoveModalFields()">
+                        <option value="project">Multi-step Project</option>
+                        <option value="standalone">Single Action (Next Action)</option>
+                        <option value="waiting">Delegated (Waiting For)</option>
+                    </select>
                 </div>
-                <div>
-                    <label class="block text-xs font-bold text-secondary mb-1">Phase</label>
-                    <select id="move-phase-select" class="w-full p-2 border rounded-md input-primary text-sm"></select>
+
+                <div id="project-select-group" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-secondary mb-1">Project</label>
+                        <select id="move-project-select" class="w-full p-2 border rounded-md input-primary text-sm"></select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-secondary mb-1">Phase</label>
+                        <select id="move-phase-select" class="w-full p-2 border rounded-md input-primary text-sm"></select>
+                    </div>
+                </div>
+
+                <div id="delegation-group" class="hidden">
+                    <label class="block text-xs font-bold text-secondary mb-1">Delegated To</label>
+                    <input type="text" id="move-delegate-input" class="w-full p-2 border rounded-md input-primary text-sm" placeholder="Who are you waiting on?">
                 </div>
             </div>
 
             <div class="mt-6 flex justify-end gap-2">
                 <button id="cancel-move-btn" class="px-4 py-2 rounded-md btn-secondary font-semibold text-sm">Cancel</button>
-                <button id="confirm-move-btn" class="px-4 py-2 rounded-md btn-primary text-white font-semibold text-sm">Move Task</button>
+                <button id="confirm-move-btn" class="px-4 py-2 rounded-md btn-primary text-white font-semibold text-sm">Organize Task</button>
             </div>
         </div>
     </div>
@@ -131,11 +148,11 @@
                     <div class="shortcut-item"><span>Toggle Red Highlight</span><div><kbd class="shortcut-key">Ctrl</kbd> + <kbd class="shortcut-key">Alt</kbd> + <kbd class="shortcut-key">4</kbd></div></div>
                 </div>
                 <div>
-                     <h4 class="shortcut-category">List View - Formatting</h4>
-                     <div class="shortcut-item"><span>Project Title (#)</span><div><kbd class="shortcut-key">#</kbd> + <kbd class="shortcut-key">Space</kbd></div></div>
-                     <div class="shortcut-item"><span>Sub-section (##)</span><div><kbd class="shortcut-key">##</kbd> + <kbd class="shortcut-key">Space</kbd></div></div>
-                     <div class="shortcut-item"><span>Checkbox Item (-)</span><div><kbd class="shortcut-key">-</kbd> + <kbd class="shortcut-key">Space</kbd></div></div>
-                     <div class="shortcut-item"><span>Note Block (>)</span><div><kbd class="shortcut-key">></kbd> + <kbd class="shortcut-key">Space</kbd></div></div>
+                    <h4 class="shortcut-category">List View - Formatting</h4>
+                    <div class="shortcut-item"><span>Project Title (#)</span><div><kbd class="shortcut-key">#</kbd> + <kbd class="shortcut-key">Space</kbd></div></div>
+                    <div class="shortcut-item"><span>Sub-section (##)</span><div><kbd class="shortcut-key">##</kbd> + <kbd class="shortcut-key">Space</kbd></div></div>
+                    <div class="shortcut-item"><span>Checkbox Item (-)</span><div><kbd class="shortcut-key">-</kbd> + <kbd class="shortcut-key">Space</kbd></div></div>
+                    <div class="shortcut-item"><span>Note Block (>)</span><div><kbd class="shortcut-key">></kbd> + <kbd class="shortcut-key">Space</kbd></div></div>
                 </div>
                  <div>
                     <h4 class="shortcut-category">Theme Settings</h4>
