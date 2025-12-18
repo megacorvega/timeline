@@ -448,10 +448,10 @@ const timelineApp = {
         },
 
     saveProjects() {
-            localStorage.setItem('projectTimelineData', JSON.stringify(this.projects));
-            localStorage.setItem('projectStandaloneTasks', JSON.stringify(this.standaloneTasks)); // NEW
-            localStorage.setItem('projectTimelineDeletedLogs', JSON.stringify(this.deletedProjectLogs));
-        },
+        localStorage.setItem('projectTimelineData', JSON.stringify(this.projects));
+        localStorage.setItem('projectStandaloneTasks', JSON.stringify(this.standaloneTasks)); 
+        localStorage.setItem('projectTimelineDeletedLogs', JSON.stringify(this.deletedProjectLogs));
+    },
 
     loadProjects() {
         const savedData = localStorage.getItem('projectTimelineData');
@@ -3264,27 +3264,38 @@ const timelineApp = {
         this.elements.moveToProjectModal.classList.remove('hidden');
         },
 
-        // --- NEW FUNCTION: Populate phases based on selected project ---
     populatePhaseSelectForMove() {
-            const projectId = parseInt(this.elements.moveProjectSelect.value);
-            const project = this.projects.find(p => p.id === projectId);
-            this.elements.movePhaseSelect.innerHTML = '';
-            
-            if (project && project.phases.length > 0) {
-                project.phases.forEach(ph => {
-                    const opt = document.createElement('option');
-                    opt.value = ph.id;
-                    opt.textContent = ph.name;
-                    this.elements.movePhaseSelect.appendChild(opt);
-                });
-                this.elements.confirmMoveBtn.disabled = false;
-            } else {
+        const projectSelectValue = this.elements.moveProjectSelect.value;
+        const isStandalone = projectSelectValue === 'none';
+        this.elements.movePhaseSelect.innerHTML = '';
+        
+        if (isStandalone) {
+            const opt = document.createElement('option');
+            opt.value = 'none';
+            opt.textContent = "N/A (Standalone)";
+            this.elements.movePhaseSelect.appendChild(opt);
+            this.elements.confirmMoveBtn.disabled = false; // Enabled for standalone
+            return;
+        }
+
+        const projectId = parseInt(projectSelectValue);
+        const project = this.projects.find(p => p.id === projectId);
+        
+        if (project && project.phases.length > 0) {
+            project.phases.forEach(ph => {
                 const opt = document.createElement('option');
-                opt.textContent = "No phases available";
+                opt.value = ph.id;
+                opt.textContent = ph.name;
                 this.elements.movePhaseSelect.appendChild(opt);
-                this.elements.confirmMoveBtn.disabled = true;
-            }
-        },
+            });
+            this.elements.confirmMoveBtn.disabled = false;
+        } else {
+            const opt = document.createElement('option');
+            opt.textContent = "No phases available";
+            this.elements.movePhaseSelect.appendChild(opt);
+            this.elements.confirmMoveBtn.disabled = true; // Disabled if project has no phases
+        }
+    },
 
     toggleMoveModalFields() {
     const type = document.getElementById('move-type-select').value;
@@ -3357,19 +3368,19 @@ const timelineApp = {
         if (!this.pendingMoveTask) return;
         
         const moveType = document.getElementById('move-type-select').value;
-        const projectId = this.elements.moveProjectSelect.value;
+        const projectSelectValue = this.elements.moveProjectSelect.value;
         const phaseId = parseInt(this.elements.movePhaseSelect.value);
         const delegateTo = document.getElementById('move-delegate-input').value.trim();
         const customFollowUpDate = document.getElementById('move-followup-input').dataset.date;
         
         const isDelegated = moveType === 'waiting';
-        const isStandalone = moveType === 'standalone' || projectId === 'none';
+        const isStandalone = moveType === 'standalone' || projectSelectValue === 'none';
 
         const newTask = {
             id: Date.now(),
             name: this.pendingMoveTask.text,
             startDate: null,
-            endDate: null,
+            endDate: isDelegated ? customFollowUpDate : null,
             completed: false,
             subtasks: [],
             dependencies: [],
@@ -3384,18 +3395,18 @@ const timelineApp = {
             if (!this.standaloneTasks) this.standaloneTasks = [];
             this.standaloneTasks.push(newTask);
         } else {
-            const project = this.projects.find(p => p.id === parseInt(projectId));
+            const project = this.projects.find(p => p.id === parseInt(projectSelectValue));
             const phase = project?.phases.find(ph => ph.id === phaseId);
             if (phase) phase.tasks.push(newTask);
         }
         
-        this.saveState();
+        this.saveState(); // Persists to localStorage
         this.renderProjects();
         if (this.pendingMoveTask.cb) this.pendingMoveTask.cb();
         
         this.elements.moveToProjectModal.classList.add('hidden');
         this.pendingMoveTask = null;
-        },
+    },
 
     handleMoveTagInput(event) {
         const filter = event.target.value.trim();
