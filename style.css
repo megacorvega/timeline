@@ -1613,45 +1613,41 @@ button:not(:disabled),
     padding-bottom: 1px !important;
 }
 
-/* --- GTD ENHANCEMENTS --- */
+/* --- GTD & ACTION HUB ENHANCEMENTS --- */
 
-/* 1. Handling non-navigable tasks in Action Hub */
-/* Single Actions don't navigate to the Project View, so we remove the pointer cursor */
+/* Path styling for standalone items */
+.upcoming-task-item .text-secondary {
+    font-weight: 500;
+}
+
+.upcoming-task-item .text-secondary span.tag-badge {
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 9px;
+    background-color: #f3e8ff; /* purple-100 */
+    color: #7e22ce; /* purple-700 */
+    border-color: #d8b4fe; /* purple-300 */
+}
+
+/* Ensure inline tag badges don't wrap weirdly */
+.upcoming-task-item .font-medium {
+    flex-wrap: wrap;
+    line-height: 1.6;
+}
+
+/* Spacing for inline date pickers */
+.upcoming-task-item .date-input-container {
+    width: 110px;
+}
+
+/* Prevent non-navigable items from showing pointer cursor */
 .upcoming-task-item.no-nav {
     cursor: default;
 }
-
 .upcoming-task-item.no-nav:hover {
-    background-color: transparent; /* Remove hover effect if it's not interactive */
+    background-color: transparent;
 }
-
-/* 2. Enhanced Delegation Labels in Action Hub */
-/* Provides a theme-aware color for the "Waiting on" text */
-.waiting-on-label {
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.025em;
-    color: #9333ea; /* Default Purple-600 */
-}
-
-.dark .waiting-on-label {
-    color: #c084fc; /* Purple-400 for better visibility in dark mode */
-}
-
-/* 3. Modal Delegation Input Styling */
-/* Ensures the new delegation input field in the modal is clearly focused */
-#move-delegate-input:focus {
-    border-color: var(--accent-primary);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-primary) 20%, transparent);
-    outline: none;
-}
-
-/* 4. Standalone Task Path Styling */
-/* Makes "Single Action" or "Delegated" paths stand out from Project > Phase paths */
-.upcoming-task-item .text-secondary:contains("Single Action"),
-.upcoming-task-item .text-secondary:contains("Delegated") {
-    font-weight: 600;
-    color: var(--accent-primary);
-    opacity: 0.8;
+/* Ensure the checkbox still shows pointer in no-nav rows */
+.upcoming-task-item.no-nav .group {
+    cursor: pointer;
 }
