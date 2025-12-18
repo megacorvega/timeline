@@ -1057,198 +1057,99 @@ const timelineApp = {
 
     renderLinearView() {
         const container = this.elements.projectsContainer;
-        let allItems = [];
-        const allTags = new Set(this.getAllTags());
+        let all = [];
 
-        // 1. Collect Standalone Tasks
-        if (this.standaloneTasks) {
-            this.standaloneTasks.forEach(task => {
-                allItems.push({
-                    path: task.delegatedTo ? 'Delegated' : 'Single Action',
-                    projectId: null, phaseId: null, taskId: task.id,
-                    name: task.name,
-                    date: task.endDate || 'No Date',
-                    rawDate: task.endDate ? this.parseDate(task.endDate) : null,
-                    completed: task.completed,
-                    isFollowUp: task.isFollowUp,
-                    followUpDate: task.followUpDate ? this.parseDate(task.followUpDate) : null,
-                    delegatedTo: task.delegatedTo,
-                    tags: task.tags || [],
-                    isStandalone: true
+        const collect = (tasks, base) => tasks.forEach(t => {
+            const item = { ...base, taskId: t.id, name: t.name, delegatedTo: t.delegatedTo, isFollowUp: t.isFollowUp, tags: t.tags || [] };
+            if (t.subtasks?.length) {
+                t.subtasks.forEach(s => all.push({ 
+                    ...item, 
+                    name: `${t.name}: ${s.name}`, 
+                    subtaskId: s.id, 
+                    date: s.endDate, 
+                    raw: s.endDate ? this.parseDate(s.endDate) : null, 
+                    completed: s.completed, 
+                    tags: s.tags || [] 
+                }));
+            } else {
+                all.push({ 
+                    ...item, 
+                    subtaskId: null, 
+                    date: t.effectiveEndDate || t.endDate, 
+                    raw: (t.effectiveEndDate || t.endDate) ? this.parseDate(t.effectiveEndDate || t.endDate) : null, 
+                    completed: t.completed 
                 });
-            });
-        }
-
-        // 2. Collect Project Tasks
-        this.projects.forEach(project => {
-            if (this.upcomingProjectFilter !== 'all' && project.id.toString() !== this.upcomingProjectFilter) return;
-            project.phases.forEach(phase => {
-                phase.tasks.forEach(task => {
-                    const itemBase = {
-                        path: `${project.name} > ${phase.name}`,
-                        projectId: project.id, phaseId: phase.id, taskId: task.id,
-                        isFollowUp: task.isFollowUp || false,
-                        followUpDate: task.followUpDate ? this.parseDate(task.followUpDate) : null,
-                        delegatedTo: task.delegatedTo
-                    };
-                    if (task.subtasks && task.subtasks.length > 0) {
-                        task.subtasks.forEach(subtask => {
-                            allItems.push({
-                                ...itemBase,
-                                name: `${task.name}: ${subtask.name}`,
-                                date: subtask.endDate || 'No Date',
-                                rawDate: subtask.endDate ? this.parseDate(subtask.endDate) : null,
-                                completed: subtask.completed,
-                                subtaskId: subtask.id,
-                                isFollowUp: subtask.isFollowUp || false,
-                                followUpDate: subtask.followUpDate ? this.parseDate(subtask.followUpDate) : null,
-                                tags: subtask.tags || []
-                            });
-                        });
-                    } else {
-                        allItems.push({
-                            ...itemBase,
-                            name: task.name,
-                            date: task.effectiveEndDate || 'No Date',
-                            rawDate: task.effectiveEndDate ? this.parseDate(task.effectiveEndDate) : null,
-                            completed: task.completed,
-                            subtaskId: null,
-                            tags: task.tags || []
-                        });
-                    }
-                });
-            });
+            }
         });
 
-        if (this.hideCompletedTasks) allItems = allItems.filter(i => !i.completed);
-        if (this.tagFilter !== 'all') allItems = allItems.filter(i => i.tags && i.tags.includes(this.tagFilter));
+        collect(this.standaloneTasks, { path: 'Inbox', projectId: null, phaseId: null, isStandalone: true });
+        this.projects.forEach(p => p.phases.forEach(ph => collect(ph.tasks, { path: `${p.name} > ${ph.name}`, projectId: p.id, phaseId: ph.id })));
 
-        const sortedTags = Array.from(allTags).sort();
-        const tagOptions = sortedTags.map(tag => `<option value="${tag}" ${this.tagFilter === tag ? 'selected' : ''}>${tag}</option>`).join('');
+        if (this.hideCompletedTasks) all = all.filter(i => !i.completed);
+        if (this.tagFilter !== 'all') all = all.filter(i => i.tags?.includes(this.tagFilter));
 
-        const controlsHtml = `
-            <div class="flex justify-between items-center mb-4 px-1 bg-white dark:bg-slate-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-                <div class="flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
-                    <select onchange="timelineApp.setTagFilter(this.value)" class="tag-filter-dropdown">
-                        <option value="all">All Tags</option>
-                        ${tagOptions}
-                    </select>
-                </div>
-                <label class="flex items-center text-xs font-semibold text-secondary cursor-pointer select-none hover:text-primary transition-colors">
+        const today = new Date(); 
+        today.setHours(0,0,0,0); 
+        const b = { waiting: [], now: [], upcoming: [], backlog: [] };
+
+        all.forEach(i => {
+            if (i.isFollowUp || i.delegatedTo) b.waiting.push(i);
+            else if (!i.raw) b.backlog.push(i);
+            else if (Math.round((i.raw - today) / 86400000) <= 0) b.now.push(i);
+            else b.upcoming.push(i);
+        });
+
+        const renderG = (title, items, cls) => {
+            if (!items.length) return '';
+            let h = `<div class="upcoming-card rounded-xl shadow-md mb-4 overflow-hidden">
+                        <div class="p-3 border-b border-primary ${cls}">
+                            <h3 class="font-bold flex items-center gap-2">${title} 
+                                <span class="text-xs font-normal opacity-75 bg-white bg-opacity-20 px-2 py-0.5 rounded-full">${items.length}</span>
+                            </h3>
+                        </div>
+                        <div class="p-1 space-y-1">`;
+            items.forEach(i => {
+                const tgs = (i.tags || []).map(t => `<span class="tag-badge">${t}<span onclick="event.stopPropagation(); timelineApp.removeTag(${i.projectId}, ${i.phaseId}, ${i.taskId}, ${i.subtaskId || 'null'}, '${t}')" class="tag-remove">&times;</span></span>`).join('');
+                const del = i.delegatedTo ? `<span class="tag-badge bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 border-purple-200">Waiting: ${i.delegatedTo}</span>` : '';
+                const ico = `<div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>`;
+                
+                h += `<div class="upcoming-task-item flex items-center p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${i.completed ? 'line-through opacity-60' : ''} ${i.isStandalone ? 'no-nav' : 'cursor-pointer'}" 
+                        onclick="${i.isStandalone ? '' : `timelineApp.navigateToTask(${i.projectId}, ${i.phaseId}, ${i.taskId}, ${i.subtaskId || 'null'})`}">
+                    <div class="flex-shrink-0 mr-3 cursor-pointer group" onclick="event.stopPropagation(); timelineApp.toggleItemComplete(event, ${i.projectId}, ${i.phaseId}, ${i.taskId}, ${i.subtaskId || 'null'})">
+                        ${i.completed ? `<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>` : `<div class="w-5 h-5 rounded-full border-2 border-gray-300 group-hover:border-green-500"></div>`}
+                    </div>
+                    <div class="flex-grow min-w-0">
+                        <div class="text-[10px] text-secondary truncate w-2/3">${i.path}</div>
+                        <div class="font-medium truncate text-sm pt-0.5 flex items-center gap-1 flex-wrap">
+                            <span class="editable-text" onclick="event.stopPropagation(); timelineApp.makeEditable(this, 'updateTaskName', ${i.projectId}, ${i.phaseId}, ${i.taskId})">${i.name}</span>
+                            ${del}${tgs}
+                        </div>
+                    </div>
+                    <div class="flex-shrink-0 ml-2" onclick="event.stopPropagation()">
+                        <div class="date-input-container">
+                            <input type="text" value="${i.date ? this.formatDate(this.parseDate(i.date)) : ''}" placeholder="End Date" class="date-input" 
+                                data-project-id="${i.projectId}" data-phase-id="${i.phaseId}" data-task-id="${i.taskId}" data-subtask-id="${i.subtaskId || 'null'}"
+                                data-type="${i.subtaskId ? 'subtask-end' : 'task-end'}" data-date="${i.date || ''}" 
+                                oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
+                            ${ico}
+                        </div>
+                    </div>
+                </div>`;
+            }); 
+            return h + `</div></div>`;
+        };
+
+        container.innerHTML = `
+            <div class="flex justify-end mb-4">
+                <label class="flex items-center text-xs font-semibold text-secondary cursor-pointer select-none">
                     <input type="checkbox" class="custom-checkbox mr-2" ${this.hideCompletedTasks ? 'checked' : ''} onchange="timelineApp.toggleHideCompleted()">
                     Hide Completed Tasks
                 </label>
-            </div>`;
-
-        if (allItems.length === 0) {
-            container.innerHTML = controlsHtml + `<div class="upcoming-card p-4 rounded-xl shadow-md text-center text-secondary">No tasks found.</div>`;
-            return;
-        }
-
-        const today = new Date(); today.setHours(0,0,0,0);
-        const buckets = { waitingFor: [], doNow: [], upcoming: [], backlog: [] };
-
-        allItems.forEach(item => {
-            if (item.isFollowUp) { buckets.waitingFor.push(item); return; }
-            if (!item.rawDate) { buckets.backlog.push(item); return; }
-            const diffDays = Math.round((item.rawDate - today) / (1000 * 60 * 60 * 24));
-            if (diffDays <= 0) { item.diffDays = diffDays; buckets.doNow.push(item); } 
-            else { buckets.upcoming.push(item); }
-        });
-
-        const renderGroup = (title, items, headerClass) => {
-            if (items.length === 0) return '';
-            let groupHtml = `<div class="upcoming-card rounded-xl shadow-md mb-4 overflow-hidden">
-                <div class="p-3 border-b border-primary ${headerClass}">
-                    <h3 class="font-bold flex items-center gap-2">${title} <span class="text-xs font-normal opacity-75 bg-white bg-opacity-20 px-2 py-0.5 rounded-full">${items.length}</span></h3>
-                </div>
-                <div class="p-1 space-y-1">`;
-            
-            items.forEach(item => {
-                const completedClass = item.completed ? 'line-through opacity-60' : '';
-                const iconHtml = `<div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>`;
-                
-                const tagsHtml = (item.tags || []).map(tag => `
-                    <span class="tag-badge">
-                        ${tag}
-                        <span onclick="event.stopPropagation(); timelineApp.removeTag(${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'}, '${tag}')" class="tag-remove">&times;</span>
-                    </span>
-                `).join('');
-
-                const tagMenuHtml = `
-                    <div class="relative inline-block ml-1">
-                        <button onclick="timelineApp.toggleTagMenu(event, ${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'})" class="add-tag-btn" title="Add Tag">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
-                        </button>
-                        <div id="tag-menu-${item.subtaskId || item.taskId}" class="tag-menu-dropdown hidden" onclick="event.stopPropagation()">
-                            <input type="text" id="tag-input-${item.subtaskId || item.taskId}" class="tag-menu-input" placeholder="Tag..." 
-                                onkeyup="timelineApp.handleTagInput(event, ${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'})">
-                            <div id="tag-options-${item.subtaskId || item.taskId}" class="tag-menu-options"></div>
-                        </div>
-                    </div>`;
-
-                let dateDisplayHtml = '';
-                if (item.isFollowUp) {
-                    dateDisplayHtml = `
-                    <div class="date-input-container mr-2 scale-90">
-                        <input type="text" value="${item.followUpDate ? this.formatDate(item.followUpDate) : ''}" 
-                            class="date-input border-purple-300 font-bold text-purple-700" placeholder="Follow Up"
-                            data-project-id="${item.projectId}" data-phase-id="${item.phaseId}" data-task-id="${item.taskId}" data-subtask-id="${item.subtaskId || 'null'}"
-                            data-type="${item.subtaskId ? 'subtask-followup' : 'task-followup'}" data-date="${item.followUpDate ? item.followUpDate.toISOString().split('T')[0] : ''}" 
-                            oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
-                        ${iconHtml}
-                    </div>`;
-                } else {
-                    dateDisplayHtml = `
-                    <div class="date-input-container scale-90">
-                        <input type="text" value="${item.rawDate ? this.formatDate(item.rawDate) : ''}" placeholder="End Date"
-                            class="date-input" data-project-id="${item.projectId}" data-phase-id="${item.phaseId}" data-task-id="${item.taskId}" data-subtask-id="${item.subtaskId || 'null'}"
-                            data-type="${item.subtaskId ? 'subtask-end' : 'task-end'}" data-date="${item.rawDate ? item.rawDate.toISOString().split('T')[0] : ''}" 
-                            oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
-                        ${iconHtml}
-                    </div>`;
-                }
-
-                groupHtml += `
-                <div class="upcoming-task-item flex items-center p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${completedClass} ${item.isStandalone ? 'no-nav' : 'cursor-pointer'}" 
-                    onclick="${item.isStandalone ? '' : `timelineApp.navigateToTask(${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'})`}">
-                    
-                    <div class="flex-shrink-0 mr-3 cursor-pointer group" onclick="event.stopPropagation(); timelineApp.toggleItemComplete(event, ${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'})">
-                        ${item.completed 
-                            ? `<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>`
-                            : `<div class="w-5 h-5 rounded-full border-2 border-gray-300 group-hover:border-green-500"></div>`
-                        }
-                    </div>
-                    
-                    <div class="flex-grow min-w-0">
-                        <div class="flex justify-between items-baseline">
-                            <div class="text-[10px] text-secondary truncate w-2/3">${item.path} ${item.delegatedTo ? `<span class="tag-badge ml-1 text-purple-600">Waiting on: ${item.delegatedTo}</span>` : ''}</div>
-                        </div>
-                        <div class="font-medium truncate text-sm pt-0.5 flex items-center gap-1">
-                            <span class="editable-text" onclick="event.stopPropagation(); timelineApp.makeEditable(this, 'updateTaskName', ${item.projectId}, ${item.phaseId}, ${item.taskId})">${item.name}</span>
-                            ${tagsHtml}
-                            ${tagMenuHtml}
-                        </div>
-                    </div>
-
-                    <div class="flex-shrink-0 ml-2" onclick="event.stopPropagation()">
-                        ${dateDisplayHtml}
-                    </div>
-                </div>`;
-            });
-            return groupHtml + `</div></div>`;
-        };
-
-        let groupsHtml = renderGroup("Waiting For", buckets.waitingFor, "bg-purple-100 dark:bg-purple-900/40 text-purple-900 dark:text-purple-100 border-purple-200") +
-                        renderGroup("Do Now", buckets.doNow, "bg-blue-100 dark:bg-blue-900/40 text-blue-900 dark:text-blue-100 border-blue-200") +
-                        renderGroup("Upcoming", buckets.upcoming, "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200") +
-                        renderGroup("Backlog", buckets.backlog, "bg-gray-200 dark:bg-slate-700/50 text-gray-600 dark:text-gray-400");
-
-        const wrapper = document.createElement('div');
-        wrapper.innerHTML = controlsHtml + groupsHtml;
-        container.innerHTML = '';
-        container.appendChild(wrapper);
+            </div>` + 
+            renderG("Waiting For", b.waiting, "bg-purple-100 dark:bg-purple-900/40 text-purple-900 dark:text-purple-100 border-purple-200") +
+            renderG("Do Now", b.now, "bg-blue-100 dark:bg-blue-900/40 text-blue-900 dark:text-blue-100 border-blue-200") +
+            renderG("Upcoming", b.upcoming, "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200") +
+            renderG("Backlog", b.backlog, "bg-gray-200 dark:bg-slate-700/50 text-gray-600 dark:text-gray-400");
     },
 
     getDependencyIcon(item) {
@@ -2519,7 +2420,7 @@ const timelineApp = {
             t.name = newName;
             this.saveState();
         }
-    },
+        },
 
     updateSubtaskName(projectId, phaseId, taskId, subtaskId, newName) { const s = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId)?.subtasks.find(st => st.id === subtaskId); if (s) { s.name = newName; this.saveState(); } },
 
@@ -2565,7 +2466,7 @@ const timelineApp = {
         }
         this.saveState(); 
         this.renderProjects();
-    },
+        },
 
     toggleTaskComplete(projectId, phaseId, taskId) {
         const t = this.getItem('task', projectId, phaseId, taskId);
@@ -2576,7 +2477,14 @@ const timelineApp = {
         }
         },    
 
-    toggleSubtaskComplete(projectId, phaseId, taskId, subtaskId) { const s = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId)?.subtasks.find(st => st.id === subtaskId); if (s) { s.completed = !s.completed; this.saveState(); this.renderProjects(); } },
+    toggleSubtaskComplete(projectId, phaseId, taskId, subtaskId) {
+        const s = this.getItem('subtask', projectId, phaseId, taskId, subtaskId);
+        if (s) {
+            s.completed = !s.completed;
+            this.saveState();
+            this.renderProjects();
+        }
+    },
 
     toggleTaskFollowUp(projectId, phaseId, taskId) {
         const task = this.getItem('task', projectId, phaseId, taskId);
@@ -2853,20 +2761,23 @@ const timelineApp = {
         },
 
     handleDateTrigger(trigger) {
-            if (!trigger) return;
-            const { projectId, phaseId, taskId, subtaskId, type } = trigger.dataset;
-            this.currentPickerContext = { type, projectId: parseInt(projectId), phaseId: parseInt(phaseId), taskId: parseInt(taskId), subtaskId: parseInt(subtaskId), element: trigger, oldDate: trigger.dataset.date || null };
-            let defaultDate = trigger.dataset.date || new Date();
-            if (type && type.endsWith('-end')) {
-                let startDate;
-                if (subtaskId) startDate = this.projects.find(p=>p.id===parseInt(projectId))?.phases.find(p=>p.id===parseInt(phaseId))?.tasks.find(t=>t.id===parseInt(taskId))?.subtasks.find(s=>s.id===parseInt(subtaskId))?.startDate;
-                else if (taskId) startDate = this.projects.find(p=>p.id===parseInt(projectId))?.phases.find(p=>p.id===parseInt(phaseId))?.tasks.find(t=>t.id===parseInt(taskId))?.startDate;
-                else if (phaseId) startDate = this.projects.find(p=>p.id===parseInt(projectId))?.phases.find(p=>p.id===parseInt(phaseId))?.startDate;
-                else if (projectId) startDate = this.projects.find(p=>p.id===parseInt(projectId))?.startDate;
-                if (startDate) defaultDate = startDate;
-            }
-            this.sharedPicker.set('defaultDate', defaultDate); this.sharedPicker.open();
-        },
+    if (!trigger) return;
+    const { projectId, phaseId, taskId, subtaskId, type } = trigger.dataset;
+
+    this.currentPickerContext = { 
+        type, 
+        projectId: (projectId === 'null' || !projectId) ? null : parseInt(projectId), 
+        phaseId: parseInt(phaseId), 
+        taskId: parseInt(taskId), 
+        subtaskId: (subtaskId === 'null' || !subtaskId) ? null : parseInt(subtaskId), 
+        element: trigger, 
+        oldDate: trigger.dataset.date || null 
+    };
+
+    let d = trigger.dataset.date || new Date();
+    this.sharedPicker.set('defaultDate', d);
+    this.sharedPicker.open();
+    },
 
     handleSaveReason() {
         const comment = this.elements.reasonCommentTextarea.value.trim();
@@ -3294,27 +3205,26 @@ const timelineApp = {
         },
         
     getItem(type, projectId, phaseId, taskId, subtaskId) {
-        // If projectId is null or "null", search in the standalone tasks array
-        if (projectId === null || projectId === 'null') {
-            return this.standaloneTasks.find(t => t.id === taskId);
-        }
+            const pId = (projectId === 'null' || projectId === null) ? null : Number(projectId);
+            
+            // Search Standalone Tasks if no Project ID is present
+            if (pId === null) {
+                return this.standaloneTasks.find(t => t.id === Number(taskId));
+            }
 
-        const project = this.projects.find(p => p.id === projectId);
-        if (!project) return null;
-        if (type === 'project') return project;
+            const p = this.projects.find(p => p.id === pId);
+            if (!p) return null;
+            if (type === 'project') return p;
 
-        const phase = project.phases.find(ph => ph.id === phaseId);
-        if (!phase) return null;
-        if (type === 'phase') return phase;
+            const ph = p.phases.find(ph => ph.id === Number(phaseId));
+            if (!ph) return null;
+            if (type === 'phase') return ph;
 
-        const task = phase.tasks.find(t => t.id === taskId);
-        if (!task) return null;
-        if (type === 'task') return task;
+            const t = ph.tasks.find(t => t.id === Number(taskId));
+            if (!t) return null;
+            if (type === 'task') return t;
 
-        if (type === 'subtask') {
-            return task.subtasks.find(st => st.id === subtaskId);
-        }
-        return null;
+            return type === 'subtask' ? t.subtasks.find(st => st.id === Number(subtaskId)) : null;
         },
 
     promptMoveToProject(taskText, isFollowUp = false, successCallback) {
