@@ -29,6 +29,62 @@ const timelineApp = {
     // --- DOM ELEMENTS ---
     elements: {},
 
+    cacheDOMElements() {
+        this.elements = {
+            projectsContainer: document.getElementById('projects-container'),
+            addProjectBtn: document.getElementById('add-project-btn'),
+            newProjectNameInput: document.getElementById('new-project-name'),
+            themeSelect: document.getElementById('theme-select'),
+            darkModeToggle: document.getElementById('dark-mode-toggle'),
+            darkIcon: document.getElementById('theme-toggle-dark-icon'),
+            lightIcon: document.getElementById('theme-toggle-light-icon'),
+            importBtn: document.getElementById('import-btn'),
+            exportBtn: document.getElementById('export-btn'),
+            importFileInput: document.getElementById('import-file-input'),
+            datepickerBackdrop: document.getElementById('datepicker-backdrop'),
+            reasonModal: document.getElementById('reason-modal'),
+            reasonModalTitle: document.getElementById('reason-modal-title'),
+            reasonModalDetails: document.getElementById('reason-modal-details'),
+            reasonCommentTextarea: document.getElementById('reason-comment'),
+            logChangeCheckbox: document.getElementById('log-change-checkbox'),
+            saveReasonBtn: document.getElementById('save-reason-btn'),
+            cancelReasonBtn: document.getElementById('cancel-reason-btn'),
+            dependencyBanner: document.getElementById('dependency-banner'),
+            dependencyTooltip: document.getElementById('dependency-tooltip'),
+            confirmModal: document.getElementById('confirm-modal'),
+            confirmModalTitle: document.getElementById('confirm-modal-title'),
+            confirmModalText: document.getElementById('confirm-modal-text'),
+            cancelConfirmBtn: document.getElementById('cancel-confirm-btn'),
+            confirmActionBtn: document.getElementById('confirm-action-btn'),
+            undoBtn: document.getElementById('undo-btn'),
+            redoBtn: document.getElementById('redo-btn'),
+            toggleDeletedLogBtn: document.getElementById('toggle-deleted-log-btn'),
+            mainTabs: document.getElementById('main-tabs'),
+            shortcutsBtn: document.getElementById('shortcuts-btn'),
+            shortcutsModal: document.getElementById('shortcuts-modal'),
+            shortcutsModalBackdrop: document.getElementById('shortcuts-modal-backdrop'),
+            closeShortcutsBtn: document.getElementById('close-shortcuts-btn'),
+            upcomingProjectFilter: document.getElementById('upcoming-project-filter'),
+            fullscreenModal: document.getElementById('fullscreen-modal'),
+
+            // --- Header Controls ---
+            projectViewControls: document.getElementById('project-view-controls'),
+            projectViewGlider: document.getElementById('project-view-glider'),
+            btnViewGantt: document.getElementById('btn-view-gantt'),
+            btnViewLinear: document.getElementById('btn-view-linear'),
+            
+            // --- NEW: Toggle Container ---
+            ganttViewOptions: document.getElementById('gantt-view-options'),
+
+            // --- Move to Project Modal Elements ---
+            moveToProjectModal: document.getElementById('move-to-project-modal'),
+            moveProjectSelect: document.getElementById('move-project-select'),
+            movePhaseSelect: document.getElementById('move-phase-select'),
+            cancelMoveBtn: document.getElementById('cancel-move-btn'),
+            confirmMoveBtn: document.getElementById('confirm-move-btn')
+        };
+    },
+
     isShortcut(event, key, { ctrl = false, alt = false, shift = false } = {}) {
             const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.platform);
             const ctrlKey = isMac ? event.metaKey : event.ctrlKey;
@@ -106,59 +162,6 @@ const timelineApp = {
             this.renderProjects();
         }
     },
-
-    cacheDOMElements() {
-            this.elements = {
-                projectsContainer: document.getElementById('projects-container'),
-                addProjectBtn: document.getElementById('add-project-btn'),
-                newProjectNameInput: document.getElementById('new-project-name'),
-                themeSelect: document.getElementById('theme-select'),
-                darkModeToggle: document.getElementById('dark-mode-toggle'),
-                darkIcon: document.getElementById('theme-toggle-dark-icon'),
-                lightIcon: document.getElementById('theme-toggle-light-icon'),
-                importBtn: document.getElementById('import-btn'),
-                exportBtn: document.getElementById('export-btn'),
-                importFileInput: document.getElementById('import-file-input'),
-                datepickerBackdrop: document.getElementById('datepicker-backdrop'),
-                reasonModal: document.getElementById('reason-modal'),
-                reasonModalTitle: document.getElementById('reason-modal-title'),
-                reasonModalDetails: document.getElementById('reason-modal-details'),
-                reasonCommentTextarea: document.getElementById('reason-comment'),
-                logChangeCheckbox: document.getElementById('log-change-checkbox'),
-                saveReasonBtn: document.getElementById('save-reason-btn'),
-                cancelReasonBtn: document.getElementById('cancel-reason-btn'),
-                dependencyBanner: document.getElementById('dependency-banner'),
-                dependencyTooltip: document.getElementById('dependency-tooltip'),
-                confirmModal: document.getElementById('confirm-modal'),
-                confirmModalTitle: document.getElementById('confirm-modal-title'),
-                confirmModalText: document.getElementById('confirm-modal-text'),
-                cancelConfirmBtn: document.getElementById('cancel-confirm-btn'),
-                confirmActionBtn: document.getElementById('confirm-action-btn'),
-                undoBtn: document.getElementById('undo-btn'),
-                redoBtn: document.getElementById('redo-btn'),
-                toggleDeletedLogBtn: document.getElementById('toggle-deleted-log-btn'),
-                mainTabs: document.getElementById('main-tabs'),
-                shortcutsBtn: document.getElementById('shortcuts-btn'),
-                shortcutsModal: document.getElementById('shortcuts-modal'),
-                shortcutsModalBackdrop: document.getElementById('shortcuts-modal-backdrop'),
-                closeShortcutsBtn: document.getElementById('close-shortcuts-btn'),
-                upcomingProjectFilter: document.getElementById('upcoming-project-filter'),
-                fullscreenModal: document.getElementById('fullscreen-modal'),
-
-                // --- NEW Header Controls ---
-                projectViewControls: document.getElementById('project-view-controls'),
-                projectViewGlider: document.getElementById('project-view-glider'),
-                btnViewGantt: document.getElementById('btn-view-gantt'),
-                btnViewLinear: document.getElementById('btn-view-linear'),
-
-                // --- NEW: Move to Project Modal Elements ---
-                moveToProjectModal: document.getElementById('move-to-project-modal'),
-                moveProjectSelect: document.getElementById('move-project-select'),
-                movePhaseSelect: document.getElementById('move-phase-select'),
-                cancelMoveBtn: document.getElementById('cancel-move-btn'),
-                confirmMoveBtn: document.getElementById('confirm-move-btn')
-            };
-        },
 
     addEventListeners() {
             this.elements.themeSelect.addEventListener('change', (e) => {
@@ -2735,10 +2738,19 @@ const timelineApp = {
 
         this.updateProjectViewIndicator();
         
+        // Toggle visibility of the Hide Completed Projects switch
+        if (this.elements.ganttViewOptions) {
+            if (mode === 'gantt') {
+                this.elements.ganttViewOptions.classList.remove('hidden');
+            } else {
+                this.elements.ganttViewOptions.classList.add('hidden');
+            }
+        }
+
         // OPTIMIZATION: Pass false to skip heavy dependency recalculations
         this.renderProjects(false); 
 
-        // NEW: Reset scroll to top when switching to Action Hub
+        // Reset scroll to top when switching to Action Hub
         if (mode === 'linear') {
             window.scrollTo(0, 0);
         }
