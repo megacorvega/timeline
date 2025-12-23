@@ -1073,12 +1073,15 @@ const timelineApp = {
         // 1. Collect Standalone Tasks (Inbox items)
         if (this.standaloneTasks) {
             this.standaloneTasks.forEach(task => {
+                // Determine which date to sort/display by (Follow Up overrides End Date if active)
+                const displayDate = (task.isFollowUp && task.followUpDate) ? task.followUpDate : (task.endDate || task.followUpDate);
+                
                 allItems.push({
                     path: 'Inbox',
                     projectId: null, phaseId: null, taskId: task.id,
                     name: task.name,
-                    date: task.endDate || task.followUpDate,
-                    rawDate: (task.endDate || task.followUpDate) ? this.parseDate(task.endDate || task.followUpDate) : null,
+                    date: displayDate,
+                    rawDate: displayDate ? this.parseDate(displayDate) : null,
                     completed: task.completed,
                     isFollowUp: task.isFollowUp,
                     delegatedTo: task.delegatedTo,
@@ -1092,45 +1095,59 @@ const timelineApp = {
         this.projects.forEach(project => {
             project.phases.forEach(phase => {
                 phase.tasks.forEach(task => {
+                    // Base properties shared by task and its subtasks
+                    // Note: We intentionally do NOT include isFollowUp/delegatedTo here
+                    // to prevent subtasks from inheriting parent status incorrectly.
                     const itemBase = {
                         path: `${project.name} > ${phase.name}`,
-                        projectId: project.id, phaseId: phase.id, taskId: task.id,
-                        isFollowUp: task.isFollowUp,
-                        delegatedTo: task.delegatedTo
+                        projectId: project.id, phaseId: phase.id, taskId: task.id
                     };
+                    
                     if (task.subtasks?.length > 0) {
                         task.subtasks.forEach(st => {
+                            // Subtask-specific date logic
+                            const displayDate = (st.isFollowUp && st.followUpDate) ? st.followUpDate : st.endDate;
+                            
                             allItems.push({
                                 ...itemBase,
                                 name: `${task.name}: ${st.name}`,
                                 subtaskId: st.id,
-                                date: st.endDate,
-                                rawDate: st.endDate ? this.parseDate(st.endDate) : null,
+                                date: displayDate,
+                                rawDate: displayDate ? this.parseDate(displayDate) : null,
                                 completed: st.completed,
-                                tags: st.tags || []
+                                tags: st.tags || [],
+                                isFollowUp: st.isFollowUp,
+                                delegatedTo: st.delegatedTo
                             });
                         });
                     } else {
+                        // Task-specific date logic
+                        const displayDate = (task.isFollowUp && task.followUpDate) ? task.followUpDate : (task.effectiveEndDate || task.endDate);
+
                         allItems.push({
                             ...itemBase,
                             subtaskId: null,
                             name: task.name,
-                            date: task.effectiveEndDate || task.endDate,
-                            rawDate: (task.effectiveEndDate || task.endDate) ? this.parseDate(task.effectiveEndDate || task.endDate) : null,
+                            date: displayDate,
+                            rawDate: displayDate ? this.parseDate(displayDate) : null,
                             completed: task.completed,
-                            tags: task.tags || []
+                            tags: task.tags || [],
+                            isFollowUp: task.isFollowUp,
+                            delegatedTo: task.delegatedTo
                         });
                     }
                 });
             });
         });
 
+        // 3. Apply Filters
         if (this.hideCompletedTasks) allItems = allItems.filter(i => !i.completed);
         if (this.tagFilter !== 'all') allItems = allItems.filter(i => i.tags?.includes(this.tagFilter));
 
         const today = new Date(); today.setHours(0,0,0,0);
         const buckets = { waitingFor: [], doNow: [], upcoming: [], backlog: [] };
 
+        // 4. Sort items into buckets
         allItems.forEach(item => {
             if (item.isFollowUp || item.delegatedTo) { buckets.waitingFor.push(item); return; }
             if (!item.rawDate) { buckets.backlog.push(item); return; }
@@ -1139,6 +1156,20 @@ const timelineApp = {
             else buckets.upcoming.push(item);
         });
 
+        // 5. SORTING LOGIC (New)
+        // Sort by date ascending (soonest date first)
+        const sortByDate = (a, b) => {
+            if (!a.rawDate && !b.rawDate) return 0;
+            if (!a.rawDate) return 1;
+            if (!b.rawDate) return -1;
+            return a.rawDate - b.rawDate;
+        };
+
+        buckets.waitingFor.sort(sortByDate);
+        buckets.doNow.sort(sortByDate);
+        buckets.upcoming.sort(sortByDate);
+
+        // 6. Render Helper
         const renderGroup = (title, items, headerClass) => {
             if (items.length === 0) return '';
             let groupHtml = `<div class="upcoming-card rounded-xl shadow-md mb-4 overflow-hidden">
@@ -1163,6 +1194,15 @@ const timelineApp = {
                     </svg>
                 </div>`;
 
+                // Calculate which data-type to use so the date picker updates the correct field (followUpDate vs endDate)
+                const dateType = item.isFollowUp ? 
+                    (item.subtaskId ? 'subtask-followup' : 'task-followup') : 
+                    (item.subtaskId ? 'subtask-end' : 'task-end');
+
+                // Visual cue for Follow Up items
+                const dateInputColorClass = item.isFollowUp ? 
+                    'text-purple-700 dark:text-purple-300 font-bold' : '';
+
                 groupHtml += `
                 <div class="upcoming-task-item flex items-center p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${item.completed ? 'line-through opacity-60' : ''} ${item.isStandalone ? 'no-nav' : 'cursor-pointer'}" 
                     onclick="${item.isStandalone ? '' : `timelineApp.navigateToTask(${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'})`}">
@@ -1184,9 +1224,9 @@ const timelineApp = {
 
                     <div class="flex-shrink-0 ml-2" onclick="event.stopPropagation()">
                         <div class="date-input-container">
-                            <input type="text" value="${item.date ? this.formatDate(this.parseDate(item.date)) : ''}" placeholder="End Date" class="date-input" 
+                            <input type="text" value="${item.date ? this.formatDate(this.parseDate(item.date)) : ''}" placeholder="End Date" class="date-input ${dateInputColorClass}" 
                                 data-project-id="${item.projectId}" data-phase-id="${item.phaseId}" data-task-id="${item.taskId}" data-subtask-id="${item.subtaskId || 'null'}"
-                                data-type="${item.subtaskId ? 'subtask-end' : 'task-end'}" data-date="${item.date || ''}" 
+                                data-type="${dateType}" data-date="${item.date || ''}" 
                                 oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
                             ${iconHtml}
                         </div>
