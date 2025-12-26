@@ -1705,3 +1705,73 @@ button:not(:disabled),
 .upcoming-task-item.no-nav .group {
     cursor: pointer;
 }
+
+/* --- Consolidated Date Range Styles --- */
+
+.date-range-pill {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 2px 8px;
+    height: 28px;
+    font-size: 0.75rem;
+    min-width: 140px; /* Ensures consistent alignment */
+    border-radius: 9999px;
+    cursor: pointer;
+    transition: all 0.2s;
+    
+    /* Ghost Mode Defaults (Transparent) */
+    background-color: transparent;
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+}
+
+/* Show borders/bg when hovering the PARENT row (Phase/Task/Subtask) */
+.phase-row:hover .date-range-pill,
+.task-row:hover .date-range-pill,
+.subtask-row:hover .date-range-pill,
+.upcoming-task-item:hover .date-range-pill,
+.date-range-pill:hover {
+    background-color: var(--bg-primary);
+    border-color: var(--border-primary);
+    color: var(--text-primary);
+}
+
+/* Active State (while picker is open) */
+.date-range-pill.active {
+    background-color: var(--bg-primary);
+    border-color: var(--accent-primary);
+    color: var(--text-primary);
+}
+
+.range-arrow {
+    margin: 0 6px;
+    color: var(--text-tertiary);
+    font-weight: bold;
+}
+
+.range-icon {
+    width: 14px;
+    height: 14px;
+    color: var(--text-tertiary);
+    opacity: 0; /* Hidden by default in ghost mode */
+    transition: opacity 0.2s;
+}
+
+/* Show icon on hover */
+.phase-row:hover .range-icon,
+.task-row:hover .range-icon,
+.subtask-row:hover .range-icon,
+.date-range-pill:hover .range-icon {
+    opacity: 1;
+}
+
+/* Locked/Driven State */
+.date-range-pill.disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+.date-range-pill.disabled:hover {
+    background-color: transparent;
+    border-color: transparent;
+}
