@@ -164,10 +164,10 @@ html.dark[data-theme="nord"] {
 
 
 body {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Cascadia Code', monospace; /* CHANGED: Was 'Inter', sans-serif */
     background-color: var(--bg-page);
     color: var(--text-primary);
-    user-select: none; /* Disable text selection globally by default */
+    user-select: none;
     -webkit-user-select: none;
 }
 
@@ -1810,4 +1810,13 @@ button:not(:disabled),
     background: var(--bg-secondary) !important;
     color: var(--text-primary) !important;
     border-color: var(--bg-secondary) !important;
+}
+
+/* Add this new block to ensure the calendar inherits the monospace font */
+.flatpickr-calendar,
+.flatpickr-day,
+.flatpickr-month, 
+.flatpickr-weekday, 
+.flatpickr-current-month input.cur-year {
+    font-family: 'Cascadia Code', monospace !important;
 }
