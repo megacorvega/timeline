@@ -3600,18 +3600,32 @@ const timelineApp = {
         `;
     },
 
-    // --- UPDATED HELPER: Handles the Click Logic ---
+// --- UPDATED HELPER: Handles the Click Logic with Escape Support ---
     handleRangeTrigger(element, currentStart, currentEnd, projectId, phaseId, taskId, subtaskId, isDriven) {
         element.classList.add('active');
+        this.elements.datepickerBackdrop.classList.remove('hidden'); // Ensure backdrop is shown
 
-        // Context for updating
+        // Track if Escape was pressed
+        let isEscapePressed = false;
+
+        // Define Escape Key Handler
+        const escapeHandler = (e) => {
+            if (e.key === 'Escape') {
+                isEscapePressed = true;
+                this.sharedPicker.close(); // Trigger close immediately
+            }
+        };
+
+        // Attach listener
+        document.addEventListener('keydown', escapeHandler);
+
+        // Determine Context
         const typeContext = subtaskId ? 'subtask' : (taskId ? 'task' : 'phase');
 
         if (isDriven) {
-            // DRIVEN MODE: Only allow editing the End Date (Single Mode)
+            // DRIVEN MODE: Single Date (End Date only)
             this.sharedPicker.set('mode', 'single');
             
-            // Pre-select only the end date
             if (currentEnd && currentEnd !== 'null') {
                 this.sharedPicker.setDate(this.parseDate(currentEnd));
             } else {
@@ -3619,8 +3633,15 @@ const timelineApp = {
             }
 
             this.sharedPicker.set('onClose', (selectedDates) => {
+                // Clean up listener
+                document.removeEventListener('keydown', escapeHandler);
+                
                 this.elements.datepickerBackdrop.classList.add('hidden');
                 element.classList.remove('active');
+
+                // If Escape was pressed, DO NOT SAVE
+                if (isEscapePressed) return;
+
                 if (selectedDates.length > 0) {
                     const endStr = this.sharedPicker.formatDate(selectedDates[0], "Y-m-d");
                     this.updateDate({ type: `${typeContext}-end`, projectId, phaseId, taskId, subtaskId, element }, endStr, "Driven date update");
@@ -3628,7 +3649,7 @@ const timelineApp = {
             });
 
         } else {
-            // STANDARD MODE: Allow editing Range (Start -> End)
+            // STANDARD MODE: Range (Start -> End)
             this.sharedPicker.set('mode', 'range');
             
             const dates = [];
@@ -3637,18 +3658,27 @@ const timelineApp = {
             this.sharedPicker.setDate(dates);
 
             this.sharedPicker.set('onClose', (selectedDates) => {
+                // Clean up listener
+                document.removeEventListener('keydown', escapeHandler);
+                
                 this.elements.datepickerBackdrop.classList.add('hidden');
                 element.classList.remove('active');
                 
+                // If Escape was pressed, DO NOT SAVE
+                if (isEscapePressed) return;
+                
                 if (selectedDates.length > 0) {
                     const startStr = this.sharedPicker.formatDate(selectedDates[0], "Y-m-d");
+                    // Note: If user clicks once and closes, length is 1. If range picked, length is 2.
                     const endStr = selectedDates.length > 1 ? this.sharedPicker.formatDate(selectedDates[1], "Y-m-d") : null;
 
                     this.updateDate({ type: `${typeContext}-start`, projectId, phaseId, taskId, subtaskId, element }, startStr, null, false);
+                    
                     if (endStr) {
                         this.updateDate({ type: `${typeContext}-end`, projectId, phaseId, taskId, subtaskId, element }, endStr, "Range update");
                     } else {
-                        this.renderProjects(); // Refresh if only start changed
+                        // If end date was cleared or only start set, force refresh to reset highlights
+                         this.renderProjects();
                     }
                 }
             });
