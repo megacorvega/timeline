@@ -1748,8 +1748,9 @@ button:not(:disabled),
 
 /* Inner Text Alignment */
 .date-range-pill > div {
-    text-align: center;
-    width: 100%; /* Ensure text container fills the pill */
+    text-align: right; /* Pushes text towards the icon */
+    width: 100%;
+    padding-right: 4px;
 }
 
 .range-arrow {
