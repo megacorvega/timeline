@@ -1594,12 +1594,12 @@ button:not(:disabled),
 
 /* Reduce Task Name Font Size (Default was ~16px) */
 .task-row .editable-text {
-    font-size: 12px;
+    font-size: 14px;
 }
 
 /* Reduce Subtask Name Font Size (Default was 14px) */
 .subtask-row .editable-text {
-    font-size: 12px;
+    font-size: 14px;
 }
 
 /* Make Phase rows more compact */
@@ -1711,37 +1711,45 @@ button:not(:disabled),
 .date-range-pill {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: space-between; /* Keeps Icon on right, Text fills center */
     padding: 2px 8px;
     height: 28px;
     font-size: 0.75rem;
-    min-width: 140px; /* Ensures consistent alignment */
+    
+    /* FIX: Enforce fixed width for perfect alignment */
+    width: 210px; 
+    flex-shrink: 0; /* Prevent shrinking */
+    
     border-radius: 9999px;
     cursor: pointer;
     transition: all 0.2s;
     
-    /* Ghost Mode Defaults (Transparent) */
+    /* Ghost Mode Defaults */
     background-color: transparent;
     border: 1px solid transparent;
     color: var(--text-secondary);
 }
 
-/* Show borders/bg when hovering the PARENT row (Phase/Task/Subtask) */
+/* Reveal on Hover */
 .phase-row:hover .date-range-pill,
 .task-row:hover .date-range-pill,
 .subtask-row:hover .date-range-pill,
 .upcoming-task-item:hover .date-range-pill,
-.date-range-pill:hover {
+.date-range-pill:hover,
+.date-range-pill.active {
     background-color: var(--bg-primary);
     border-color: var(--border-primary);
     color: var(--text-primary);
 }
 
-/* Active State (while picker is open) */
 .date-range-pill.active {
-    background-color: var(--bg-primary);
     border-color: var(--accent-primary);
-    color: var(--text-primary);
+}
+
+/* Inner Text Alignment */
+.date-range-pill > div {
+    text-align: center;
+    width: 100%; /* Ensure text container fills the pill */
 }
 
 .range-arrow {
@@ -1754,11 +1762,11 @@ button:not(:disabled),
     width: 14px;
     height: 14px;
     color: var(--text-tertiary);
-    opacity: 0; /* Hidden by default in ghost mode */
+    opacity: 0; 
     transition: opacity 0.2s;
+    flex-shrink: 0; /* Icon stays fixed size */
 }
 
-/* Show icon on hover */
 .phase-row:hover .range-icon,
 .task-row:hover .range-icon,
 .subtask-row:hover .range-icon,
@@ -1766,10 +1774,11 @@ button:not(:disabled),
     opacity: 1;
 }
 
-/* Locked/Driven State */
+/* Locked State */
 .date-range-pill.disabled {
     cursor: not-allowed;
     opacity: 0.6;
+    /* Width is inherited from base class, so it stays 210px */
 }
 .date-range-pill.disabled:hover {
     background-color: transparent;
