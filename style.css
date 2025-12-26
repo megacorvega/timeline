@@ -1786,6 +1786,39 @@ button:not(:disabled),
     border-color: transparent;
 }
 
+/* --- Date Pill Internal Grid --- */
+.date-content-grid {
+    display: grid;
+    grid-template-columns: 16px 1fr auto 1fr; /* [Status Icon] [Start] [Arrow] [End] */
+    align-items: center;
+    width: 100%;
+    gap: 2px;
+}
+
+.date-content-grid .status-col {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-tertiary);
+}
+
+.date-content-grid .date-col {
+    text-align: center; /* Keeps monospace dates perfectly centered in their slots */
+    white-space: nowrap;
+}
+
+.date-content-grid .arrow-col {
+    color: var(--text-tertiary);
+    font-weight: bold;
+    padding: 0 2px;
+}
+
+.date-content-grid .full-span-col {
+    grid-column: 1 / -1;
+    text-align: center;
+    opacity: 0.5;
+}
+
 /* --- Flatpickr Visibility Fixes --- */
 
 /* Selected/Start/End: Use Theme Accent */
