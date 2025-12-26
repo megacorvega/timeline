@@ -1296,19 +1296,21 @@ const timelineApp = {
                 const selectedClass = this.firstSelectedItem?.id === phase.id ? 'dependency-selected' : '';
                 const commentDot = phase.comments && phase.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
                 
-                // Calculate progress bar color
                 const durationProgress = this.getDurationProgress(phase.effectiveStartDate, phase.effectiveEndDate);
                 let durationBarColorClass = 'bg-blue-500';
-                if (phase.completed) durationBarColorClass = 'bg-green-500';
-                else if (durationProgress === 100) durationBarColorClass = 'bg-red-500';
-                else if (durationProgress > 90) durationBarColorClass = 'bg-orange-500';
-                else if (durationProgress > 75) durationBarColorClass = 'bg-yellow-500';
+                if (phase.completed) {
+                    durationBarColorClass = 'bg-green-500';
+                } else if (durationProgress === 100) {
+                    durationBarColorClass = 'bg-red-500';
+                } else if (durationProgress > 90) {
+                    durationBarColorClass = 'bg-orange-500';
+                } else if (durationProgress > 75) {
+                    durationBarColorClass = 'bg-yellow-500';
+                }
 
                 const lockIcon = phase.locked
                     ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>`
                     : `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h5V3a3 3 0 0 1 6 0v4a.5.5 0 0 1-1 0V3a2 2 0 0 0-2-2z"/></svg>`;
-
-                const isLocked = phase.locked || phase.isDriven;
 
                 html += `
                     <div class="phase-row rounded-lg p-2 ${depClass} ${selectedClass}" data-id="${phase.id}" data-type="phase" data-project-id="${project.id}" onmouseover="timelineApp.highlightPhaseOnChart(${phase.id})" onmouseout="timelineApp.unhighlightPhaseOnChart(${phase.id})">
@@ -1331,7 +1333,7 @@ const timelineApp = {
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
                                 </button>
                                 
-                                ${this.renderDateRangePill(phase.startDate, phase.endDate, project.id, phase.id, null, null, isLocked)}
+                                ${this.renderDateRangePill(phase.startDate, phase.endDate, project.id, phase.id, null, null, phase.locked, phase.isDriven)}
                             
                             </div>
                             <button onclick="timelineApp.deletePhase(${project.id}, ${phase.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold ml-2">&times;</button>
@@ -1340,7 +1342,6 @@ const timelineApp = {
                         <div id="tasks-container-${phase.id}" class="pl-12 mt-2 space-y-1 pt-2 border-t border-primary ${phase.collapsed ? 'hidden' : ''}">${this.renderTaskList(project.id, phase.id, phase.tasks)}</div>
                     </div>`;
             });
-            
             html += `
                 <div class="mt-2 pl-4">
                     <div class="flex items-center gap-2">
@@ -1353,7 +1354,6 @@ const timelineApp = {
 
     renderTaskList(projectId, phaseId, tasks) {
             let html = '';
-            // Sort: Follow Ups first, then by End Date
             const sortedTasks = [...tasks].sort((a, b) => {
                 if (a.isFollowUp && !b.isFollowUp) return -1;
                 if (!a.isFollowUp && b.isFollowUp) return 1;
@@ -1376,19 +1376,23 @@ const timelineApp = {
                 const selectedClass = this.firstSelectedItem?.id === task.id ? 'dependency-selected' : '';
                 const commentDot = task.comments && task.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
                 
-                // Progress Bar Color
                 const durationProgress = this.getDurationProgress(task.effectiveStartDate, task.effectiveEndDate);
                 let durationBarColorClass = 'bg-blue-500';
-                if (task.completed) durationBarColorClass = 'bg-green-500';
-                else if (durationProgress === 100) durationBarColorClass = 'bg-red-500';
-                else if (durationProgress > 90) durationBarColorClass = 'bg-orange-500';
-                else if (durationProgress > 75) durationBarColorClass = 'bg-yellow-500';
+                if (task.completed) {
+                    durationBarColorClass = 'bg-green-500';
+                } else if (durationProgress === 100) {
+                    durationBarColorClass = 'bg-red-500';
+                } else if (durationProgress > 90) {
+                    durationBarColorClass = 'bg-orange-500';
+                } else if (durationProgress > 75) {
+                    durationBarColorClass = 'bg-yellow-500';
+                }
 
-                const isLocked = hasSubtasks || task.isDriven;
+                // Tasks with subtasks are effectively locked (rollup)
+                const isTaskLocked = hasSubtasks; 
                 const followUpClass = task.isFollowUp ? 'follow-up-active' : '';
                 const followUpIconColor = task.isFollowUp ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400 hover:text-purple-500';
                 
-                // Follow Up Date Input (Kept separate as it is distinct from Start/End)
                 const followUpDateHtml = task.isFollowUp ? `
                     <div class="date-input-container mr-2">
                         <input type="text" 
@@ -1407,7 +1411,6 @@ const timelineApp = {
                     </div>
                 ` : '';
 
-                // Tags HTML
                 const tags = task.tags || [];
                 const tagHtml = tags.map(tag => `
                     <span class="tag-badge">
@@ -1472,7 +1475,7 @@ const timelineApp = {
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
                                 </button>
                                 
-                                ${this.renderDateRangePill(task.startDate, task.endDate, projectId, phaseId, task.id, null, isLocked)}
+                                ${this.renderDateRangePill(task.startDate, task.endDate, projectId, phaseId, task.id, null, isTaskLocked, task.isDriven)}
                                 
                             </div>
                             <button onclick="timelineApp.deleteTask(${projectId}, ${phaseId}, ${task.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold ml-2">&times;</button>
@@ -1518,7 +1521,6 @@ const timelineApp = {
                 const selectedClass = this.firstSelectedItem?.id === subtask.id ? 'dependency-selected' : '';
                 const commentDot = subtask.comments && subtask.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
                 
-                // Progress Bar Color
                 const durationProgress = this.getDurationProgress(subtask.startDate, subtask.endDate);
                 let durationBarColorClass = 'bg-blue-500';
                 if (subtask.completed) durationBarColorClass = 'bg-green-500';
@@ -1526,7 +1528,6 @@ const timelineApp = {
                 else if (durationProgress > 90) durationBarColorClass = 'bg-orange-500';
                 else if (durationProgress > 75) durationBarColorClass = 'bg-yellow-500';
                 
-                const isLocked = subtask.isDriven;
                 const followUpClass = subtask.isFollowUp ? 'follow-up-active' : '';
                 const followUpIconColor = subtask.isFollowUp ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400 hover:text-purple-500';
                 
@@ -1549,7 +1550,6 @@ const timelineApp = {
                     </div>
                 ` : '';
 
-                // Tags HTML
                 const tags = subtask.tags || [];
                 const tagHtml = tags.map(tag => `
                     <span class="tag-badge">
@@ -1601,7 +1601,7 @@ const timelineApp = {
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
                             </button>
                             
-                            ${this.renderDateRangePill(subtask.startDate, subtask.endDate, projectId, phaseId, taskId, subtask.id, isLocked)}
+                            ${this.renderDateRangePill(subtask.startDate, subtask.endDate, projectId, phaseId, taskId, subtask.id, false, subtask.isDriven)}
 
                             <button onclick="timelineApp.deleteSubtask(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold w-5 text-center flex-shrink-0 ml-2">&times;</button>
                         </div>
@@ -1611,7 +1611,7 @@ const timelineApp = {
             });
             return html + '</div>';
         },
-
+        
     renderLog(project) {
             if (!project.logs || project.logs.length === 0) return '<p class="text-xs text-secondary">No changes logged.</p>';
             let tableHtml = `<table class="w-full text-xs font-mono"><thead><tr class="border-b border-primary"><th class="text-left p-1 w-1/4">Timestamp</th><th class="text-left p-1 w-1/4">Item</th><th class="text-left p-1">Change</th><th class="text-left p-1">Reason</th></tr></thead><tbody>`;
@@ -3543,13 +3543,45 @@ const timelineApp = {
         if (toggle) toggle.checked = this.hideCompletedProjects;
     },
 
-    // --- NEW HELPER: Renders the Date Pill HTML ---
-    renderDateRangePill(start, end, projectId, phaseId, taskId, subtaskId, isLocked = false) {
-        // Format dates for display
+// --- UPDATED HELPER: Renders the Date Pill ---
+    renderDateRangePill(start, end, projectId, phaseId, taskId, subtaskId, isLocked = false, isDriven = false) {
+        // Format dates
         const startStr = start ? this.formatDate(this.parseDate(start)) : 'Set Start';
         const endStr = end ? this.formatDate(this.parseDate(end)) : 'Set End';
         
-        // Determine display HTML
+        // Locked State: User explicitly locked the item
+        if (isLocked) {
+             let displayText = (start && end) 
+                ? `${startStr} <span class="range-arrow">→</span> ${endStr}`
+                : `<span class="opacity-50">Dates Locked</span>`;
+
+            return `
+                <div class="date-range-pill disabled" title="Dates are locked">
+                    <div class="flex-grow text-center whitespace-nowrap">${displayText}</div>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="range-icon ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                </div>`;
+        }
+
+        // Driven State: Start is fixed, End is editable
+        // We show a lock icon on the Start Date to indicate it cannot be moved
+        if (isDriven) {
+             const displayText = `
+                <span class="opacity-75 flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                    ${startStr}
+                </span> 
+                <span class="range-arrow">→</span> 
+                <span class="${!end ? 'opacity-50' : ''}">${endStr}</span>`;
+            
+             return `
+                <div class="date-range-pill" onclick="timelineApp.handleRangeTrigger(this, '${start || ''}', '${end || ''}', ${projectId}, ${phaseId}, ${taskId || 'null'}, ${subtaskId || 'null'}, true)">
+                    <div class="flex-grow text-center whitespace-nowrap pointer-events-none flex justify-center items-center gap-1">${displayText}</div>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="range-icon ml-2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                </div>
+            `;
+        }
+
+        // Standard State: Fully editable range
         let displayText;
         if (!start && !end) {
             displayText = `<span class="opacity-50">Set Dates</span>`;
@@ -3559,18 +3591,8 @@ const timelineApp = {
                            <span class="${!end ? 'opacity-50' : ''}">${endStr}</span>`;
         }
 
-        // Handle Locked/Driven status
-        if (isLocked) {
-            return `
-                <div class="date-range-pill disabled" title="Dates are locked or driven by dependencies">
-                    <div class="flex-grow text-center whitespace-nowrap">${displayText}</div>
-                    <svg xmlns="http://www.w3.org/2000/svg" class="range-icon ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                </div>`;
-        }
-
-        // Clickable Pill
         return `
-            <div class="date-range-pill" onclick="timelineApp.handleRangeTrigger(this, '${start || ''}', '${end || ''}', ${projectId}, ${phaseId}, ${taskId || 'null'}, ${subtaskId || 'null'})">
+            <div class="date-range-pill" onclick="timelineApp.handleRangeTrigger(this, '${start || ''}', '${end || ''}', ${projectId}, ${phaseId}, ${taskId || 'null'}, ${subtaskId || 'null'}, false)">
                 <div class="flex-grow text-center whitespace-nowrap pointer-events-none">${displayText}</div>
                 <svg xmlns="http://www.w3.org/2000/svg" class="range-icon ml-2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -3579,57 +3601,59 @@ const timelineApp = {
         `;
     },
 
-    // --- NEW HELPER: Handles the Click & Calendar Logic ---
-    handleRangeTrigger(element, currentStart, currentEnd, projectId, phaseId, taskId, subtaskId) {
-        // Visual feedback
+    // --- UPDATED HELPER: Handles the Click Logic ---
+    handleRangeTrigger(element, currentStart, currentEnd, projectId, phaseId, taskId, subtaskId, isDriven) {
         element.classList.add('active');
 
-        // Configure picker for Range Mode
-        this.sharedPicker.set('mode', 'range');
-        
-        // Pre-select existing dates
-        const dates = [];
-        if(currentStart && currentStart !== 'null') dates.push(this.parseDate(currentStart));
-        if(currentEnd && currentEnd !== 'null') dates.push(this.parseDate(currentEnd));
-        this.sharedPicker.setDate(dates);
+        // Context for updating
+        const typeContext = subtaskId ? 'subtask' : (taskId ? 'task' : 'phase');
 
-        // Define what happens when closed
-        this.sharedPicker.set('onClose', (selectedDates) => {
-            this.elements.datepickerBackdrop.classList.add('hidden');
-            element.classList.remove('active');
-
-            // We only update if user picked something. 
-            // Note: Flatpickr 'range' mode might return 1 date if user clicks once and clicks away.
-            // We usually want to wait for 2 dates, or handle single date selection carefully.
+        if (isDriven) {
+            // DRIVEN MODE: Only allow editing the End Date (Single Mode)
+            this.sharedPicker.set('mode', 'single');
             
-            if (selectedDates.length > 0) {
-                const startStr = this.sharedPicker.formatDate(selectedDates[0], "Y-m-d");
-                // If only 1 date picked, assume it's the start, or make end same as start? 
-                // Standard behavior: clear end if not picked.
-                const endStr = selectedDates.length > 1 
-                    ? this.sharedPicker.formatDate(selectedDates[1], "Y-m-d") 
-                    : null; // Or keep existing end? Usually range picker implies setting both.
-
-                const typeContext = subtaskId ? 'subtask' : (taskId ? 'task' : 'phase');
-                
-                // Update Start Date (suppress log to avoid double logging)
-                this.updateDate({ 
-                    type: `${typeContext}-start`, 
-                    projectId, phaseId, taskId, subtaskId, element 
-                }, startStr, null, false);
-
-                // Update End Date (log this one)
-                if (endStr) {
-                    this.updateDate({ 
-                        type: `${typeContext}-end`, 
-                        projectId, phaseId, taskId, subtaskId, element 
-                    }, endStr, "Date range updated");
-                } else {
-                    // Force re-render if we only updated start, because updateDate won't re-render if log=false
-                    this.renderProjects();
-                }
+            // Pre-select only the end date
+            if (currentEnd && currentEnd !== 'null') {
+                this.sharedPicker.setDate(this.parseDate(currentEnd));
+            } else {
+                this.sharedPicker.clear();
             }
-        });
+
+            this.sharedPicker.set('onClose', (selectedDates) => {
+                this.elements.datepickerBackdrop.classList.add('hidden');
+                element.classList.remove('active');
+                if (selectedDates.length > 0) {
+                    const endStr = this.sharedPicker.formatDate(selectedDates[0], "Y-m-d");
+                    this.updateDate({ type: `${typeContext}-end`, projectId, phaseId, taskId, subtaskId, element }, endStr, "Driven date update");
+                }
+            });
+
+        } else {
+            // STANDARD MODE: Allow editing Range (Start -> End)
+            this.sharedPicker.set('mode', 'range');
+            
+            const dates = [];
+            if(currentStart && currentStart !== 'null') dates.push(this.parseDate(currentStart));
+            if(currentEnd && currentEnd !== 'null') dates.push(this.parseDate(currentEnd));
+            this.sharedPicker.setDate(dates);
+
+            this.sharedPicker.set('onClose', (selectedDates) => {
+                this.elements.datepickerBackdrop.classList.add('hidden');
+                element.classList.remove('active');
+                
+                if (selectedDates.length > 0) {
+                    const startStr = this.sharedPicker.formatDate(selectedDates[0], "Y-m-d");
+                    const endStr = selectedDates.length > 1 ? this.sharedPicker.formatDate(selectedDates[1], "Y-m-d") : null;
+
+                    this.updateDate({ type: `${typeContext}-start`, projectId, phaseId, taskId, subtaskId, element }, startStr, null, false);
+                    if (endStr) {
+                        this.updateDate({ type: `${typeContext}-end`, projectId, phaseId, taskId, subtaskId, element }, endStr, "Range update");
+                    } else {
+                        this.renderProjects(); // Refresh if only start changed
+                    }
+                }
+            });
+        }
 
         this.sharedPicker.open();
     },

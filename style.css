@@ -1775,3 +1775,39 @@ button:not(:disabled),
     background-color: transparent;
     border-color: transparent;
 }
+
+/* --- Flatpickr Visibility Fixes --- */
+
+/* Selected/Start/End: Use Theme Accent */
+.flatpickr-day.selected,
+.flatpickr-day.startRange,
+.flatpickr-day.endRange,
+.flatpickr-day.selected.inRange,
+.flatpickr-day.startRange.inRange,
+.flatpickr-day.endRange.inRange,
+.flatpickr-day.selected:focus,
+.flatpickr-day.startRange:focus,
+.flatpickr-day.endRange:focus {
+    background: var(--accent-primary) !important;
+    color: var(--accent-text) !important;
+    border-color: var(--accent-primary) !important;
+    font-weight: bold;
+}
+
+/* In-Between Range: Use Theme Tertiary (Safe for contrast) */
+.flatpickr-day.inRange {
+    background: var(--bg-tertiary) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--bg-tertiary) !important;
+    box-shadow: -5px 0 0 var(--bg-tertiary), 5px 0 0 var(--bg-tertiary) !important;
+}
+
+/* Hover effects */
+.flatpickr-day:hover,
+.flatpickr-day.prevMonthDay:hover,
+.flatpickr-day.nextMonthDay:hover,
+.flatpickr-day:focus {
+    background: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--bg-secondary) !important;
+}
