@@ -358,7 +358,7 @@ button:not(:disabled),
 }
 .phase-marker-text {
     font-size: 10px;
-    font-weight: bold;
+    font-weight: 600;
     fill: #fff;
     text-anchor: middle;
     dominant-baseline: central;
@@ -557,7 +557,7 @@ button:not(:disabled),
 }
 .node-type-label {
     font-size: 10px;
-    font-weight: bold;
+    font-weight: 600;
     text-transform: uppercase;
     color: var(--text-secondary);
     margin-bottom: 4px;
@@ -620,7 +620,7 @@ button:not(:disabled),
 
 #fullscreen-modal .header h1 {
     font-size: 1.875rem;
-    font-weight: 700;
+    font-weight: 600;
 }
 
 #fullscreen-modal #close-fullscreen-btn {
@@ -1325,7 +1325,7 @@ button:not(:disabled),
     }
     .print-header h1 {
         font-size: 1.5rem;
-        font-weight: bold;
+        font-weight: 600;
     }
     .print-header h2 {
         font-size: 1rem;
@@ -1508,7 +1508,7 @@ button:not(:disabled),
 .tag-remove {
     margin-left: 4px;
     cursor: pointer;
-    font-weight: bold;
+    font-weight: 600;
     opacity: 0.6;
 }
 .tag-remove:hover {
@@ -1756,7 +1756,7 @@ button:not(:disabled),
 .range-arrow {
     margin: 0 6px;
     color: var(--text-tertiary);
-    font-weight: bold;
+    font-weight: 600;
 }
 
 .range-icon {
@@ -1809,7 +1809,7 @@ button:not(:disabled),
 
 .date-content-grid .arrow-col {
     color: var(--text-tertiary);
-    font-weight: bold;
+    font-weight: 600;
     padding: 0 2px;
 }
 
@@ -1834,7 +1834,7 @@ button:not(:disabled),
     background: var(--accent-primary) !important;
     color: var(--accent-text) !important;
     border-color: var(--accent-primary) !important;
-    font-weight: bold;
+    font-weight: 600;
 }
 
 /* In-Between Range: Use Theme Tertiary (Safe for contrast) */
