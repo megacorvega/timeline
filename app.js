@@ -1073,9 +1073,7 @@ const timelineApp = {
         // 1. Collect Standalone Tasks (Inbox items)
         if (this.standaloneTasks) {
             this.standaloneTasks.forEach(task => {
-                // Determine which date to sort/display by (Follow Up overrides End Date if active)
                 const displayDate = (task.isFollowUp && task.followUpDate) ? task.followUpDate : (task.endDate || task.followUpDate);
-                
                 allItems.push({
                     path: 'Inbox',
                     projectId: null, phaseId: null, taskId: task.id,
@@ -1095,9 +1093,6 @@ const timelineApp = {
         this.projects.forEach(project => {
             project.phases.forEach(phase => {
                 phase.tasks.forEach(task => {
-                    // Base properties shared by task and its subtasks
-                    // Note: We intentionally do NOT include isFollowUp/delegatedTo here
-                    // to prevent subtasks from inheriting parent status incorrectly.
                     const itemBase = {
                         path: `${project.name} > ${phase.name}`,
                         projectId: project.id, phaseId: phase.id, taskId: task.id
@@ -1105,9 +1100,7 @@ const timelineApp = {
                     
                     if (task.subtasks?.length > 0) {
                         task.subtasks.forEach(st => {
-                            // Subtask-specific date logic
                             const displayDate = (st.isFollowUp && st.followUpDate) ? st.followUpDate : st.endDate;
-                            
                             allItems.push({
                                 ...itemBase,
                                 name: `${task.name}: ${st.name}`,
@@ -1121,9 +1114,7 @@ const timelineApp = {
                             });
                         });
                     } else {
-                        // Task-specific date logic
                         const displayDate = (task.isFollowUp && task.followUpDate) ? task.followUpDate : (task.effectiveEndDate || task.endDate);
-
                         allItems.push({
                             ...itemBase,
                             subtaskId: null,
@@ -1144,20 +1135,7 @@ const timelineApp = {
         if (this.hideCompletedTasks) allItems = allItems.filter(i => !i.completed);
         if (this.tagFilter !== 'all') allItems = allItems.filter(i => i.tags?.includes(this.tagFilter));
 
-        const today = new Date(); today.setHours(0,0,0,0);
-        const buckets = { waitingFor: [], doNow: [], upcoming: [], backlog: [] };
-
-        // 4. Sort items into buckets
-        allItems.forEach(item => {
-            if (item.isFollowUp || item.delegatedTo) { buckets.waitingFor.push(item); return; }
-            if (!item.rawDate) { buckets.backlog.push(item); return; }
-            const diffDays = Math.round((item.rawDate - today) / 86400000);
-            if (diffDays <= 0) buckets.doNow.push(item); 
-            else buckets.upcoming.push(item);
-        });
-
-        // 5. SORTING LOGIC (New)
-        // Sort by date ascending (soonest date first)
+        // Sorting helper
         const sortByDate = (a, b) => {
             if (!a.rawDate && !b.rawDate) return 0;
             if (!a.rawDate) return 1;
@@ -1165,11 +1143,7 @@ const timelineApp = {
             return a.rawDate - b.rawDate;
         };
 
-        buckets.waitingFor.sort(sortByDate);
-        buckets.doNow.sort(sortByDate);
-        buckets.upcoming.sort(sortByDate);
-
-        // 6. Render Helper
+        // Render Helper
         const renderGroup = (title, items, headerClass) => {
             if (items.length === 0) return '';
             let groupHtml = `<div class="upcoming-card rounded-xl shadow-md mb-4 overflow-hidden">
@@ -1194,14 +1168,11 @@ const timelineApp = {
                     </svg>
                 </div>`;
 
-                // Calculate which data-type to use so the date picker updates the correct field (followUpDate vs endDate)
                 const dateType = item.isFollowUp ? 
                     (item.subtaskId ? 'subtask-followup' : 'task-followup') : 
                     (item.subtaskId ? 'subtask-end' : 'task-end');
 
-                // Visual cue for Follow Up items
-                const dateInputColorClass = item.isFollowUp ? 
-                    'text-purple-700 dark:text-purple-300 font-bold' : '';
+                const dateInputColorClass = item.isFollowUp ? 'text-purple-700 dark:text-purple-300 font-bold' : '';
 
                 groupHtml += `
                 <div class="upcoming-task-item flex items-center p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${item.completed ? 'line-through opacity-60' : ''} ${item.isStandalone ? 'no-nav' : 'cursor-pointer'}" 
@@ -1239,24 +1210,79 @@ const timelineApp = {
         const sortedTags = Array.from(allTags).sort();
         const tagOptions = sortedTags.map(tag => `<option value="${tag}" ${this.tagFilter === tag ? 'selected' : ''}>${tag}</option>`).join('');
 
-        container.innerHTML = `
+        // 4. Render Layout
+        // Add Toggle for Grouping Mode
+        const toolbarHtml = `
             <div class="flex justify-between items-center mb-4 px-1 bg-white dark:bg-slate-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-                <div class="flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
-                    <select onchange="timelineApp.setTagFilter(this.value)" class="tag-filter-dropdown bg-transparent text-xs font-semibold focus:outline-none">
-                        <option value="all">All Tags</option>
-                        ${tagOptions}
-                    </select>
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
+                        <select onchange="timelineApp.setTagFilter(this.value)" class="tag-filter-dropdown bg-transparent text-xs font-semibold focus:outline-none">
+                            <option value="all">All Tags</option>
+                            ${tagOptions}
+                        </select>
+                    </div>
+                    
+                    <div class="flex bg-gray-100 dark:bg-slate-700/50 p-1 rounded-lg border border-gray-200 dark:border-gray-600">
+                        <button onclick="timelineApp.setActionHubGroupMode('time')" class="px-3 py-1 text-xs font-bold rounded-md transition-all ${this.actionHubGroupMode === 'time' ? 'bg-white dark:bg-slate-600 shadow-sm text-primary' : 'text-secondary hover:text-primary'}">Time</button>
+                        <button onclick="timelineApp.setActionHubGroupMode('project')" class="px-3 py-1 text-xs font-bold rounded-md transition-all ${this.actionHubGroupMode === 'project' ? 'bg-white dark:bg-slate-600 shadow-sm text-primary' : 'text-secondary hover:text-primary'}">Project</button>
+                    </div>
                 </div>
+
                 <label class="flex items-center text-xs font-semibold text-secondary cursor-pointer select-none">
                     <input type="checkbox" class="custom-checkbox mr-2" ${this.hideCompletedTasks ? 'checked' : ''} onchange="timelineApp.toggleHideCompleted()">
                     Hide Completed Tasks
                 </label>
-            </div>` + 
-            renderGroup("Waiting For", buckets.waitingFor, "bg-purple-100 dark:bg-purple-900/40 text-purple-900 dark:text-purple-100 border-purple-200") +
-            renderGroup("Do Now", buckets.doNow, "bg-blue-100 dark:bg-blue-900/40 text-blue-900 dark:text-blue-100 border-blue-200") +
-            renderGroup("Upcoming", buckets.upcoming, "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200") +
-            renderGroup("Backlog", buckets.backlog, "bg-gray-200 dark:bg-slate-700/50 text-gray-600 dark:text-gray-400");
+            </div>`;
+
+        let contentHtml = '';
+
+        if (this.actionHubGroupMode === 'project') {
+            // --- PROJECT VIEW LOGIC ---
+            
+            // 1. Inbox / Standalone
+            const standaloneItems = allItems.filter(i => !i.projectId).sort(sortByDate);
+            if (standaloneItems.length > 0) {
+                contentHtml += renderGroup("Inbox / Standalone", standaloneItems, "bg-gray-200 dark:bg-slate-700 text-secondary");
+            }
+
+            // 2. Projects
+            this.projects.forEach(p => {
+                 const pItems = allItems.filter(i => i.projectId === p.id).sort(sortByDate);
+                 if (pItems.length > 0) {
+                     // Use a distinct header style for projects
+                     contentHtml += renderGroup(p.name, pItems, "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-900 dark:text-indigo-200 border-indigo-100");
+                 }
+            });
+            
+            if (contentHtml === '') {
+                 contentHtml = `<div class="upcoming-card p-4 rounded-xl shadow-md text-center text-secondary">No visible tasks found.</div>`;
+            }
+
+        } else {
+            // --- TIME VIEW LOGIC (Existing) ---
+            const today = new Date(); today.setHours(0,0,0,0);
+            const buckets = { waitingFor: [], doNow: [], upcoming: [], backlog: [] };
+
+            allItems.forEach(item => {
+                if (item.isFollowUp || item.delegatedTo) { buckets.waitingFor.push(item); return; }
+                if (!item.rawDate) { buckets.backlog.push(item); return; }
+                const diffDays = Math.round((item.rawDate - today) / 86400000);
+                if (diffDays <= 0) buckets.doNow.push(item); 
+                else buckets.upcoming.push(item);
+            });
+
+            buckets.waitingFor.sort(sortByDate);
+            buckets.doNow.sort(sortByDate);
+            buckets.upcoming.sort(sortByDate);
+
+            contentHtml += renderGroup("Waiting For", buckets.waitingFor, "bg-purple-100 dark:bg-purple-900/40 text-purple-900 dark:text-purple-100 border-purple-200") +
+                           renderGroup("Do Now", buckets.doNow, "bg-blue-100 dark:bg-blue-900/40 text-blue-900 dark:text-blue-100 border-blue-200") +
+                           renderGroup("Upcoming", buckets.upcoming, "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200") +
+                           renderGroup("Backlog", buckets.backlog, "bg-gray-200 dark:bg-slate-700/50 text-gray-600 dark:text-gray-400");
+        }
+
+        container.innerHTML = toolbarHtml + contentHtml;
     },
 
     getDependencyIcon(item) {
@@ -3062,13 +3088,27 @@ const timelineApp = {
             } catch(e) { console.error("Could not parse tab order", e); }
         }
 
-        // --- NEW: Load View Preference and Filter ---
+        // Load View Preference
         const savedViewMode = localStorage.getItem('timelineProjectViewMode');
-        this.projectViewMode = savedViewMode || 'gantt'; // Default to gantt
+        this.projectViewMode = savedViewMode || 'gantt'; 
 
+        // Load Task Visibility Preference
         const savedHideCompleted = localStorage.getItem('timelineHideCompleted');
-        // LocalStorage stores strings, so we check for the string "true"
         this.hideCompletedTasks = savedHideCompleted === 'true';
+
+        // Load Project Visibility Preference
+        const savedHideProjects = localStorage.getItem('timelineHideCompletedProjects');
+        this.hideCompletedProjects = savedHideProjects === 'true';
+        
+        // NEW: Load Action Hub Grouping Preference
+        const savedGroupMode = localStorage.getItem('timelineActionHubGroupMode');
+        this.actionHubGroupMode = savedGroupMode || 'time';
+    },
+
+    setActionHubGroupMode(mode) {
+        this.actionHubGroupMode = mode;
+        localStorage.setItem('timelineActionHubGroupMode', mode);
+        this.renderLinearView();
     },
 
     renderTabs() {
