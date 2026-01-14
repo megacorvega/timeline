@@ -2848,29 +2848,58 @@ const timelineApp = {
         },
 
     initializeSharedDatePicker() {
-            const dummy = document.createElement('input'); dummy.style.display = 'none'; document.body.appendChild(dummy);
-            this.sharedPicker = flatpickr(dummy, {
-                dateFormat: "Y-m-d",
-                onOpen: () => this.elements.datepickerBackdrop.classList.remove('hidden'),
-                onClose: () => this.elements.datepickerBackdrop.classList.add('hidden'),
-                onChange: (selectedDates, dateStr, instance) => {
-                    if (!this.currentPickerContext) return;
-                    const newDate = instance.formatDate(selectedDates[0], "Y-m-d"), { type, oldDate, element } = this.currentPickerContext;
-                    if (type.startsWith('new-project')) { element.value = this.formatDate(this.parseDate(newDate)); element.dataset.date = newDate; instance.close(); return; }
-                    if (oldDate && oldDate !== newDate) {
-                        this.pendingDateChange = { context: this.currentPickerContext, newDate };
-                        this.elements.reasonModalTitle.textContent = 'Reason for Date Change';
-                        this.elements.reasonModalDetails.textContent = `Changing date from ${this.formatDate(this.parseDate(oldDate))} to ${this.formatDate(this.parseDate(newDate))}.`;
-                        this.elements.reasonModal.classList.remove('hidden');
-                        this.elements.reasonCommentTextarea.focus();
-                        instance.close();
-                    }
-                    else if (!oldDate) { this.updateDate(this.currentPickerContext, newDate); instance.close(); } else { instance.close(); }
-                },
-                onReady: [function() { const button = document.createElement("button"); button.className = "flatpickr-today-button"; button.textContent = "Today"; button.addEventListener("click", (e) => { this.setDate(new Date(), true); e.preventDefault(); }); this.calendarContainer.appendChild(button); }]
-            });
-            document.body.removeChild(dummy);
-        },
+        const dummy = document.createElement('input'); 
+        dummy.style.display = 'none'; 
+        document.body.appendChild(dummy);
+        
+        this.sharedPicker = flatpickr(dummy, {
+            dateFormat: "Y-m-d",
+            onOpen: () => this.elements.datepickerBackdrop.classList.remove('hidden'),
+            onClose: () => this.elements.datepickerBackdrop.classList.add('hidden'),
+            onChange: (selectedDates, dateStr, instance) => {
+                if (!this.currentPickerContext) return;
+                
+                const newDate = instance.formatDate(selectedDates[0], "Y-m-d");
+                const { type, oldDate, element } = this.currentPickerContext;
+
+                // --- FIX: Added 'move-followup' to this check ---
+                if (type.startsWith('new-project') || type === 'move-followup') { 
+                    element.value = this.formatDate(this.parseDate(newDate)); 
+                    element.dataset.date = newDate; 
+                    instance.close(); 
+                    return; 
+                }
+                // ------------------------------------------------
+
+                if (oldDate && oldDate !== newDate) {
+                    this.pendingDateChange = { context: this.currentPickerContext, newDate };
+                    this.elements.reasonModalTitle.textContent = 'Reason for Date Change';
+                    this.elements.reasonModalDetails.textContent = `Changing date from ${this.formatDate(this.parseDate(oldDate))} to ${this.formatDate(this.parseDate(newDate))}.`;
+                    this.elements.reasonModal.classList.remove('hidden');
+                    this.elements.reasonCommentTextarea.focus();
+                    instance.close();
+                }
+                else if (!oldDate) { 
+                    this.updateDate(this.currentPickerContext, newDate); 
+                    instance.close(); 
+                } else { 
+                    instance.close(); 
+                }
+            },
+            onReady: [function() { 
+                const button = document.createElement("button"); 
+                button.className = "flatpickr-today-button"; 
+                button.textContent = "Today"; 
+                button.addEventListener("click", (e) => { 
+                    // Use the instance's setDate to trigger onChange
+                    this.setDate(new Date(), true); 
+                    e.preventDefault(); 
+                }); 
+                this.calendarContainer.appendChild(button); 
+            }]
+        });
+        document.body.removeChild(dummy);
+    },
 
     handleDateTrigger(trigger) {
         if (!trigger) return;
