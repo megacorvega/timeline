@@ -3368,13 +3368,11 @@ const timelineApp = {
         document.getElementById('move-selected-tags').innerHTML = '';
         document.getElementById('move-delegate-input').value = '';
         
-        // Default follow-up date to tomorrow
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const tomorrowStr = tomorrow.toISOString().split('T')[0];
+        // --- UPDATED: Clear Date Input (Start empty) ---
         const dateInput = document.getElementById('move-followup-input');
-        dateInput.value = this.formatDate(tomorrow);
-        dateInput.dataset.date = tomorrowStr;
+        dateInput.value = '';
+        delete dateInput.dataset.date;
+        // -----------------------------------------------
 
         // Populate Projects with "None" and filter out completed ones
         const projSelect = this.elements.moveProjectSelect;
@@ -3428,26 +3426,28 @@ const timelineApp = {
     },
 
     toggleMoveModalFields() {
-    const type = document.getElementById('move-type-select').value;
-    const projectGroup = document.getElementById('project-select-group');
-    const phaseGroup = document.getElementById('move-phase-group');
-    const delegationGroup = document.getElementById('delegation-group');
-    const followupGroup = document.getElementById('move-followup-group');
-    const projectSelect = document.getElementById('move-project-select');
-    
-    if (type === 'project' || type === 'waiting') {
-        projectGroup.classList.remove('hidden');
-        delegationGroup.classList.toggle('hidden', type !== 'waiting');
-        followupGroup.classList.toggle('hidden', type !== 'waiting');
+        const type = document.getElementById('move-type-select').value;
+        const projectGroup = document.getElementById('project-select-group');
+        const phaseGroup = document.getElementById('move-phase-group');
+        const delegationGroup = document.getElementById('delegation-group');
+        const followupGroup = document.getElementById('move-followup-group');
+        const projectSelect = document.getElementById('move-project-select');
         
-        const isStandalone = projectSelect.value === 'none';
-        if (phaseGroup) phaseGroup.classList.toggle('hidden', isStandalone);
-    } else {
-        projectGroup.classList.add('hidden');
-        delegationGroup.classList.add('hidden');
-        followupGroup.classList.add('hidden');
-    }
-        },
+        // --- UPDATED: Always show Follow Up Date field ---
+        followupGroup.classList.remove('hidden');
+        // ------------------------------------------------
+
+        if (type === 'project' || type === 'waiting') {
+            projectGroup.classList.remove('hidden');
+            delegationGroup.classList.toggle('hidden', type !== 'waiting');
+            
+            const isStandalone = projectSelect.value === 'none';
+            if (phaseGroup) phaseGroup.classList.toggle('hidden', isStandalone);
+        } else {
+            projectGroup.classList.add('hidden');
+            delegationGroup.classList.add('hidden');
+        }
+    },
 
     executeMoveToProject() {
         if (!this.pendingMoveTask) return;
@@ -3456,10 +3456,18 @@ const timelineApp = {
         const projectSelectValue = this.elements.moveProjectSelect.value;
         const phaseId = parseInt(this.elements.movePhaseSelect.value);
         const delegateTo = document.getElementById('move-delegate-input').value.trim();
+        
+        // --- UPDATED: Get the custom date ---
         const customFollowUpDate = document.getElementById('move-followup-input').dataset.date;
+        // ------------------------------------
         
         const isDelegated = moveType === 'waiting';
         const isStandalone = moveType === 'standalone' || projectSelectValue === 'none';
+
+        // --- UPDATED: Determine Follow Up Status ---
+        const hasFollowUpDate = customFollowUpDate && customFollowUpDate !== '';
+        const isFollowUp = isDelegated || this.pendingMoveTask.isFollowUp || hasFollowUpDate;
+        // -------------------------------------------
 
         const newTask = {
             id: Date.now(),
@@ -3471,9 +3479,9 @@ const timelineApp = {
             dependencies: [],
             dependents: [],
             tags: [...(this.moveModalSelectedTags || [])],
-            isFollowUp: isDelegated || this.pendingMoveTask.isFollowUp,
+            isFollowUp: isFollowUp, // Applied new logic
             delegatedTo: isDelegated ? delegateTo : null,
-            followUpDate: isDelegated ? customFollowUpDate : null
+            followUpDate: hasFollowUpDate ? customFollowUpDate : null // Applied new logic
         };
 
         if (isStandalone) {
