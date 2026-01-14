@@ -1174,6 +1174,17 @@ const timelineApp = {
 
                 const dateInputColorClass = item.isFollowUp ? 'text-purple-700 dark:text-purple-300 font-bold' : '';
 
+                // --- ADDED: Delete Button Logic ---
+                const isSubtask = item.subtaskId && item.subtaskId !== 'null' && item.subtaskId !== null;
+                // Handle nulls safely for the function string injection
+                const pId = item.projectId === null ? 'null' : item.projectId;
+                const phId = item.phaseId === null ? 'null' : item.phaseId;
+                
+                const deleteCall = isSubtask 
+                    ? `timelineApp.deleteSubtask(${pId}, ${phId}, ${item.taskId}, ${item.subtaskId})`
+                    : `timelineApp.deleteTask(${pId}, ${phId}, ${item.taskId})`;
+                // ---------------------------------
+
                 groupHtml += `
                 <div class="upcoming-task-item flex items-center p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${item.completed ? 'line-through opacity-60' : ''} ${item.isStandalone ? 'no-nav' : 'cursor-pointer'}" 
                     onclick="${item.isStandalone ? '' : `timelineApp.navigateToTask(${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'})`}">
@@ -1202,6 +1213,8 @@ const timelineApp = {
                             ${iconHtml}
                         </div>
                     </div>
+
+                    <button onclick="event.stopPropagation(); ${deleteCall}" class="text-gray-400 hover:text-red-500 transition-colors text-lg font-bold ml-2 flex-shrink-0" title="Delete">&times;</button>
                 </div>`;
             });
             return groupHtml + `</div></div>`;
