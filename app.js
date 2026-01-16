@@ -3576,7 +3576,7 @@ const timelineApp = {
             return type === 'subtask' ? t.subtasks.find(st => st.id === Number(subtaskId)) : null;
         },
 
-    promptMoveToProject(taskText, isFollowUp = false, successCallback, existingTags = []) {
+    promptMoveToProject(taskText, isFollowUp = false, successCallback, existingTags = [], prefillData = {}) {
         if (typeof isFollowUp === 'function') {
             successCallback = isFollowUp;
             isFollowUp = false;
@@ -3587,15 +3587,24 @@ const timelineApp = {
         // Reset Modal Fields
         this.moveModalSelectedTags = [...existingTags]; // Capture existing tags
         document.getElementById('move-tag-input').value = '';
-        document.getElementById('move-who-input').value = ''; 
+        
+        // --- UPDATED: Prefill Who Input ---
+        document.getElementById('move-who-input').value = prefillData.delegatedTo || ''; 
         
         const dateInput = document.getElementById('move-followup-input');
-        dateInput.value = '';
-        delete dateInput.dataset.date;
+        
+        // --- UPDATED: Prefill Date Input ---
+        if (prefillData.date) {
+            dateInput.dataset.date = prefillData.date;
+            dateInput.value = this.formatDate(this.parseDate(prefillData.date));
+        } else {
+            dateInput.value = '';
+            delete dateInput.dataset.date;
+        }
 
-        this.renderMoveModalSelectedTags(); // Render the tags we passed in
+        this.renderMoveModalSelectedTags(); 
 
-        // --- INJECT DEFAULT TAGS (Existing logic preserved) ---
+        // --- INJECT DEFAULT TAGS ---
         const tagGroup = document.getElementById('move-tag-group');
         let quickContextContainer = document.getElementById('quick-context-chips');
         
@@ -3639,7 +3648,27 @@ const timelineApp = {
                 projSelect.appendChild(opt);
             });
         
-        this.populatePhaseSelectForMove();
+        // --- UPDATED: Select Project and Phase if provided ---
+        const typeSelect = document.getElementById('move-type-select');
+        
+        if (prefillData.projectId) {
+            projSelect.value = prefillData.projectId;
+            typeSelect.value = 'project';
+        } else if (prefillData.delegatedTo) {
+            projSelect.value = 'none';
+            typeSelect.value = 'waiting';
+        } else {
+            projSelect.value = 'none';
+            typeSelect.value = 'standalone';
+        }
+
+        this.populatePhaseSelectForMove(); // Updates phase dropdown based on project selection
+
+        if (prefillData.projectId && prefillData.phaseId) {
+            this.elements.movePhaseSelect.value = prefillData.phaseId;
+        }
+        // ----------------------------------------------------
+
         this.toggleMoveModalFields();
         this.elements.moveToProjectModal.classList.remove('hidden');
     },
@@ -3714,8 +3743,16 @@ const timelineApp = {
              this.renderProjects();
         };
 
-        // Open the modal with existing data
-        this.promptMoveToProject(item.name, item.isFollowUp, callback, item.tags || []);
+        // --- UPDATED: Collect prefill data ---
+        const prefillData = {
+            projectId: (projectId && projectId !== 'null') ? parseInt(projectId) : null,
+            phaseId: (phaseId && phaseId !== 'null') ? parseInt(phaseId) : null,
+            delegatedTo: item.delegatedTo,
+            date: (item.isFollowUp && item.followUpDate) ? item.followUpDate : (item.endDate || item.followUpDate)
+        };
+
+        // Open the modal with existing data AND prefill data
+        this.promptMoveToProject(item.name, item.isFollowUp, callback, item.tags || [], prefillData);
     },
 
     executeMoveToProject() {
