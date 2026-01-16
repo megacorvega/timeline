@@ -93,7 +93,15 @@
 
                 <div id="who-select-group">
                     <label class="block text-xs font-bold text-secondary mb-1">Who (Delegate / Agenda)</label>
-                    <input type="text" id="move-who-input" class="w-full p-2 border rounded-md input-primary text-sm" placeholder="Name (e.g., Jack, Client)...">
+                    <div class="relative">
+                        <input type="text" id="move-who-input" 
+                            class="w-full p-2 border rounded-md input-primary text-sm" 
+                            placeholder="Name (e.g., Jack, Client)..."
+                            autocomplete="off"
+                            onkeyup="timelineApp.handleWhoInput(event)"
+                            onfocus="timelineApp.handleWhoInput(event)">
+                        <div id="move-who-options" class="tag-menu-dropdown hidden w-full left-0 z-50 max-h-40 overflow-y-auto"></div>
+                    </div>
                 </div>
 
                 <div id="move-followup-group" class="hidden">
@@ -121,7 +129,8 @@
                         <input type="text" id="move-tag-input" 
                                class="w-full p-2 border rounded-md input-primary text-sm" 
                                placeholder="Type tag..." 
-                               onkeyup="timelineApp.handleMoveTagInput(event)">
+                               onkeyup="timelineApp.handleMoveTagInput(event)"
+                               onfocus="timelineApp.handleMoveTagInput(event)">
                         <div id="move-tag-options" class="tag-menu-dropdown hidden w-full left-0"></div>
                     </div>
                     <div id="quick-context-chips" class="flex flex-wrap gap-1 mt-2"></div>

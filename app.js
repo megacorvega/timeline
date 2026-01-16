@@ -248,7 +248,11 @@ const timelineApp = {
                 // [Existing logic for datepicker, dependency, etc...]
                 
                 // NEW: Close tag dropdowns when clicking outside
-                if (!e.target.closest('.tag-menu-dropdown') && !e.target.closest('.add-tag-btn')) {
+                // FIX: Exclude the Move Modal inputs so they don't auto-close the dropdown on click
+                if (!e.target.closest('.tag-menu-dropdown') && 
+                    !e.target.closest('.add-tag-btn') &&
+                    e.target.id !== 'move-tag-input' &&
+                    e.target.id !== 'move-who-input') {
                     document.querySelectorAll('.tag-menu-dropdown').forEach(el => el.classList.add('hidden'));
                 }
             });
@@ -557,12 +561,31 @@ const timelineApp = {
 
     getAllTags() {
         const tags = new Set();
+
+        // 1. Add Default Tags
+        if (this.defaultTags) {
+            this.defaultTags.forEach(t => tags.add(t.name));
+        }
+
+        // 2. Add Tags AND Delegates from Projects
         this.projects.forEach(p => p.phases.forEach(ph => ph.tasks.forEach(t => {
             if (t.tags) t.tags.forEach(tag => tags.add(tag));
+            if (t.delegatedTo) tags.add(t.delegatedTo); // Add person to tag pool
+            
             if (t.subtasks) t.subtasks.forEach(st => {
                 if (st.tags) st.tags.forEach(tag => tags.add(tag));
+                if (st.delegatedTo) tags.add(st.delegatedTo); // Add person to tag pool
             });
         })));
+
+        // 3. Add Tags AND Delegates from Standalone Tasks
+        if (this.standaloneTasks) {
+            this.standaloneTasks.forEach(t => {
+                if (t.tags) t.tags.forEach(tag => tags.add(tag));
+                if (t.delegatedTo) tags.add(t.delegatedTo);
+            });
+        }
+
         return Array.from(tags).sort();
     },
 
@@ -674,6 +697,82 @@ const timelineApp = {
             return;
         }
         this.renderTagOptions(projectId, phaseId, taskId, subtaskId, filter);
+    },
+
+    getAllPeople() {
+        const people = new Set();
+        
+        // Collect from Projects
+        this.projects.forEach(p => p.phases.forEach(ph => ph.tasks.forEach(t => {
+            if (t.delegatedTo) people.add(t.delegatedTo);
+            if (t.subtasks) t.subtasks.forEach(st => {
+                if (st.delegatedTo) people.add(st.delegatedTo);
+            });
+        })));
+
+        // Collect from Inbox
+        if (this.standaloneTasks) {
+            this.standaloneTasks.forEach(t => {
+                if (t.delegatedTo) people.add(t.delegatedTo);
+            });
+        }
+
+        return Array.from(people).sort();
+    },
+
+    handleWhoInput(event) {
+        const filter = event.target.value.trim();
+        const dropdown = document.getElementById('move-who-options');
+        
+        // Hide on Escape
+        if (event.key === 'Escape') {
+            dropdown.classList.add('hidden');
+            return;
+        }
+
+        dropdown.classList.remove('hidden');
+        this.renderWhoOptions(filter);
+    },
+
+    renderWhoOptions(filter) {
+        const container = document.getElementById('move-who-options');
+        const allPeople = this.getAllPeople();
+        
+        // Filter options (case-insensitive)
+        const filteredPeople = allPeople.filter(p => p.toLowerCase().includes(filter.toLowerCase()));
+        
+        let html = '';
+
+        // If typing a new name, show "Use 'Name'" option at top
+        if (filter && !allPeople.includes(filter)) {
+            html += `
+                <div class="tag-option create-new" onclick="timelineApp.selectWho('${filter}')">
+                    Use "${filter}"
+                </div>
+            `;
+        }
+
+        // List existing people
+        filteredPeople.forEach(person => {
+            html += `
+                <div class="tag-option flex items-center gap-2" onclick="timelineApp.selectWho('${person}')">
+                    <span class="w-2 h-2 rounded-full bg-indigo-400"></span>
+                    <span>${person}</span>
+                </div>
+            `;
+        });
+
+        if (html === '' && !filter) {
+            html = '<div class="text-xs text-gray-500 p-2 text-center">No recent contacts found. Type to add.</div>';
+        }
+
+        container.innerHTML = html;
+    },
+
+    selectWho(name) {
+        const input = document.getElementById('move-who-input');
+        input.value = name;
+        document.getElementById('move-who-options').classList.add('hidden');
     },
 
     parseDate: d3.timeParse("%Y-%m-%d"),
@@ -1183,7 +1282,11 @@ const timelineApp = {
                     </span>`;
                 }).join('');
                 
-                const delegationHtml = item.delegatedTo ? `<span class="tag-badge bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 border-purple-200">Waiting: ${item.delegatedTo}</span>` : '';
+                const delegationHtml = item.delegatedTo ? 
+                    `<span class="tag-badge bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border-indigo-200" title="Waiting for ${item.delegatedTo}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                        ${item.delegatedTo}
+                    </span>` : '';
                 
                 const iconHtml = `<div class="date-input-icon-wrapper" onclick="event.stopPropagation(); timelineApp.handleDateTrigger(this.previousElementSibling)">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -1207,7 +1310,7 @@ const timelineApp = {
                     ? `timelineApp.deleteSubtask(${pId}, ${phId}, ${tId}, ${sId})`
                     : `timelineApp.deleteTask(${pId}, ${phId}, ${tId})`;
                 
-                // NEW: Process Button Call
+                // Process Button Call
                 const processCall = `timelineApp.handleProcessItem(${pId}, ${phId}, ${tId}, ${sId})`;
 
                 const uniqueId = item.subtaskId || item.taskId;
@@ -1353,9 +1456,9 @@ const timelineApp = {
             buckets.doNow.sort(sortByDate);
             buckets.upcoming.sort(sortByDate);
 
-            contentHtml += renderGroup("Waiting For", buckets.waitingFor, "bg-purple-100 dark:bg-purple-900/40 text-purple-900 dark:text-purple-100 border-purple-200") +
-                           renderGroup("Do Now", buckets.doNow, "bg-blue-100 dark:bg-blue-900/40 text-blue-900 dark:text-blue-100 border-blue-200") +
+            contentHtml += renderGroup("Do Now", buckets.doNow, "bg-blue-100 dark:bg-blue-900/40 text-blue-900 dark:text-blue-100 border-blue-200") +
                            renderGroup("Upcoming", buckets.upcoming, "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200") +
+                           renderGroup("Waiting For", buckets.waitingFor, "bg-purple-100 dark:bg-purple-900/40 text-purple-900 dark:text-purple-100 border-purple-200") +
                            renderGroup("Backlog", buckets.backlog, "bg-gray-200 dark:bg-slate-700/50 text-gray-600 dark:text-gray-400");
         }
         
@@ -3668,17 +3771,16 @@ const timelineApp = {
     handleMoveTagInput(event) {
         const filter = event.target.value.trim();
         const dropdown = document.getElementById('move-tag-options');
+        
         if (event.key === 'Enter' && filter) {
             this.addTagToMoveModal(filter);
             return;
         }
-        if (filter.length > 0) {
-            dropdown.classList.remove('hidden');
-            this.renderMoveModalTagOptions(filter);
-        } else {
-            dropdown.classList.add('hidden');
-        }
-        },
+
+        // Always show the dropdown when interacting, even if filter is empty
+        dropdown.classList.remove('hidden');
+        this.renderMoveModalTagOptions(filter);
+    },
 
     renderMoveModalTagOptions(filter = '') {
         const container = document.getElementById('move-tag-options');
