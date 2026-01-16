@@ -1405,7 +1405,7 @@ const timelineApp = {
         if (this.actionHubGroupMode === 'project') {
             const standaloneItems = allItems.filter(i => !i.projectId).sort(sortByDate);
             if (standaloneItems.length > 0) {
-                contentHtml += renderGroup("Inbox / Standalone", standaloneItems, "bg-gray-200 dark:bg-slate-700 text-secondary");
+                contentHtml += renderGroup("Standalone", standaloneItems, "bg-gray-200 dark:bg-slate-700 text-secondary");
             }
             this.projects.forEach(p => {
                  const pItems = allItems.filter(i => i.projectId === p.id).sort(sortByDate);
@@ -3651,12 +3651,67 @@ const timelineApp = {
 
         // Define callback to delete the original item after "moving" (creating the new one)
         const callback = () => {
+             // Perform silent deletion to avoid the "Reason for Deletion" modal
+             
+             // 1. Remove Dependencies
              if (subtaskId) {
-                 this.deleteSubtask(projectId, phaseId, taskId, subtaskId);
+                 this.removeAllDependencies(subtaskId);
              } else {
-                 // deleteTask handles both Project tasks and Standalone tasks (where projectId is null)
-                 this.deleteTask(projectId, phaseId, taskId); 
+                 this.removeAllDependencies(taskId);
+                 if (item.subtasks) item.subtasks.forEach(st => this.removeAllDependencies(st.id));
              }
+
+             // 2. Remove Item from Data Structure & Prepare Log Context
+             let itemName = '';
+             let logContextProjectId = projectId;
+             const comment = "Moved to new location via Action Hub";
+             
+             if (subtaskId) {
+                 const project = this.projects.find(p => p.id === projectId);
+                 const task = project?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId);
+                 if (task) {
+                     task.subtasks = task.subtasks.filter(st => st.id !== subtaskId);
+                     itemName = `Subtask '${item.name}' from task '${task.name}'`;
+                 }
+             } else {
+                 if (projectId === null || projectId === 'null') {
+                     // Standalone Task
+                     this.standaloneTasks = this.standaloneTasks.filter(t => t.id !== taskId);
+                     itemName = `Standalone Task '${item.name}'`;
+                     logContextProjectId = null; 
+                 } else {
+                     // Project Task
+                     const project = this.projects.find(p => p.id === projectId);
+                     const phase = project?.phases.find(ph => ph.id === phaseId);
+                     if (phase) {
+                         phase.tasks = phase.tasks.filter(t => t.id !== taskId);
+                         itemName = `Task '${item.name}' from phase '${phase.name}'`;
+                     }
+                 }
+             }
+
+             // 3. Log the "Move" (as a deletion entry)
+             const logEntry = { 
+                 timestamp: new Date().toISOString(), 
+                 item: itemName, 
+                 type: 'deletion', 
+                 comment: comment 
+             };
+
+             if (logContextProjectId) {
+                 const project = this.projects.find(p => p.id === logContextProjectId);
+                 if (project) {
+                     if (!project.logs) project.logs = [];
+                     project.logs.push(logEntry);
+                 }
+             } else {
+                 // Fallback to global log for standalone items
+                 this.deletedProjectLogs.push(logEntry);
+             }
+
+             // 4. Update State
+             this.saveState();
+             this.renderProjects();
         };
 
         // Open the modal with existing data
