@@ -1175,7 +1175,6 @@ const timelineApp = {
                 <div class="p-1 space-y-1">`;
             
             items.forEach(item => {
-                // --- UPDATE: Use getTagColor here ---
                 const tagsHtml = (item.tags || []).map(tag => {
                     const colorClass = this.getTagColor(tag);
                     return `
@@ -1207,6 +1206,9 @@ const timelineApp = {
                 const deleteCall = isSubtask 
                     ? `timelineApp.deleteSubtask(${pId}, ${phId}, ${tId}, ${sId})`
                     : `timelineApp.deleteTask(${pId}, ${phId}, ${tId})`;
+                
+                // NEW: Process Button Call
+                const processCall = `timelineApp.handleProcessItem(${pId}, ${phId}, ${tId}, ${sId})`;
 
                 const uniqueId = item.subtaskId || item.taskId;
                 const tagMenuHtml = `
@@ -1258,6 +1260,10 @@ const timelineApp = {
                         </div>
                     </div>
 
+                    <button onclick="event.stopPropagation(); ${processCall}" class="text-gray-400 hover:text-blue-500 transition-colors ml-2 flex-shrink-0" title="Process / Move">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                    </button>
+                    
                     <button onclick="event.stopPropagation(); ${deleteCall}" class="text-gray-400 hover:text-red-500 transition-colors text-lg font-bold ml-2 flex-shrink-0" title="Delete">&times;</button>
                 </div>`;
             });
@@ -1579,6 +1585,11 @@ const timelineApp = {
                                 ${this.renderDateRangePill(task.startDate, task.endDate, projectId, phaseId, task.id, null, isTaskLocked, task.isDriven)}
                                 
                             </div>
+                            
+                            <button onclick="timelineApp.handleProcessItem(${projectId}, ${phaseId}, ${task.id}, null)" class="text-gray-400 hover:text-blue-500 transition-colors ml-2" title="Process / Move">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                            </button>
+
                             <button onclick="timelineApp.deleteTask(${projectId}, ${phaseId}, ${task.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold ml-2">&times;</button>
                         </div>
                         <div id="comment-section-task-${task.id}" class="comment-section hidden"></div>
@@ -1703,6 +1714,10 @@ const timelineApp = {
                             </button>
                             
                             ${this.renderDateRangePill(subtask.startDate, subtask.endDate, projectId, phaseId, taskId, subtask.id, false, subtask.isDriven)}
+
+                            <button onclick="timelineApp.handleProcessItem(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" class="text-gray-400 hover:text-blue-500 transition-colors ml-2" title="Process / Move">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                            </button>
 
                             <button onclick="timelineApp.deleteSubtask(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold w-5 text-center flex-shrink-0 ml-2">&times;</button>
                         </div>
@@ -3458,7 +3473,7 @@ const timelineApp = {
             return type === 'subtask' ? t.subtasks.find(st => st.id === Number(subtaskId)) : null;
         },
 
-    promptMoveToProject(taskText, isFollowUp = false, successCallback) {
+    promptMoveToProject(taskText, isFollowUp = false, successCallback, existingTags = []) {
         if (typeof isFollowUp === 'function') {
             successCallback = isFollowUp;
             isFollowUp = false;
@@ -3467,16 +3482,17 @@ const timelineApp = {
         this.pendingMoveTask = { text: taskText, isFollowUp: isFollowUp, cb: successCallback };
         
         // Reset Modal Fields
-        this.moveModalSelectedTags = [];
+        this.moveModalSelectedTags = [...existingTags]; // Capture existing tags
         document.getElementById('move-tag-input').value = '';
-        document.getElementById('move-selected-tags').innerHTML = '';
-        document.getElementById('move-who-input').value = ''; // Reset Who field
+        document.getElementById('move-who-input').value = ''; 
         
         const dateInput = document.getElementById('move-followup-input');
         dateInput.value = '';
         delete dateInput.dataset.date;
 
-        // --- INJECT DEFAULT TAGS ---
+        this.renderMoveModalSelectedTags(); // Render the tags we passed in
+
+        // --- INJECT DEFAULT TAGS (Existing logic preserved) ---
         const tagGroup = document.getElementById('move-tag-group');
         let quickContextContainer = document.getElementById('quick-context-chips');
         
@@ -3488,8 +3504,7 @@ const timelineApp = {
         }
 
         if (quickContextContainer) {
-            // UPDATED: The comprehensive default list
-            const suggestedTags = [
+            const suggestedTags = this.defaultTags || [
                 { name: '@Computer', color: 'bg-blue-100 text-blue-800' },
                 { name: '@Phone', color: 'bg-blue-100 text-blue-800' },
                 { name: '@Errands', color: 'bg-orange-100 text-orange-800' },
@@ -3524,6 +3539,25 @@ const timelineApp = {
         this.populatePhaseSelectForMove();
         this.toggleMoveModalFields();
         this.elements.moveToProjectModal.classList.remove('hidden');
+    },
+
+    handleProcessItem(projectId, phaseId, taskId, subtaskId) {
+        // Resolve item
+        const item = this.getItem(subtaskId ? 'subtask' : 'task', projectId, phaseId, taskId, subtaskId);
+        if (!item) return;
+
+        // Define callback to delete the original item after "moving" (creating the new one)
+        const callback = () => {
+             if (subtaskId) {
+                 this.deleteSubtask(projectId, phaseId, taskId, subtaskId);
+             } else {
+                 // deleteTask handles both Project tasks and Standalone tasks (where projectId is null)
+                 this.deleteTask(projectId, phaseId, taskId); 
+             }
+        };
+
+        // Open the modal with existing data
+        this.promptMoveToProject(item.name, item.isFollowUp, callback, item.tags || []);
     },
 
     executeMoveToProject() {
