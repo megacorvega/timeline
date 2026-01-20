@@ -1,170 +1,269 @@
-/* megacorvega/timeline/timeline-5b49bea539918dd31a53c7d8f6e34b509b129fcc/style.css */
 /* --- THEME DEFINITIONS --- */
-:root, html[data-theme="default"] {
+:root {
+    /* Base Highlight Defaults (Will be overridden by themes) */
+    --hl-yellow-bg: #fef9c3;
+    --hl-yellow-text: #854d0e;
+    --hl-blue-bg: #dbeafe;
+    --hl-blue-text: #1e40af;
+    --hl-purple-bg: #f3e8ff;
+    --hl-purple-text: #6b21a8;
+    --hl-red-bg: #fee2e2;
+    --hl-red-text: #991b1b;
+}
+
+/* 1. DEFAULT THEME (Slate) */
+html[data-theme="default"] {
     /* Light Mode */
-    --bg-page: #f8fafc; /* slate-50 */
-    --bg-primary: #ffffff; /* white */
-    --bg-secondary: #f1f5f9; /* slate-100 */
-    --bg-tertiary: #e2e8f0; /* slate-200 */
-    --border-primary: #e2e8f0; /* slate-200 */
-    --text-primary: #0f172a; /* slate-900 */
+    --bg-page: #f8fafc;        /* slate-50 */
+    --bg-primary: #ffffff;     /* white */
+    --bg-secondary: #f1f5f9;   /* slate-100 */
+    --bg-tertiary: #e2e8f0;    /* slate-200 */
+    --border-primary: #cbd5e1; /* slate-300 (Darkened for contrast) */
+    --text-primary: #0f172a;   /* slate-900 */
     --text-secondary: #475569; /* slate-600 */
-    --text-tertiary: #64748b; /* slate-500 */
+    --text-tertiary: #64748b;  /* slate-500 */
     --accent-primary: #334155; /* slate-700 */
     --accent-text: #ffffff;
     --shadow-color: rgba(0,0,0,0.07);
     --title-primary: #0f172a;
     --title-secondary: #94a3b8;
+    
+    /* Standard Colors */
     --green: #22c55e;
     --blue: #3b82f6;
     --red: #ef4444;
     --amber: #f59e0b;
+
+    /* Highlights */
+    --hl-yellow-bg: #fef08a; --hl-yellow-text: #854d0e;
+    --hl-blue-bg: #bfdbfe;   --hl-blue-text: #1e40af;
+    --hl-purple-bg: #e9d5ff; --hl-purple-text: #6b21a8;
+    --hl-red-bg: #fecaca;    --hl-red-text: #991b1b;
 }
 
 html.dark[data-theme="default"] {
-    /* Dark Mode */
-    --bg-page: #0f172a; /* slate-900 */
-    --bg-primary: #1e293b; /* slate-800 */
-    --bg-secondary: #334155; /* slate-700 */
-    --bg-tertiary: #475569; /* slate-600 */
-    --border-primary: #334155; /* slate-700 */
-    --text-primary: #f1f5f9; /* slate-100 */
-    --text-secondary: #94a3b8; /* slate-400 */
-    --text-tertiary: #94a3b8; /* slate-400 */
-    --accent-primary: #94a3b8; /* slate-400 -- Changed for visibility */
-    --accent-text: #0f172a; /* FIX: Was #f1f5f9. Changed to a dark color for high contrast on buttons. */
-    --shadow-color: rgba(0,0,0,0.2);
+    /* Dark Mode (Preserving existing preferred look, mapping highlights) */
+    --bg-page: #0f172a;
+    --bg-primary: #1e293b;
+    --bg-secondary: #334155;
+    --bg-tertiary: #475569;
+    --border-primary: #334155;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-tertiary: #94a3b8;
+    --accent-primary: #94a3b8;
+    --accent-text: #0f172a;
+    --shadow-color: rgba(0,0,0,0.3);
     --title-primary: #f1f5f9;
     --title-secondary: #64748b;
+
+    /* Highlights (Dark Muted) */
+    --hl-yellow-bg: #423e20; --hl-yellow-text: #fefce8;
+    --hl-blue-bg: #1e3a8a;   --hl-blue-text: #dbeafe;
+    --hl-purple-bg: #4c1d95; --hl-purple-text: #f3e8ff;
+    --hl-red-bg: #450a0a;    --hl-red-text: #fee2e2;
 }
 
+/* 2. DRACULA THEME */
 html[data-theme="dracula"] {
-    --bg-page: #f8f8f2;
-    --bg-primary: #ffffff;
-    --bg-secondary: #f1f1f0;
-    --bg-tertiary: #e0e0e0;
-    --border-primary: #e0e0e0;
-    --text-primary: #282a36;
-    --text-secondary: #6272a4;
-    --text-tertiary: #6272a4;
-    --accent-primary: #bd93f9;
-    --accent-text: #282a36; /* FIX: Was #f8f8f2. Changed to dark text for contrast against the light purple accent. */
-    --shadow-color: rgba(0,0,0,0.07);
-    --title-primary: #282a36;
-    --title-secondary: #bd93f9;
+    /* Light Mode (Unofficial / High Contrast) */
+    --bg-page: #F8F8F2;
+    --bg-primary: #FFFFFF;
+    --bg-secondary: #EAEAE0; /* Darker off-white for headers */
+    --bg-tertiary: #D4D4D0;
+    --border-primary: #D4D4D0;
+    --text-primary: #282A36;
+    --text-secondary: #44475A;
+    --text-tertiary: #6272A4;
+    --accent-primary: #BD93F9; /* Purple */
+    --accent-text: #FFFFFF;
+    --shadow-color: rgba(0,0,0,0.1);
+    --title-primary: #282A36;
+    --title-secondary: #BD93F9;
+    
+    --green: #50fa7b; --blue: #8be9fd; --red: #ff5555; --amber: #ffb86c;
+
+    /* Highlights (Pastel versions of Dracula Colors) */
+    --hl-yellow-bg: #FFF3C4; --hl-yellow-text: #705800; /* Yellow/Orange */
+    --hl-blue-bg: #D6F5FF;   --hl-blue-text: #004D61; /* Cyan */
+    --hl-purple-bg: #F2E6FF; --hl-purple-text: #4A148C; /* Purple */
+    --hl-red-bg: #FFE5E5;    --hl-red-text: #8B0000; /* Red */
 }
+
 html.dark[data-theme="dracula"] {
+    /* Dark Mode (Official) */
     --bg-page: #282a36;
-    --bg-primary: #21222c;
+    --bg-primary: #343746; /* Slightly lighter than bg-page */
     --bg-secondary: #44475a;
     --bg-tertiary: #6272a4;
     --border-primary: #44475a;
     --text-primary: #f8f8f2;
     --text-secondary: #bd93f9;
-    --text-tertiary: #bd93f9;
-    --accent-primary: #ff79c6;
-    --accent-text: #f8f8f2;
-    --shadow-color: rgba(0,0,0,0.2);
+    --text-tertiary: #6272a4;
+    --accent-primary: #ff79c6; /* Pink */
+    --accent-text: #282a36;
+    --shadow-color: rgba(0,0,0,0.3);
     --title-primary: #f8f8f2;
     --title-secondary: #6272a4;
+
+    /* Highlights (Translucent backgrounds) */
+    --hl-yellow-bg: rgba(241, 250, 140, 0.2); --hl-yellow-text: #f1fa8c;
+    --hl-blue-bg: rgba(139, 233, 253, 0.2);   --hl-blue-text: #8be9fd;
+    --hl-purple-bg: rgba(189, 147, 249, 0.2); --hl-purple-text: #bd93f9;
+    --hl-red-bg: rgba(255, 85, 85, 0.2);      --hl-red-text: #ff5555;
 }
 
+/* 3. SOLARIZED THEME */
 html[data-theme="solarized"] {
-    --bg-page: #fdf6e3;
-    --bg-primary: #eee8d5;
-    --bg-secondary: #e7e1cf;
-    --bg-tertiary: #dcd5c2;
-    --border-primary: #dcd5c2;
-    --text-primary: #586e75;
-    --text-secondary: #657b83;
-    --text-tertiary: #657b83;
-    --accent-primary: #cb4b16;
-    --accent-text: #fdf6e3;
-    --shadow-color: rgba(88, 110, 117, 0.1);
-    --title-primary: #586e75;
-    --title-secondary: #b58900;
+    /* Light Mode */
+    --bg-page: #fdf6e3;      /* Base3 */
+    --bg-primary: #fdf6e3;   /* Base3 */
+    --bg-secondary: #eee8d5; /* Base2 (Distinct beige) */
+    --bg-tertiary: #e0d8c2;  /* Custom darker beige for structure */
+    --border-primary: #d6cfbc;
+    --text-primary: #073642; /* Base02 */
+    --text-secondary: #586e75; /* Base01 */
+    --text-tertiary: #93a1a1;  /* Base1 */
+    --accent-primary: #2aa198; /* Cyan */
+    --accent-text: #ffffff;
+    --shadow-color: rgba(0,0,0,0.05);
+    --title-primary: #073642;
+    --title-secondary: #b58900; /* Yellow */
+    
+    --green: #859900; --blue: #268bd2; --red: #dc322f; --amber: #b58900;
+
+    /* Highlights (Solarized Accents on Base2) */
+    --hl-yellow-bg: #faeab8; --hl-yellow-text: #b58900;
+    --hl-blue-bg: #d3eaf7;   --hl-blue-text: #268bd2;
+    --hl-purple-bg: #e5e6f3; --hl-purple-text: #6c71c4;
+    --hl-red-bg: #f5d4d3;    --hl-red-text: #dc322f;
 }
+
 html.dark[data-theme="solarized"] {
-    --bg-page: #002b36;
-    --bg-primary: #073642;
-    --bg-secondary: #002b36; /* FIX: Was #586e75. Changed to be darker to improve text contrast on phase rows. */
-    --bg-tertiary: rgba(88, 110, 117, 0.5);
-    --border-primary: rgba(88, 110, 117, 0.5);
-    --text-primary: #93a1a1;
-    --text-secondary: #839496;
-    --text-tertiary: #839496;
-    --accent-primary: #268bd2;
-    --accent-text: #fdf6e3;
-    --shadow-color: rgba(0,0,0,0.2);
+    /* Dark Mode */
+    --bg-page: #002b36;      /* Base03 */
+    --bg-primary: #073642;   /* Base02 */
+    --bg-secondary: #0f4a56; /* Slightly lighter Base02 */
+    --bg-tertiary: #586e75;  /* Base01 */
+    --border-primary: #0f4a56;
+    --text-primary: #93a1a1; /* Base1 */
+    --text-secondary: #839496; /* Base0 */
+    --text-tertiary: #586e75;  /* Base01 */
+    --accent-primary: #268bd2; /* Blue */
+    --accent-text: #ffffff;
+    --shadow-color: rgba(0,0,0,0.3);
     --title-primary: #93a1a1;
     --title-secondary: #6c71c4;
+
+    /* Highlights */
+    --hl-yellow-bg: rgba(181, 137, 0, 0.2);  --hl-yellow-text: #b58900;
+    --hl-blue-bg: rgba(38, 139, 210, 0.2);   --hl-blue-text: #268bd2;
+    --hl-purple-bg: rgba(108, 113, 196, 0.2);--hl-purple-text: #6c71c4;
+    --hl-red-bg: rgba(220, 50, 47, 0.2);     --hl-red-text: #dc322f;
 }
 
+/* 4. MONOKAI THEME */
 html[data-theme="monokai"] {
-    --bg-page: #F8F8F2;
+    /* Light Mode (Unofficial / Crisp) */
+    --bg-page: #f0f0f0;
     --bg-primary: #ffffff;
-    --bg-secondary: #f1f1e8;
-    --bg-tertiary: #e5e5d9;
-    --border-primary: #e5e5d9;
+    --bg-secondary: #e6e6e6;
+    --bg-tertiary: #d4d4d4;
+    --border-primary: #cccccc;
     --text-primary: #272822;
     --text-secondary: #75715E;
-    --text-tertiary: #75715E;
-    --accent-primary: #FD971F;
-    --accent-text: #272822; /* FIX: Was #ffffff. Changed to dark text for contrast against the orange accent. */
-    --shadow-color: rgba(0,0,0,0.07);
+    --text-tertiary: #A5A293;
+    --accent-primary: #F92672; /* Pink */
+    --accent-text: #ffffff;
+    --shadow-color: rgba(0,0,0,0.1);
     --title-primary: #272822;
-    --title-secondary: #A6E22E;
+    --title-secondary: #66D9EF;
+    
+    --green: #A6E22E; --blue: #66D9EF; --red: #F92672; --amber: #FD971F;
+
+    /* Highlights */
+    --hl-yellow-bg: #fff5e0; --hl-yellow-text: #d67a00; /* Orange */
+    --hl-blue-bg: #e0faff;   --hl-blue-text: #007ea3; /* Blue */
+    --hl-purple-bg: #f6eaff; --hl-purple-text: #733cce; /* Purple */
+    --hl-red-bg: #ffe0eb;    --hl-red-text: #bd0042; /* Pink */
 }
+
 html.dark[data-theme="monokai"] {
+    /* Dark Mode (Official) */
     --bg-page: #272822;
     --bg-primary: #2D2A2E;
     --bg-secondary: #3E3D32;
     --bg-tertiary: #75715E;
     --border-primary: #3E3D32;
     --text-primary: #F8F8F2;
-    --text-secondary: #E6DB74;
-    --text-tertiary: #E6DB74;
-    --accent-primary: #F92672;
+    --text-secondary: #E6DB74; /* Yellow */
+    --text-tertiary: #75715E;
+    --accent-primary: #F92672; /* Pink */
     --accent-text: #F8F8F2;
-    --shadow-color: rgba(0,0,0,0.2);
+    --shadow-color: rgba(0,0,0,0.3);
     --title-primary: #F8F8F2;
-    --title-secondary: #75715E;
+    --title-secondary: #A6E22E;
+
+    /* Highlights */
+    --hl-yellow-bg: rgba(253, 151, 31, 0.2); --hl-yellow-text: #FD971F;
+    --hl-blue-bg: rgba(102, 217, 239, 0.2);  --hl-blue-text: #66D9EF;
+    --hl-purple-bg: rgba(174, 129, 255, 0.2);--hl-purple-text: #AE81FF;
+    --hl-red-bg: rgba(249, 38, 114, 0.2);    --hl-red-text: #F92672;
 }
 
+/* 5. NORD THEME */
 html[data-theme="nord"] {
-    --bg-page: #ECEFF4;
+    /* Light Mode (Snow Storm) */
+    --bg-page: #ECEFF4;      /* Nord6 */
     --bg-primary: #ffffff;
-    --bg-secondary: #E5E9F0;
-    --bg-tertiary: #D8DEE9;
+    --bg-secondary: #E5E9F0; /* Nord5 */
+    --bg-tertiary: #D8DEE9;  /* Nord4 */
     --border-primary: #D8DEE9;
-    --text-primary: #2E3440;
-    --text-secondary: #4C566A;
+    --text-primary: #2E3440; /* Nord0 */
+    --text-secondary: #4C566A; /* Nord3 */
     --text-tertiary: #4C566A;
-    --accent-primary: #5E81AC;
-    --accent-text: #2E3440; /* FIX: Was #ECEFF4. Changed to dark text for contrast against the muted blue accent. */
+    --accent-primary: #5E81AC; /* Nord10 */
+    --accent-text: #ffffff;
     --shadow-color: rgba(0,0,0,0.07);
     --title-primary: #2E3440;
-    --title-secondary: #81A1C1;
-}
-html.dark[data-theme="nord"] {
-    --bg-page: #2E3440;
-    --bg-primary: #3B4252;
-    --bg-secondary: #434C5E;
-    --bg-tertiary: #4C566A;
-    --border-primary: #434C5E;
-    --text-primary: #ECEFF4;
-    --text-secondary: #D8DEE9;
-    --text-tertiary: #D8DEE9;
-    --accent-primary: #88C0D0;
-    --accent-text: #2E3440;
-    --shadow-color: rgba(0,0,0,0.2);
-    --title-primary: #ECEFF4;
-    --title-secondary: #8FBCBB;
+    --title-secondary: #88C0D0;
+    
+    --green: #A3BE8C; --blue: #81A1C1; --red: #BF616A; --amber: #EBCB8B;
+
+    /* Highlights (Frosty Pastels) */
+    --hl-yellow-bg: #fff7e0; --hl-yellow-text: #997800; /* Auroras */
+    --hl-blue-bg: #e6f2ff;   --hl-blue-text: #3b5f8a; /* Frost */
+    --hl-purple-bg: #f4ecf5; --hl-purple-text: #8f6086; /* Purple */
+    --hl-red-bg: #ffebeb;    --hl-red-text: #993b43; /* Red */
 }
 
+html.dark[data-theme="nord"] {
+    /* Dark Mode (Polar Night) */
+    --bg-page: #2E3440;      /* Nord0 */
+    --bg-primary: #3B4252;   /* Nord1 */
+    --bg-secondary: #434C5E; /* Nord2 */
+    --bg-tertiary: #4C566A;  /* Nord3 */
+    --border-primary: #434C5E;
+    --text-primary: #ECEFF4; /* Nord6 */
+    --text-secondary: #D8DEE9; /* Nord4 */
+    --text-tertiary: #D8DEE9;
+    --accent-primary: #88C0D0; /* Nord8 */
+    --accent-text: #2E3440;
+    --shadow-color: rgba(0,0,0,0.3);
+    --title-primary: #ECEFF4;
+    --title-secondary: #81A1C1;
+
+    /* Highlights */
+    --hl-yellow-bg: rgba(235, 203, 139, 0.2); --hl-yellow-text: #EBCB8B;
+    --hl-blue-bg: rgba(129, 161, 193, 0.2);   --hl-blue-text: #81A1C1;
+    --hl-purple-bg: rgba(180, 142, 173, 0.2); --hl-purple-text: #B48EAD;
+    --hl-red-bg: rgba(191, 97, 106, 0.2);     --hl-red-text: #BF616A;
+}
+
+/* --- GLOBAL STYLES --- */
 
 body {
-    font-family: 'Cascadia Code', monospace; /* CHANGED: Was 'Inter', sans-serif */
+    font-family: 'Cascadia Code', monospace; 
     background-color: var(--bg-page);
     color: var(--text-primary);
     user-select: none;
@@ -172,8 +271,6 @@ body {
 }
 
 /* --- FIX: Control cursor and text selection --- */
-
-/* 1. Globally disable text selection on the body (see body rule above). */
 
 /* 2. Re-enable text selection and set text cursor ONLY on editable fields. */
 input[type="text"],
@@ -192,7 +289,7 @@ button:not(:disabled),
 .dependency-circle,
 .chevron,
 .custom-checkbox,
-.editable-text, /* This is clickable to activate the input */
+.editable-text,
 .upcoming-task-item {
     cursor: pointer;
 }
@@ -203,15 +300,15 @@ button:not(:disabled),
     flex-shrink: 0;
     width: 8px;
     height: 8px;
-    background-color: #3b82f6; /* Blue-500 */
+    background-color: var(--blue);
     border-radius: 50%;
 }
 
 .date-input-disabled {
     cursor: not-allowed;
 }
-/* --- END FIX --- */
 
+/* --- Layout Elements --- */
 
 .header-bg {
     background-color: var(--bg-page);
@@ -231,10 +328,14 @@ button:not(:disabled),
 .phase-row {
     background-color: var(--bg-secondary);
     transition: background-color 0.2s, box-shadow 0.2s;
+    padding: 2px 4px !important;
 }
 .task-row {
     background-color: var(--bg-primary);
     border: 1px solid color-mix(in srgb, var(--border-primary) 50%, transparent);
+    padding-top: 1px !important;
+    padding-bottom: 1px !important;
+    overflow: visible !important;
 }
 
 .btn-primary { background-color: var(--accent-primary); color: var(--accent-text); }
@@ -271,35 +372,54 @@ button:not(:disabled),
     flex-shrink: 0;
 }
 .custom-checkbox:checked {
-    background-color: #22c55e; /* green-500 */
-    border-color: #16a34a; /* green-600 */
+    background-color: var(--green);
+    border-color: var(--green);
 }
 .custom-checkbox:checked::after {
     content: '✔';
     position: absolute;
-    color: #ffffff; /* white */
+    color: #ffffff;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     font-size: 12px;
 }
+
 /* Modal Datepicker Styles */
 .flatpickr-calendar {
     z-index: 2000 !important;
-    position: fixed !important;
-    top: 50% !important;
-    left: 50% !important;
-    transform: translate(-50%, -50%) !important;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-primary);
-    color: var(--text-primary);
+    background: var(--bg-primary) !important;
+    border: 1px solid var(--border-primary) !important;
+    color: var(--text-primary) !important;
+    box-shadow: 0 4px 6px -1px var(--shadow-color) !important;
+    font-family: 'Cascadia Code', monospace !important;
 }
-.flatpickr-day { color: var(--text-primary); }
-.flatpickr-day:hover { background: var(--bg-secondary); }
-.flatpickr-day.selected { background: var(--accent-primary); color: var(--accent-text); border-color: var(--accent-primary); }
-.flatpickr-day.today { border-color: var(--accent-primary); }
+.flatpickr-day { color: var(--text-primary) !important; }
+.flatpickr-day:hover { background: var(--bg-secondary) !important; }
 
-/* FIX: Ensure calendar header elements are legible in dark mode */
+/* Themes specific Flatpickr Highlights */
+.flatpickr-day.selected,
+.flatpickr-day.startRange,
+.flatpickr-day.endRange,
+.flatpickr-day.selected.inRange,
+.flatpickr-day.startRange.inRange,
+.flatpickr-day.endRange.inRange,
+.flatpickr-day.selected:focus,
+.flatpickr-day.startRange:focus,
+.flatpickr-day.endRange:focus {
+    background: var(--accent-primary) !important;
+    color: var(--accent-text) !important;
+    border-color: var(--accent-primary) !important;
+    font-weight: 700;
+}
+
+.flatpickr-day.inRange {
+    background: var(--bg-tertiary) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--bg-tertiary) !important;
+    box-shadow: -5px 0 0 var(--bg-tertiary), 5px 0 0 var(--bg-tertiary) !important;
+}
+
 .dark .flatpickr-month,
 .dark span.flatpickr-weekday {
     color: var(--text-primary) !important;
@@ -313,6 +433,7 @@ button:not(:disabled),
     color: var(--text-primary);
 }
 
+/* Chart Styles */
 .chart-grid .domain { stroke: var(--border-primary); }
 .chart-grid .tick line { stroke: var(--border-primary); opacity: 0.5; }
 .chart-grid .tick text { fill: var(--text-secondary); font-size: 10px; }
@@ -323,11 +444,12 @@ button:not(:disabled),
     stroke-dasharray: 4, 4;
 }
 .finish-line {
-    stroke: #ef4444; /* Red-500 */
+    stroke: var(--red);
     stroke-width: 2;
 }
 .ghost-finish-line {
-    stroke: #fca5a5; /* Red-300 */
+    stroke: var(--red);
+    opacity: 0.5;
     stroke-width: 1.5;
     stroke-dasharray: 2, 2;
 }
@@ -346,12 +468,12 @@ button:not(:disabled),
     r: 4;
 }
 .today-line {
-    stroke: #3b82f6; /* Blue-500 */
+    stroke: var(--blue);
     stroke-width: 1.5;
 }
 .phase-marker-circle {
     r: 10;
-    fill: #3b82f6; /* Blue-500 */
+    fill: var(--blue);
     stroke: var(--bg-page);
     stroke-width: 2;
     transition: all 0.2s;
@@ -363,6 +485,8 @@ button:not(:disabled),
     text-anchor: middle;
     dominant-baseline: central;
 }
+
+/* Input Styles */
 .date-input-container {
     position: relative;
     display: flex;
@@ -373,16 +497,15 @@ button:not(:disabled),
     border: 1px solid var(--border-primary);
     border-radius: 6px;
     font-size: 0.75rem;
-    padding: 2px 28px 2px 6px; /* Added padding-right for icon */
+    padding: 2px 28px 2px 6px;
     width: 100px;
-    height: 28px; /* Set height */
+    height: 28px;
     color: var(--text-primary);
 }
 .date-input-disabled {
     background-color: var(--bg-secondary);
     color: var(--text-secondary);
 }
-
 .date-input-icon-wrapper {
     position: absolute;
     right: 0;
@@ -393,8 +516,6 @@ button:not(:disabled),
     padding: 0 6px;
     color: var(--text-tertiary);
 }
-
-/* Custom button for flatpickr */
 .flatpickr-today-button {
     background: var(--bg-secondary);
     color: var(--text-primary);
@@ -417,6 +538,7 @@ button:not(:disabled),
     align-items: center;
 }
 
+/* Dependency Lines */
 .dependency-candidate {
      border: 1px dashed var(--text-secondary);
 }
@@ -452,11 +574,11 @@ button:not(:disabled),
     opacity: 1;
 }
 .is-dependent-source {
-    background-color: #ef4444 !important; /* Red-500 */
+    background-color: var(--red) !important;
     opacity: 1 !important;
 }
 .is-parent-source {
-    background-color: #f59e0b !important; /* Amber-500 */
+    background-color: var(--amber) !important;
     opacity: 1 !important;
 }
 
@@ -482,7 +604,6 @@ button:not(:disabled),
     transition: width 0.3s ease-in-out;
 }
 
-/* Softer dividers for task/subtask lists */
 .phase-row .border-t, .task-row .border-t {
     border-color: color-mix(in srgb, var(--border-primary) 50%, transparent);
 }
@@ -491,7 +612,6 @@ button:not(:disabled),
     background-color: color-mix(in srgb, var(--accent-primary) 20%, transparent);
     box-shadow: 0 0 0 2px var(--accent-primary);
 }
-
 .phase-marker-highlight {
     stroke: var(--accent-primary);
     stroke-width: 4;
@@ -504,7 +624,6 @@ button:not(:disabled),
     left: 50px;
     z-index: 10;
 }
-
 .brush .selection {
     fill: var(--accent-primary);
     fill-opacity: 0.2;
@@ -555,13 +674,6 @@ button:not(:disabled),
     box-shadow: 0 0 8px color-mix(in srgb, var(--accent-primary) 50%, transparent);
     font-weight: 700;
 }
-.node-type-label {
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    color: var(--text-secondary);
-    margin-bottom: 4px;
-}
 
 .add-subtask-btn, .move-task-btn {
     display: none;
@@ -595,7 +707,7 @@ button:not(:disabled),
     cursor: not-allowed;
 }
 
-
+/* Fullscreen Modal */
 #fullscreen-modal {
     position: fixed;
     top: 0;
@@ -604,12 +716,11 @@ button:not(:disabled),
     height: 100%;
     background-color: var(--bg-page);
     z-index: 1000;
-    display: none; /* Set to 'flex' by JS to show */
+    display: none;
     flex-direction: column;
     padding: 1.5rem;
     box-sizing: border-box;
 }
-
 #fullscreen-modal .header {
     display: flex;
     justify-content: space-between;
@@ -617,12 +728,10 @@ button:not(:disabled),
     margin-bottom: 1rem;
     flex-shrink: 0;
 }
-
 #fullscreen-modal .header h1 {
     font-size: 1.875rem;
     font-weight: 700;
 }
-
 #fullscreen-modal #close-fullscreen-btn {
     background-color: var(--bg-secondary);
     border: none;
@@ -638,12 +747,10 @@ button:not(:disabled),
     transition: background-color 0.2s ease;
     position: static;
 }
-
 #fullscreen-modal #close-fullscreen-btn:hover {
     background-color: var(--bg-tertiary);
 }
-
-#fullscreen-modal .chart-panel {
+.chart-panel {
     flex-grow: 1;
     background-color: var(--bg-primary);
     border-radius: 0.75rem;
@@ -651,8 +758,6 @@ button:not(:disabled),
     overflow: auto;
     border: 1px solid var(--border-primary);
 }
-
-/* Custom Scrollbar Styles */
 .chart-panel::-webkit-scrollbar {
     width: 12px;
     height: 12px;
@@ -673,7 +778,6 @@ button:not(:disabled),
     background: transparent;
 }
 
-
 .chart-tooltip {
     position: absolute;
     visibility: hidden;
@@ -686,19 +790,6 @@ button:not(:disabled),
     pointer-events: none;
     white-space: nowrap;
     z-index: 1000;
-}
-.phase-label {
-    background-color: var(--accent-primary);
-    color: var(--accent-text);
-    padding: 4px 8px;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 700;
-    display: inline-block;
-    word-wrap: break-word;
-    max-width: 100%;
-    text-align: center;
-
 }
 
 /* Tab Styles */
@@ -746,8 +837,7 @@ button:not(:disabled),
     border-right: 2px solid var(--accent-primary);
 }
 
-
-/* Punch List Styles */
+/* Punch List / Inbox Styles */
 #main-tab-panel-list .punch-list-container {
     font-family: inherit;
 }
@@ -804,6 +894,7 @@ button:not(:disabled),
 }
 
 
+/* --- UPDATED HEADER STYLES --- */
 #main-tab-panel-list .header-1 { /* ## Sub-section */
   background-color: var(--bg-secondary);
   font-size: 14px;
@@ -811,6 +902,7 @@ button:not(:disabled),
   padding: 4px 8px;
   border-radius: 4px;
   color: var(--text-primary);
+  border: 1px solid var(--border-primary);
 }
 
 #main-tab-panel-list .header-2 { /* # Project Title */
@@ -820,6 +912,7 @@ button:not(:disabled),
     font-weight: 700;
     font-size: 16px;
     border-radius: 6px;
+    border: 1px solid var(--border-primary);
 }
 
 #main-tab-panel-list .note-block {
@@ -842,67 +935,37 @@ button:not(:disabled),
   margin-bottom: 16px;
 }
 
-/* Animation for punch list */
-.task-slide-out {
-  transition: all 150ms ease-in-out;
-  opacity: 0;
-  transform: translateX(20px);
-  max-height: 0;
-  margin-bottom: 0 !important;
-  padding-top: 0;
-  padding-bottom: 0;
-  overflow: hidden;
-}
+/* --- UPDATED HIGHLIGHT STYLES --- */
 
-/* Highlight classes are now markers. Styling is applied to parent .task-item */
 .highlight-yellow, .highlight-blue, .highlight-purple, .highlight-red {
     background-color: transparent !important;
     color: inherit !important;
 }
 
-/* Highlight Colors applied to the entire line */
+/* Highlight Colors applied to the entire line using Themed Variables */
 #main-tab-panel-list .task-item:has(.task-label.highlight-yellow) { 
-    background-color: #fef08a; /* yellow-200 */
-    color: #854d0e; /* yellow-700 */
-    border-radius: 4px; 
-}
-#main-tab-panel-list .task-item:has(.task-label.highlight-red)    { 
-    background-color: #fecaca; /* red-200 */
-    color: #991b1b; /* red-800 */
+    background-color: var(--hl-yellow-bg);
+    color: var(--hl-yellow-text);
     border-radius: 4px; 
 }
 #main-tab-panel-list .task-item:has(.task-label.highlight-blue) {
-    background-color: #bfdbfe; /* blue-200 */
-    color: #1e40af; /* blue-800 */
+    background-color: var(--hl-blue-bg);
+    color: var(--hl-blue-text);
     border-radius: 4px;
 }
 #main-tab-panel-list .task-item:has(.task-label.highlight-purple) {
-    background-color: #e9d5ff; /* purple-200 */
-    color: #6b21a8; /* purple-800 */
+    background-color: var(--hl-purple-bg);
+    color: var(--hl-purple-text);
     border-radius: 4px;
 }
-
-.dark #main-tab-panel-list .task-item:has(.task-label.highlight-yellow) { 
-    background-color: #3f3c1a;
-    color: #fefce8; /* FIX: Was #fde047. Increased lightness for better contrast. */
-}
-.dark #main-tab-panel-list .task-item:has(.task-label.highlight-red) { 
-    background-color: #4c1d1d;
-    color: #fca5a5;
-}
-.dark #main-tab-panel-list .task-item:has(.task-label.highlight-blue) { 
-    background-color: #1e3a8a;
-    color: #93c5fd;
-}
-.dark #main-tab-panel-list .task-item:has(.task-label.highlight-purple) { 
-    background-color: #3b0764;
-    color: #c4b5fd;
+#main-tab-panel-list .task-item:has(.task-label.highlight-red) { 
+    background-color: var(--hl-red-bg);
+    color: var(--hl-red-text);
+    border-radius: 4px; 
 }
 
-/* --- Tooltip (Shared by Pacing Bar and other elements) --- */
-.tooltip {
-    position: relative;
-}
+/* --- Tooltip --- */
+.tooltip { position: relative; }
 .tooltip .tooltip-text {
     visibility: hidden;
     min-width: 240px;
@@ -922,11 +985,7 @@ button:not(:disabled),
     pointer-events: none;
     font-size: 12px;
 }
-.tooltip:hover .tooltip-text {
-    visibility: visible;
-    opacity: 1;
-    bottom: 150%;
-}
+.tooltip:hover .tooltip-text { visibility: visible; opacity: 1; bottom: 150%; }
 .tooltip .tooltip-grid {
     display: grid;
     grid-template-columns: auto 1fr;
@@ -949,7 +1008,6 @@ button:not(:disabled),
 .tooltip .status-at-risk { background-color: var(--amber); color: #fff; }
 .tooltip .status-late { background-color: var(--red); color: #fff; }
 .tooltip .status-complete { background-color: var(--green); color: #fff; }
-
 .tooltip .tooltip-text::after {
     content: "";
     position: absolute;
@@ -962,131 +1020,64 @@ button:not(:disabled),
     filter: drop-shadow(0 1px 1px var(--shadow-color));
 }
 
-/* --- Gantt Chart Styles --- */
-.gantt-tooltip {
-    position: absolute;
-    visibility: hidden;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-primary);
-    border-radius: 8px;
-    padding: 0.75rem;
-    font-size: 0.875rem;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
-    pointer-events: none;
-    white-space: nowrap;
-    z-index: 1001;
-    transition: opacity 0.2s, visibility 0.2s;
-    opacity: 0;
-}
-.gantt-y-axis .domain {
-    stroke: none;
-}
-.gantt-y-axis .tick line {
-    stroke: none;
-}
-.gantt-y-axis .tick text {
-    font-size: 14px;
-    fill: var(--text-primary);
-    cursor: default;
-    text-anchor: end;
-}
-.gantt-y-axis .tick text.indent-1 { 
-    font-weight: 700;
-}
-.gantt-y-axis .tick text.indent-2 { font-size: 13px; fill: var(--text-secondary); }
-.gantt-y-axis .tick text.indent-3 { font-size: 12px; font-style: italic; fill: var(--text-secondary); }
-
-.gantt-bar-group { cursor: pointer; }
-.gantt-bar-bg {
-    fill: var(--bg-tertiary);
-    transition: fill 0.2s;
-    opacity: 0.5;
-}
-.gantt-bar-progress {
-    transition: fill 0.2s;
-    opacity: 0.7;
-}
-.gantt-bar-group:hover .gantt-bar-bg {
-    fill: color-mix(in srgb, var(--bg-tertiary) 70%, #fff);
-}
-.gantt-bar-group:hover .gantt-bar-progress {
-    fill: color-mix(in srgb, var(--accent-primary) 70%, #fff);
-}
-.phase-divider-line {
-    stroke: var(--bg-tertiary);
-    stroke-width: 1;
-    stroke-dasharray: 3, 3;
-}
-
-/* --- Days Left Pill --- */
+/* Days Left Pill */
 .days-left-pill {
     background-color: var(--bg-tertiary);
     color: var(--text-secondary);
-    font-size: 0.75rem; /* 12px */
+    font-size: 0.75rem;
     font-weight: 700;
     padding: 2px 8px;
     border-radius: 9999px;
-    margin-left: 0.75rem; /* 12px */
+    margin-left: 0.75rem;
     flex-shrink: 0;
     min-width: 28px;
     text-align: center;
 }
+.days-left-pill-overdue { background-color: var(--red); color: var(--bg-primary); }
+.days-left-pill-due-today { background-color: var(--amber); color: var(--bg-primary); }
 
-.days-left-pill-overdue {
-    background-color: var(--red);
-    color: var(--bg-primary);
+.task-slide-in { animation: slideIn 200ms ease-out; }
+.task-slide-out {
+  transition: all 150ms ease-in-out;
+  opacity: 0;
+  transform: translateX(20px);
+  max-height: 0;
+  margin-bottom: 0 !important;
+  padding-top: 0;
+  padding-bottom: 0;
+  overflow: hidden;
 }
-
-.days-left-pill-due-today {
-    background-color: var(--amber);
-    color: var(--bg-primary);
-}
-
-/* ADDED FOR PUNCHLIST ANIMATION */
-.task-slide-in {
-  animation: slideIn 200ms ease-out;
-}
-
 @keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
-/* Shortcuts Modal Styles */
+/* Shortcuts Modal */
 #shortcuts-modal .shortcut-category {
-    font-size: 0.75rem; /* text-xs */
-    font-weight: 700; /* font-bold */
+    font-size: 0.75rem;
+    font-weight: 700;
     text-transform: uppercase;
     color: var(--text-secondary);
-    margin-bottom: 0.5rem; /* mb-2 */
+    margin-bottom: 0.5rem;
     border-bottom: 1px solid var(--border-primary);
-    padding-bottom: 0.25rem; /* pb-1 */
+    padding-bottom: 0.25rem;
 }
-
 #shortcuts-modal .shortcut-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.5rem 0; /* py-2 */
+    padding: 0.5rem 0;
 }
-
 #shortcuts-modal .shortcut-key {
     background-color: var(--bg-secondary);
     border: 1px solid var(--border-primary);
-    border-radius: 0.25rem; /* rounded */
-    padding: 0.125rem 0.5rem; /* px-2 py-0.5 */
+    border-radius: 0.25rem;
+    padding: 0.125rem 0.5rem;
     font-family: 'Cascadia Code', monospace;
     font-size: 0.8em;
     color: var(--text-secondary);
     margin-left: 0.25rem;
 }
-
 #close-shortcuts-btn {
     font-size: 2rem;
     line-height: 1;
@@ -1100,7 +1091,6 @@ button:not(:disabled),
     padding: 4px 8px;
     font-size: 14px;
 }
-
 .dark-mode-toggle {
     background-color: var(--bg-secondary);
     color: var(--text-primary);
@@ -1120,29 +1110,23 @@ button:not(:disabled),
     font-weight: 700;
 }
 
-.lock-toggle-btn {
+.lock-toggle-btn, .print-btn, .comment-btn {
     padding: 4px;
     border-radius: 6px;
     color: var(--text-tertiary);
     transition: background-color 0.2s, color 0.2s, opacity 0.2s;
     opacity: 0;
 }
-.print-btn { /* Added for new print button */
-    padding: 4px;
-    border-radius: 6px;
-    color: var(--text-tertiary);
-    transition: background-color 0.2s, color 0.2s, opacity 0.2s;
-    opacity: 0;
-}
-
 .project-header:hover .lock-toggle-btn,
 .project-header:hover .print-btn,
-.phase-row:hover .lock-toggle-btn {
+.phase-row:hover .lock-toggle-btn,
+.project-header:hover .comment-btn,
+.phase-row .item-main-row:hover .comment-btn,
+.task-row .item-main-row:hover .comment-btn,
+.subtask-row:hover .comment-btn {
     opacity: 1;
 }
-
-.lock-toggle-btn:hover:not(:disabled),
-.print-btn:hover {
+.lock-toggle-btn:hover:not(:disabled), .print-btn:hover, .comment-btn:hover {
     background-color: var(--bg-tertiary);
     color: var(--text-primary);
 }
@@ -1161,49 +1145,24 @@ button:not(:disabled),
     padding: 4px;
     border-radius: 4px;
 }
-
 .upcoming-task-item:hover {
     background-color: var(--bg-secondary);
 }
 
 .highlight-task {
     animation: highlight 2s ease-in-out;
-    /* Use negative margin to extend the highlight to the edges of the parent's padding */
     margin-left: -0.5rem;
     margin-right: -0.5rem;
     padding-left: 0.5rem;
     padding-right: 0.5rem;
 }
-
 @keyframes highlight {
-    0% {
-        background-color: transparent;
-    }
-    50% {
-        background-color: color-mix(in srgb, var(--accent-primary) 40%, transparent);
-    }
-    100% {
-        background-color: transparent;
-    }
+    0% { background-color: transparent; }
+    50% { background-color: color-mix(in srgb, var(--accent-primary) 40%, transparent); }
+    100% { background-color: transparent; }
 }
-/* Comment Section Styles */
-.comment-btn {
-    opacity: 0;
-    transition: opacity 0.2s;
-    padding: 4px;
-    border-radius: 6px;
-    color: var(--text-tertiary);
-}
-.project-header:hover .comment-btn,
-.phase-row .item-main-row:hover .comment-btn,
-.task-row .item-main-row:hover .comment-btn,
-.subtask-row:hover .comment-btn {
-    opacity: 1;
-}
-.comment-btn:hover {
-    background-color: var(--bg-tertiary);
-    color: var(--text-primary);
-}
+
+/* Comment Section */
 .comment-section {
     padding: 12px;
     margin: 10px 0;
@@ -1217,26 +1176,11 @@ button:not(:disabled),
     padding: 8px 0;
     border-bottom: 1px solid var(--border-primary);
 }
-.comment-item:last-child {
-    border-bottom: none;
-}
-.comment-content {
-    flex-grow: 1;
-    margin-right: 10px;
-}
-.comment-text {
-    white-space: pre-wrap;
-    font-size: 14px;
-}
-.comment-date {
-    font-size: 10px;
-    color: var(--text-tertiary);
-    margin-top: 4px;
-}
-.comment-actions {
-    display: flex;
-    gap: 5px;
-}
+.comment-item:last-child { border-bottom: none; }
+.comment-content { flex-grow: 1; margin-right: 10px; }
+.comment-text { white-space: pre-wrap; font-size: 14px; }
+.comment-date { font-size: 10px; color: var(--text-tertiary); margin-top: 4px; }
+.comment-actions { display: flex; gap: 5px; }
 .comment-actions button {
     font-size: 12px;
     color: var(--text-secondary);
@@ -1247,250 +1191,24 @@ button:not(:disabled),
     padding: 2px 6px;
     transition: background-color 0.2s;
 }
-.comment-actions button:hover {
-    background-color: var(--bg-tertiary);
-    color: var(--text-primary);
-}
-.add-comment {
-    margin-top: 12px;
-    position: relative;
-}
+.comment-actions button:hover { background-color: var(--bg-tertiary); color: var(--text-primary); }
+.add-comment { margin-top: 12px; position: relative; }
 .add-comment textarea {
     width: 100%;
     padding: 8px 12px;
-    padding-bottom: 42px; /* Add more padding to the bottom for the button */
+    padding-bottom: 42px;
     border-radius: 6px;
     border: 1px solid var(--border-primary);
     background-color: var(--bg-primary);
     color: var(--text-primary);
-    resize: none; /* Disable resizing */
+    resize: none;
     min-height: 50px;
     font-size: 14px;
 }
-.add-comment button {
-    position: absolute;
-    right: 8px;
-    bottom: 8px;
-    border-radius: 6px;
-}
-.no-comments {
-    text-align: center;
-    color: var(--text-tertiary);
-    font-size: 12px;
-    padding: 10px 0;
-}
+.add-comment button { position: absolute; right: 8px; bottom: 8px; border-radius: 6px; }
+.no-comments { text-align: center; color: var(--text-tertiary); font-size: 12px; padding: 10px 0; }
 
-/* --- REVAMPED PRINT STYLES --- */
-@media print {
-    @page {
-        size: landscape;
-        margin: 0.5in;
-    }
-
-    body, html {
-        background-color: #fff !important;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-    }
-
-    :root {
-        --bg-page: #ffffff !important;
-        --bg-primary: #ffffff !important;
-        --bg-secondary: #f1f5f9 !important;
-        --text-primary: #0f172a !important;
-        --text-secondary: #475569 !important;
-        --border-primary: #e2e8f0 !important;
-    }
-
-    body > *:not(#print-view) {
-        display: none !important;
-    }
-    
-    #print-view {
-        display: block !important;
-    }
-
-    .print-project-container {
-        width: 100%;
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-    }
-
-    .print-header {
-        margin-bottom: 1rem;
-        padding-bottom: 0.5rem;
-        border-bottom: 2px solid var(--border-primary);
-        color: var(--text-primary);
-    }
-    .print-header h1 {
-        font-size: 1.5rem;
-        font-weight: 700;
-    }
-    .print-header h2 {
-        font-size: 1rem;
-        color: var(--text-secondary);
-    }
-
-    .print-layout {
-        display: grid;
-        grid-template-columns: 35% 1fr;
-        gap: 1.5rem;
-        flex-grow: 1;
-        overflow: hidden;
-    }
-    
-    .print-list-container {
-        font-size: 10px;
-        line-height: 1.4;
-        color: var(--text-primary);
-        height: 100%;
-    }
-
-    .print-item-name {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .print-item.level-1 { font-weight: 700; font-size: 1.1em; margin-bottom: 8px; }
-    .print-item.level-2 { padding-left: 1rem; font-weight: 700; margin-top: 6px; }
-    .print-item.level-3 { padding-left: 2rem; }
-    .print-item.level-4 { padding-left: 3rem; font-style: italic; }
-
-    /* Print-friendly D3 chart elements */
-    .print-chart-container .gantt-y-axis .domain,
-    .print-chart-container .gantt-y-axis .tick line {
-        stroke: none;
-    }
-    .print-chart-container .gantt-y-axis .tick text {
-        display: none; /* Text is in the left column */
-    }
-    .print-chart-container .gantt-x-axis .domain,
-    .print-chart-container .gantt-x-axis .tick line {
-        stroke: #e2e8f0;
-    }
-    .print-chart-container .gantt-x-axis .tick text {
-        fill: var(--text-secondary);
-        font-size: 8px;
-    }
-    .print-chart-container .gantt-bar-bg {
-        fill: #e2e8f0;
-        stroke: #ccc;
-    }
-    .print-chart-container .gantt-bar-progress {
-        fill: #64748b; /* slate-500 */
-    }
-    .print-chart-container .today-line {
-        stroke: #3b82f6;
-        stroke-width: 1;
-        stroke-dasharray: 2,2;
-    }
-    .print-chart-container .phase-divider-line {
-        stroke: #cbd5e1;
-        stroke-width: 1;
-        stroke-dasharray: 2,2;
-    }
-}
-
-/* --- Move to Project Button Enhancements --- */
-
-/* Override Tailwind utility classes to ensure it matches the active Theme */
-.move-to-project-btn {
-    color: var(--text-tertiary) !important;
-    margin-right: 0 !important; /* The flex-gap handles the spacing, this prevents it from being too wide */
-}
-
-.move-to-project-btn:hover {
-    color: var(--accent-primary) !important; /* Use the theme's specific accent color instead of generic blue */
-}
-
-/* Hide the move button when printing the Punch List */
-@media print {
-    .move-to-project-btn {
-        display: none !important;
-    }
-}
-
-/* --- FOLLOW UP FEATURE STYLES --- */
-
-/* Light Mode: Purple Background with strong left border */
-.task-row.follow-up-active,
-.subtask-row.follow-up-active {  /* <--- Added subtask selector here */
-    background-color: #f3e8ff; /* purple-100 */
-    border-left: 4px solid #9333ea; /* purple-600 */
-}
-
-/* Dark Mode: Deep Purple Background */
-.dark .task-row.follow-up-active,
-.dark .subtask-row.follow-up-active { /* <--- Added subtask selector here */
-    background-color: #3b0764; /* purple-950 */
-    border-left: 4px solid #a855f7; /* purple-500 */
-    border-color: #581c87; /* purple-900 */
-}
-
-/* Ensure the date input stands out against the purple background */
-.task-row.follow-up-active .date-input,
-.subtask-row.follow-up-active .date-input { /* <--- Added subtask selector here */
-    background-color: #ffffff;
-    border-color: #d8b4fe; /* purple-300 */
-    color: #7e22ce; /* purple-700 */
-    font-weight: 700;
-}
-
-.dark .task-row.follow-up-active .date-input,
-.dark .subtask-row.follow-up-active .date-input { /* <--- Added subtask selector here */
-    background-color: #1e1b4b; /* very dark purple */
-    border-color: #6b21a8; /* purple-800 */
-    color: #e9d5ff; /* purple-200 */
-}
-
-/* --- Add to style.css --- */
-
-.tag-badge {
-    display: inline-block;
-    background-color: var(--bg-tertiary);
-    color: var(--text-secondary);
-    border-radius: 4px;
-    padding: 0 4px;
-    font-size: 0.85em;
-    font-weight: 700;
-    margin-right: 4px;
-    border: 1px solid var(--border-primary);
-}
-
-/* Optional: Make specific tags pop */
-.tag-badge:contains("Urgent") { /* Note: CSS :contains isn't standard, handled via JS usually, but generic styling is fine */
-    background-color: #fee2e2; /* Red-100 */
-    color: #991b1b;
-    border-color: #fecaca;
-}
-
-/* --- Tag Filter Dropdown Styles --- */
-.tag-filter-dropdown {
-    background-color: var(--bg-primary); /* Adapts to theme */
-    color: var(--text-primary);          /* Adapts to theme */
-    border: 1px solid var(--border-primary);
-    border-radius: 0.25rem;
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem; /* text-xs */
-    outline: none;
-    cursor: pointer;
-    max-width: 200px;
-}
-
-.tag-filter-dropdown:focus {
-    border-color: var(--accent-primary);
-    box-shadow: 0 0 0 1px var(--accent-primary);
-}
-
-/* Ensure the dropdown options also inherit the correct colors */
-.tag-filter-dropdown option {
-    background-color: var(--bg-primary);
-    color: var(--text-primary);
-}
-
-/* --- Tag System Styles --- */
+/* Tag System */
 .tag-badge {
     display: inline-flex;
     align-items: center;
@@ -1504,18 +1222,8 @@ button:not(:disabled),
     border: 1px solid var(--border-primary);
     white-space: nowrap;
 }
-
-.tag-remove {
-    margin-left: 4px;
-    cursor: pointer;
-    font-weight: 700;
-    opacity: 0.6;
-}
-.tag-remove:hover {
-    opacity: 1;
-    color: var(--red);
-}
-
+.tag-remove { margin-left: 4px; cursor: pointer; font-weight: 700; opacity: 0.6; }
+.tag-remove:hover { opacity: 1; color: var(--red); }
 .add-tag-btn {
     display: flex;
     align-items: center;
@@ -1530,342 +1238,6 @@ button:not(:disabled),
     border-color: var(--accent-primary);
     background-color: var(--bg-tertiary);
 }
-
-.tag-menu-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    margin-top: 4px;
-    width: 200px;
-    background-color: var(--bg-primary);
-    border: 1px solid var(--border-primary);
-    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-    border-radius: 6px;
-    z-index: 50;
-    padding: 4px;
-}
-
-.tag-menu-input {
-    width: 100%;
-    padding: 4px 8px;
-    font-size: 0.75rem;
-    border: 1px solid var(--border-primary);
-    background-color: var(--bg-secondary);
-    color: var(--text-primary);
-    border-radius: 4px;
-    margin-bottom: 4px;
-}
-
-.tag-menu-options {
-    max-height: 150px;
-    overflow-y: auto;
-}
-
-.tag-option {
-    padding: 4px 8px;
-    font-size: 0.75rem;
-    cursor: pointer;
-    color: var(--text-primary);
-    border-radius: 4px;
-}
-
-.tag-option:hover {
-    background-color: var(--bg-secondary);
-}
-
-.tag-option.create-new {
-    color: var(--accent-primary);
-    font-weight: 700;
-    border-top: 1px solid var(--border-primary);
-    margin-top: 2px;
-}
-
-/* Ensure dropdown doesn't get cut off in rows */
-.subtask-row, .task-row {
-    overflow: visible !important; 
-}
-
-/* --- COMPACT TEXT SIZES --- */
-
-/* Reduce Phase Name Font Size (Default was ~16px) */
-.phase-row .editable-text {
-    font-size: 14px; 
-}
-
-/* Reduce Task Name Font Size (Default was ~16px) */
-.task-row .editable-text {
-    font-size: 14px;
-}
-
-/* Reduce Subtask Name Font Size (Default was 14px) */
-.subtask-row .editable-text {
-    font-size: 14px;
-}
-
-/* Make Phase rows more compact */
-.phase-row {
-    padding: 2px 4px !important; /* Overrides 'p-2' (8px) */
-}
-
-/* Make Task rows more compact */
-.task-row {
-    padding-top: 1px !important;    /* Overrides 'py-1' (4px) */
-    padding-bottom: 1px !important;
-}
-
-/* --- GTD & ACTION HUB ENHANCEMENTS --- */
-
-/* Path styling for standalone items */
-.upcoming-task-item .text-secondary {
-    font-weight: 700;
-}
-
-.upcoming-task-item .text-secondary span.tag-badge {
-    font-weight: 700;
-    text-transform: uppercase;
-    font-size: 9px;
-    background-color: #f3e8ff; /* purple-100 */
-    color: #7e22ce; /* purple-700 */
-    border-color: #d8b4fe; /* purple-300 */
-}
-
-/* Ensure inline tag badges don't wrap weirdly */
-.upcoming-task-item .font-medium {
-    flex-wrap: wrap;
-    line-height: 1.6;
-}
-
-/* Fix for Action Hub date input and icon spacing */
-.upcoming-task-item .date-input-container {
-    width: 120px; /* Slightly wider to provide breathing room */
-    position: relative;
-    display: flex;
-    align-items: center;
-}
-
-.upcoming-task-item .date-input {
-    width: 100%;
-    height: 32px;
-    padding-left: 8px;
-    padding-right: 32px; /* Ensure text doesn't hide under the icon */
-    font-size: 13px;
-    border-radius: 6px;
-    border: 1px solid var(--border-primary);
-}
-
-.upcoming-task-item .date-input-icon-wrapper {
-    position: absolute;
-    right: 8px; /* Move icon in from the far right edge */
-    top: 50%;
-    transform: translateY(-50%);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0.6;
-    transition: opacity 0.2s;
-}
-
-.upcoming-task-item .date-input-icon-wrapper:hover {
-    opacity: 1;
-}
-
-/* Standardize badge dimensions for tags and delegation labels */
-.upcoming-task-item .tag-badge {
-    height: 22px;
-    line-height: 20px;
-    display: inline-flex;
-    align-items: center;
-    padding: 0 6px;
-    font-size: 11px;
-    border-radius: 4px;
-    vertical-align: middle;
-}
-
-/* Action Hub specific overrides for high-visibility dates */
-.upcoming-task-item .date-input[value*="/"] {
-    font-weight: 700;
-}
-
-/* Ensure purple 'Waiting' badges pop correctly in the task line */
-.upcoming-task-item .tag-badge[class*="bg-purple"] {
-    font-weight: 700;
-    text-transform: uppercase;
-    font-size: 10px;
-}
-
-/* Prevent non-navigable items from showing pointer cursor */
-.upcoming-task-item.no-nav {
-    cursor: default;
-}
-.upcoming-task-item.no-nav:hover {
-    background-color: transparent;
-}
-/* Ensure the checkbox still shows pointer in no-nav rows */
-.upcoming-task-item.no-nav .group {
-    cursor: pointer;
-}
-
-/* --- Consolidated Date Range Styles --- */
-
-.date-range-pill {
-    display: flex;
-    align-items: center;
-    justify-content: space-between; /* Keeps Icon on right, Text fills center */
-    padding: 2px 8px;
-    height: 28px;
-    font-size: 0.75rem;
-    
-    /* FIX: Enforce fixed width for perfect alignment */
-    width: 210px; 
-    flex-shrink: 0; /* Prevent shrinking */
-    
-    border-radius: 9999px;
-    cursor: pointer;
-    transition: all 0.2s;
-    
-    /* Ghost Mode Defaults */
-    background-color: transparent;
-    border: 1px solid transparent;
-    color: var(--text-secondary);
-}
-
-/* Reveal on Hover */
-.phase-row:hover .date-range-pill,
-.task-row:hover .date-range-pill,
-.subtask-row:hover .date-range-pill,
-.upcoming-task-item:hover .date-range-pill,
-.date-range-pill:hover,
-.date-range-pill.active {
-    background-color: var(--bg-primary);
-    border-color: var(--border-primary);
-    color: var(--text-primary);
-}
-
-.date-range-pill.active {
-    border-color: var(--accent-primary);
-}
-
-/* Inner Text Alignment */
-.date-range-pill > div {
-    text-align: right; /* Pushes text towards the icon */
-    width: 100%;
-    padding-right: 4px;
-}
-
-.range-arrow {
-    margin: 0 6px;
-    color: var(--text-tertiary);
-    font-weight: 700;
-}
-
-.range-icon {
-    width: 14px;
-    height: 14px;
-    color: var(--text-tertiary);
-    opacity: 0; 
-    transition: opacity 0.2s;
-    flex-shrink: 0; /* Icon stays fixed size */
-}
-
-.phase-row:hover .range-icon,
-.task-row:hover .range-icon,
-.subtask-row:hover .range-icon,
-.date-range-pill:hover .range-icon {
-    opacity: 1;
-}
-
-/* Locked State */
-.date-range-pill.disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
-    /* Width is inherited from base class, so it stays 210px */
-}
-.date-range-pill.disabled:hover {
-    background-color: transparent;
-    border-color: transparent;
-}
-
-/* --- Date Pill Internal Grid --- */
-.date-content-grid {
-    display: grid;
-    grid-template-columns: 16px 1fr auto 1fr; /* [Status Icon] [Start] [Arrow] [End] */
-    align-items: center;
-    width: 100%;
-    gap: 2px;
-}
-
-.date-content-grid .status-col {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-tertiary);
-}
-
-.date-content-grid .date-col {
-    text-align: center; /* Keeps monospace dates perfectly centered in their slots */
-    white-space: nowrap;
-}
-
-.date-content-grid .arrow-col {
-    color: var(--text-tertiary);
-    font-weight: 700;
-    padding: 0 2px;
-}
-
-.date-content-grid .full-span-col {
-    grid-column: 1 / -1;
-    text-align: center;
-    opacity: 0.5;
-}
-
-/* --- Flatpickr Visibility Fixes --- */
-
-/* Selected/Start/End: Use Theme Accent */
-.flatpickr-day.selected,
-.flatpickr-day.startRange,
-.flatpickr-day.endRange,
-.flatpickr-day.selected.inRange,
-.flatpickr-day.startRange.inRange,
-.flatpickr-day.endRange.inRange,
-.flatpickr-day.selected:focus,
-.flatpickr-day.startRange:focus,
-.flatpickr-day.endRange:focus {
-    background: var(--accent-primary) !important;
-    color: var(--accent-text) !important;
-    border-color: var(--accent-primary) !important;
-    font-weight: 700;
-}
-
-/* In-Between Range: Use Theme Tertiary (Safe for contrast) */
-.flatpickr-day.inRange {
-    background: var(--bg-tertiary) !important;
-    color: var(--text-primary) !important;
-    border-color: var(--bg-tertiary) !important;
-    box-shadow: -5px 0 0 var(--bg-tertiary), 5px 0 0 var(--bg-tertiary) !important;
-}
-
-/* Hover effects */
-.flatpickr-day:hover,
-.flatpickr-day.prevMonthDay:hover,
-.flatpickr-day.nextMonthDay:hover,
-.flatpickr-day:focus {
-    background: var(--bg-secondary) !important;
-    color: var(--text-primary) !important;
-    border-color: var(--bg-secondary) !important;
-}
-
-/* Add this new block to ensure the calendar inherits the monospace font */
-.flatpickr-calendar,
-.flatpickr-day,
-.flatpickr-month, 
-.flatpickr-weekday, 
-.flatpickr-current-month input.cur-year {
-    font-family: 'Cascadia Code', monospace !important;
-}
-
-/* --- Tag Dropdown Improvements --- */
-
 .tag-menu-dropdown {
     position: absolute;
     top: 100%;
@@ -1880,7 +1252,6 @@ button:not(:disabled),
     padding: 0;
     overflow: hidden;
 }
-
 .tag-menu-header {
     display: flex;
     justify-content: space-between;
@@ -1890,7 +1261,6 @@ button:not(:disabled),
     border-bottom: 1px solid var(--border-primary);
     margin-bottom: 4px;
 }
-
 .tag-menu-input {
     width: calc(100% - 12px);
     margin: 4px 6px;
@@ -1901,13 +1271,7 @@ button:not(:disabled),
     color: var(--text-primary);
     border-radius: 4px;
 }
-
-.tag-menu-options {
-    max-height: 180px;
-    overflow-y: auto;
-    padding: 0 4px 4px 4px;
-}
-
+.tag-menu-options { max-height: 180px; overflow-y: auto; padding: 0 4px 4px 4px; }
 .tag-option {
     padding: 4px 8px;
     font-size: 0.75rem;
@@ -1918,21 +1282,23 @@ button:not(:disabled),
     align-items: center;
     justify-content: space-between;
 }
+.tag-option:hover { background-color: var(--bg-secondary); color: var(--accent-primary); }
+.tag-option.create-new { color: var(--accent-primary); font-weight: 700; border-top: 1px solid var(--border-primary); margin-top: 4px; padding-top: 6px; }
 
-.tag-option:hover {
-    background-color: var(--bg-secondary);
-    color: var(--accent-primary);
+.tag-filter-dropdown {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-primary);
+    border-radius: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    outline: none;
+    cursor: pointer;
+    max-width: 200px;
 }
+.tag-filter-dropdown option { background-color: var(--bg-primary); color: var(--text-primary); }
 
-.tag-option.create-new {
-    color: var(--accent-primary);
-    font-weight: 700;
-    border-top: 1px solid var(--border-primary);
-    margin-top: 4px;
-    padding-top: 6px;
-}
-
-/* --- GENERAL BIN / PROJECT INBOX STYLES --- */
+/* General Bin */
 .general-bin-container {
     background-color: color-mix(in srgb, var(--bg-tertiary) 30%, transparent);
     border: 2px dashed var(--border-primary);
@@ -1940,7 +1306,6 @@ button:not(:disabled),
     padding: 8px 8px 8px 12px;
     margin-bottom: 12px;
 }
-
 .general-bin-header {
     display: flex;
     align-items: center;
@@ -1952,15 +1317,11 @@ button:not(:disabled),
     color: var(--text-tertiary);
     font-weight: 700;
 }
-
-/* Ensure general tasks look consistent but compact */
 .general-bin-container .task-row {
     background-color: var(--bg-primary);
     border: 1px solid var(--border-primary);
     margin-bottom: 4px;
 }
-
-/* Priority Dropdown Styling */
 .priority-select {
     background-color: color-mix(in srgb, var(--bg-primary) 50%, transparent);
     color: var(--text-primary);
@@ -1974,13 +1335,198 @@ button:not(:disabled),
     margin-right: 8px;
     transition: all 0.2s;
 }
+.priority-select:hover { border-color: var(--text-secondary); }
+.priority-select:focus { outline: none; border-color: var(--primary); background-color: var(--bg-primary); }
 
-.priority-select:hover {
-    border-color: var(--text-secondary);
+/* Text Sizes */
+.phase-row .editable-text { font-size: 14px; }
+.task-row .editable-text { font-size: 14px; }
+.subtask-row .editable-text { font-size: 14px; }
+
+/* Upcoming Task Item Tweaks */
+.upcoming-task-item .text-secondary { font-weight: 700; }
+.upcoming-task-item .text-secondary span.tag-badge {
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 9px;
+    background-color: #f3e8ff;
+    color: #7e22ce;
+    border-color: #d8b4fe;
+}
+.upcoming-task-item .font-medium { flex-wrap: wrap; line-height: 1.6; }
+.upcoming-task-item .date-input-container {
+    width: 120px;
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+.upcoming-task-item .date-input {
+    width: 100%;
+    height: 32px;
+    padding-left: 8px;
+    padding-right: 32px;
+    font-size: 13px;
+    border-radius: 6px;
+    border: 1px solid var(--border-primary);
+}
+.upcoming-task-item .date-input-icon-wrapper {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+.upcoming-task-item .date-input-icon-wrapper:hover { opacity: 1; }
+.upcoming-task-item .tag-badge {
+    height: 22px;
+    line-height: 20px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 6px;
+    font-size: 11px;
+    border-radius: 4px;
+    vertical-align: middle;
+}
+.upcoming-task-item .date-input[value*="/"] { font-weight: 700; }
+.upcoming-task-item .tag-badge[class*="bg-purple"] {
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 10px;
+}
+.upcoming-task-item.no-nav { cursor: default; }
+.upcoming-task-item.no-nav:hover { background-color: transparent; }
+.upcoming-task-item.no-nav .group { cursor: pointer; }
+
+/* Date Range Pill */
+.date-range-pill {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 2px 8px;
+    height: 28px;
+    font-size: 0.75rem;
+    width: 210px; 
+    flex-shrink: 0;
+    border-radius: 9999px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background-color: transparent;
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+}
+.phase-row:hover .date-range-pill,
+.task-row:hover .date-range-pill,
+.subtask-row:hover .date-range-pill,
+.upcoming-task-item:hover .date-range-pill,
+.date-range-pill:hover,
+.date-range-pill.active {
+    background-color: var(--bg-primary);
+    border-color: var(--border-primary);
+    color: var(--text-primary);
+}
+.date-range-pill.active { border-color: var(--accent-primary); }
+.date-range-pill > div { text-align: right; width: 100%; padding-right: 4px; }
+.range-arrow { margin: 0 6px; color: var(--text-tertiary); font-weight: 700; }
+.range-icon {
+    width: 14px;
+    height: 14px;
+    color: var(--text-tertiary);
+    opacity: 0; 
+    transition: opacity 0.2s;
+    flex-shrink: 0;
+}
+.phase-row:hover .range-icon,
+.task-row:hover .range-icon,
+.subtask-row:hover .range-icon,
+.date-range-pill:hover .range-icon {
+    opacity: 1;
+}
+.date-range-pill.disabled { cursor: not-allowed; opacity: 0.6; }
+.date-range-pill.disabled:hover { background-color: transparent; border-color: transparent; }
+.date-content-grid {
+    display: grid;
+    grid-template-columns: 16px 1fr auto 1fr;
+    align-items: center;
+    width: 100%;
+    gap: 2px;
+}
+.date-content-grid .status-col {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-tertiary);
+}
+.date-content-grid .date-col { text-align: center; white-space: nowrap; }
+.date-content-grid .arrow-col { color: var(--text-tertiary); font-weight: 700; padding: 0 2px; }
+.date-content-grid .full-span-col { grid-column: 1 / -1; text-align: center; opacity: 0.5; }
+
+/* Follow Up Styles */
+.task-row.follow-up-active,
+.subtask-row.follow-up-active {
+    background-color: var(--hl-purple-bg);
+    border-left: 4px solid var(--hl-purple-text);
+}
+.dark .task-row.follow-up-active,
+.dark .subtask-row.follow-up-active {
+    background-color: #3b0764;
+    border-left: 4px solid #a855f7;
+    border-color: #581c87;
+}
+.task-row.follow-up-active .date-input,
+.subtask-row.follow-up-active .date-input {
+    background-color: var(--bg-primary);
+    border-color: var(--hl-purple-text);
+    color: var(--hl-purple-text);
+    font-weight: 700;
+}
+.dark .task-row.follow-up-active .date-input,
+.dark .subtask-row.follow-up-active .date-input {
+    background-color: #1e1b4b;
+    border-color: #6b21a8;
+    color: #e9d5ff;
 }
 
-.priority-select:focus {
-    outline: none;
-    border-color: var(--primary);
-    background-color: var(--bg-primary);
+/* Move to Project Button */
+.move-to-project-btn { color: var(--text-tertiary) !important; margin-right: 0 !important; }
+.move-to-project-btn:hover { color: var(--accent-primary) !important; }
+
+/* Print Styles */
+@media print {
+    @page { size: landscape; margin: 0.5in; }
+    body, html { background-color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    :root {
+        --bg-page: #ffffff !important;
+        --bg-primary: #ffffff !important;
+        --bg-secondary: #f1f5f9 !important;
+        --text-primary: #0f172a !important;
+        --text-secondary: #475569 !important;
+        --border-primary: #e2e8f0 !important;
+    }
+    body > *:not(#print-view) { display: none !important; }
+    #print-view { display: block !important; }
+    .print-project-container { width: 100%; height: 100%; display: flex; flex-direction: column; }
+    .print-header { margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid var(--border-primary); color: var(--text-primary); }
+    .print-header h1 { font-size: 1.5rem; font-weight: 700; }
+    .print-header h2 { font-size: 1rem; color: var(--text-secondary); }
+    .print-layout { display: grid; grid-template-columns: 35% 1fr; gap: 1.5rem; flex-grow: 1; overflow: hidden; }
+    .print-list-container { font-size: 10px; line-height: 1.4; color: var(--text-primary); height: 100%; }
+    .print-item-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .print-item.level-1 { font-weight: 700; font-size: 1.1em; margin-bottom: 8px; }
+    .print-item.level-2 { padding-left: 1rem; font-weight: 700; margin-top: 6px; }
+    .print-item.level-3 { padding-left: 2rem; }
+    .print-item.level-4 { padding-left: 3rem; font-style: italic; }
+    .print-chart-container .gantt-y-axis .domain, .print-chart-container .gantt-y-axis .tick line { stroke: none; }
+    .print-chart-container .gantt-y-axis .tick text { display: none; }
+    .print-chart-container .gantt-x-axis .domain, .print-chart-container .gantt-x-axis .tick line { stroke: #e2e8f0; }
+    .print-chart-container .gantt-x-axis .tick text { fill: var(--text-secondary); font-size: 8px; }
+    .print-chart-container .gantt-bar-bg { fill: #e2e8f0; stroke: #ccc; }
+    .print-chart-container .gantt-bar-progress { fill: #64748b; }
+    .print-chart-container .today-line { stroke: #3b82f6; stroke-width: 1; stroke-dasharray: 2,2; }
+    .print-chart-container .phase-divider-line { stroke: #cbd5e1; stroke-width: 1; stroke-dasharray: 2,2; }
+    .move-to-project-btn { display: none !important; }
 }
