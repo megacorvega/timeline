@@ -3019,47 +3019,48 @@ const timelineApp = {
         },
 
     showMainTab(tabName, save = true) {
-            if (save) {
-                this.activeTab = tabName;
-                localStorage.setItem('timelineActiveTab', tabName);
-            }
-            this.updateTabIndicator();
+        if (save) {
+            this.activeTab = tabName;
+            localStorage.setItem('timelineActiveTab', tabName);
+        }
+        this.updateTabIndicator();
 
-            // --- NEW: Toggle visibility of the Project View Switcher ---
-            if (tabName === 'projects') {
-                this.elements.projectViewControls.classList.remove('hidden');
-                // We must update the indicator after removing 'hidden' so dimensions are calculable
-                this.updateProjectViewIndicator(); 
-            } else {
-                this.elements.projectViewControls.classList.add('hidden');
-            }
-            // -----------------------------------------------------------
+        // --- NEW: Toggle visibility of the Project View Switcher ---
+        if (tabName === 'projects') {
+            this.elements.projectViewControls.classList.remove('hidden');
+            // We must update the indicator after removing 'hidden' so dimensions are calculable
+            this.updateProjectViewIndicator(); 
+        } else {
+            this.elements.projectViewControls.classList.add('hidden');
+        }
+        // -----------------------------------------------------------
 
-            ['projects', 'list', 'overall-load'].forEach(name => {
-                const panel = document.getElementById(`main-tab-panel-${name}`);
-                const btn = document.getElementById(`main-tab-btn-${name}`);
-                if (panel) panel.classList.add('hidden');
-                if (btn) btn.classList.remove('active');
+        ['projects', 'list', 'overall-load'].forEach(name => {
+            const panel = document.getElementById(`main-tab-panel-${name}`);
+            const btn = document.getElementById(`main-tab-btn-${name}`);
+            if (panel) panel.classList.add('hidden');
+            if (btn) btn.classList.remove('active');
+        });
+
+        const activePanel = document.getElementById(`main-tab-panel-${tabName}`);
+        const activeBtn = document.getElementById(`main-tab-btn-${tabName}`);
+        if (activePanel) activePanel.classList.remove('hidden');
+        if (activeBtn) activeBtn.classList.add('active');
+
+        // Conditional rendering
+        if (tabName === 'projects') {
+            this.projects.forEach(project => {
+                if (!project.collapsed && project.startDate && project.endDate) {
+                    this.drawChart(project);
+                }
             });
-
-            const activePanel = document.getElementById(`main-tab-panel-${tabName}`);
-            const activeBtn = document.getElementById(`main-tab-btn-${tabName}`);
-            if (activePanel) activePanel.classList.remove('hidden');
-            if (activeBtn) activeBtn.classList.add('active');
-
-            // Conditional rendering
-            if (tabName === 'projects') {
-                this.projects.forEach(project => {
-                    if (!project.collapsed && project.startDate && project.endDate) {
-                        this.drawChart(project);
-                    }
-                });
-            } else if (tabName === 'overall-load') {
-                this.drawOverallLoadChart();
-            } else if (tabName === 'list') {
-                if (window.punchListApp) punchListApp.init();
-            }
-        },
+        } else if (tabName === 'overall-load') {
+            // Updated to call the new dashboard renderer instead of the old chart
+            this.renderReviewDashboard();
+        } else if (tabName === 'list') {
+            if (window.punchListApp) punchListApp.init();
+        }
+    },
 
     setProjectView(mode) {
         this.projectViewMode = mode;
@@ -4250,8 +4251,181 @@ const timelineApp = {
             } else { // More than a year
                 return d3.timeFormat("%Y"); // e.g., 2025
             }
+        },
+
+// Add inside timelineApp object in app.js
+
+    renderReviewDashboard() {
+        this.calculateKPIs();
+        this.drawDriftChart();
+        this.drawContextChart();
+        this.generateStrategyInsights();
+    },
+
+    calculateKPIs() {
+        // 1. Active Projects
+        const activeProjects = this.projects.filter(p => p.overallProgress < 100);
+        document.getElementById('kpi-active-projects').textContent = activeProjects.length;
+
+        // 2. Slippage
+        let totalSlipDays = 0;
+        activeProjects.forEach(p => {
+            if (p.originalEndDate && p.endDate) {
+                const original = this.parseDate(p.originalEndDate);
+                const current = this.parseDate(p.endDate);
+                const diff = (current - original) / (1000 * 60 * 60 * 24);
+                if (diff > 0) totalSlipDays += diff;
+            }
+        });
+        document.getElementById('kpi-total-slippage').textContent = `${Math.round(totalSlipDays)} days`;
+
+        // 3. Completion Rate (Simple avg of progress)
+        const avgProgress = activeProjects.reduce((acc, p) => acc + (p.overallProgress || 0), 0) / (activeProjects.length || 1);
+        document.getElementById('kpi-completion-rate').textContent = `${Math.round(avgProgress)}%`;
+
+        // 4. Health Score (Arbitrary calculation)
+        // Start at 100. Deduct for slippage, deduct for overdue tasks.
+        let score = 100;
+        const today = new Date();
+        activeProjects.forEach(p => {
+            if (p.endDate && this.parseDate(p.endDate) < today) score -= 10; // Late project penalty
+            if (p.overallProgress < 50 && this.getDurationProgress(p.startDate, p.endDate) > 75) score -= 5; // Dragging penalty
+        });
+        document.getElementById('kpi-health-score').textContent = Math.max(0, score);
+    },
+
+    drawDriftChart() {
+        const container = d3.select("#drift-chart");
+        container.selectAll("*").remove();
+        
+        // Get Data: Projects with Original End Dates
+        const data = this.projects
+            .filter(p => p.originalEndDate && p.endDate && p.overallProgress < 100)
+            .map(p => {
+                const slip = (this.parseDate(p.endDate) - this.parseDate(p.originalEndDate)) / (1000 * 60 * 60 * 24);
+                return { name: p.name, slip: slip };
+            })
+            .sort((a, b) => b.slip - a.slip); // Sort by biggest slip
+
+        if (data.length === 0) {
+            container.html('<div class="flex items-center justify-center h-full text-secondary">No project history to analyze.</div>');
+            return;
         }
-    };
+
+        // D3 Setup
+        const width = container.node().getBoundingClientRect().width;
+        const height = container.node().getBoundingClientRect().height;
+        const margin = { top: 20, right: 30, bottom: 40, left: 100 };
+        
+        const svg = container.append("svg")
+            .attr("width", width)
+            .attr("height", height)
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        const x = d3.scaleLinear()
+            .domain([0, d3.max(data, d => Math.max(d.slip, 10))])
+            .range([0, width - margin.left - margin.right]);
+
+        const y = d3.scaleBand()
+            .range([0, height - margin.top - margin.bottom])
+            .domain(data.map(d => d.name))
+            .padding(0.2);
+
+        // Bars
+        svg.selectAll("rect")
+            .data(data)
+            .enter()
+            .append("rect")
+            .attr("x", x(0))
+            .attr("y", d => y(d.name))
+            .attr("width", d => x(Math.max(0, d.slip)))
+            .attr("height", y.bandwidth())
+            .attr("fill", d => d.slip > 0 ? "#ef4444" : "#22c55e")
+            .attr("rx", 4);
+
+        // Labels
+        svg.append("g")
+            .call(d3.axisLeft(y).tickSize(0))
+            .selectAll("text")
+            .style("font-family", "inherit");
+
+        // X Axis
+        svg.append("g")
+            .attr("transform", `translate(0,${height - margin.top - margin.bottom})`)
+            .call(d3.axisBottom(x).ticks(5));
+    },
+
+    drawContextChart() {
+        // Count active tasks per tag
+        const tagCounts = {};
+        this.projects.forEach(p => p.phases.forEach(ph => ph.tasks.forEach(t => {
+            if (!t.completed && t.tags) {
+                t.tags.forEach(tag => {
+                    tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+                });
+            }
+        })));
+
+        const data = Object.entries(tagCounts)
+            .map(([tag, count]) => ({ tag, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 8); // Top 8
+
+        // (Standard D3 Bar Chart logic similar to drawOverallLoadChart, but simpler)
+        // ... Implement D3 logic here using 'data' ...
+        const container = d3.select("#context-chart");
+        container.selectAll("*").remove();
+        // [Insert D3 Bar Chart Code Here]
+    },
+
+    generateStrategyInsights() {
+        const insights = [];
+        const today = new Date();
+
+        // 1. Identify "Zombie" Projects
+        this.projects.forEach(p => {
+            if(p.overallProgress < 100 && p.overallProgress > 0) {
+                // Check if active but no recent logs
+                const lastLog = p.logs && p.logs.length > 0 ? new Date(p.logs[p.logs.length-1].timestamp) : null;
+                if (lastLog) {
+                    const daysInactive = (today - lastLog) / (1000 * 60 * 60 * 24);
+                    if (daysInactive > 14) {
+                        insights.push(`<strong>${p.name}</strong> hasn't changed in ${Math.round(daysInactive)} days. Consider archiving or breaking down the next step.`);
+                    }
+                }
+            }
+        });
+
+        // 2. Identify Planning Fallacy
+        const heavySlippers = this.projects.filter(p => {
+            if (!p.originalEndDate || !p.endDate) return false;
+            const slip = (this.parseDate(p.endDate) - this.parseDate(p.originalEndDate));
+            return slip > (1000 * 60 * 60 * 24 * 14); // > 14 days slip
+        });
+        if (heavySlippers.length > 0) {
+            insights.push(`You have <strong>${heavySlippers.length} projects</strong> with >2 weeks slippage. Stop adding new tasks and focus on closing these.`);
+        }
+
+        // 3. Identify Overload (Due Today)
+        let dueSoon = 0;
+        this.projects.forEach(p => p.phases.forEach(ph => ph.tasks.forEach(t => {
+            if (!t.completed && t.effectiveEndDate) {
+                const d = this.parseDate(t.effectiveEndDate);
+                if (d <= today) dueSoon++;
+            }
+        })));
+        if (dueSoon > 5) {
+            insights.push(`Critical load: <strong>${dueSoon} tasks</strong> are due today/overdue. Use the Action Hub to reschedule non-critical items to next week.`);
+        }
+
+        // Render
+        const list = document.getElementById('strategy-console-list');
+        list.innerHTML = insights.length > 0 
+            ? insights.map(i => `<li class="flex gap-2 items-start"><span class="text-indigo-500 mt-1">●</span><span>${i}</span></li>`).join('') 
+            : '<li class="text-gray-400">System healthy. No urgent recommendations.</li>';
+    }
+};
 
 document.addEventListener('DOMContentLoaded', () => {
     timelineApp.init();

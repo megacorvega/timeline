@@ -325,9 +325,45 @@
         </div>
     
         <div id="main-tab-panel-overall-load" class="hidden">
-            <div class="chart-card p-3 rounded-xl shadow-md">
-                <div id="overall-load-chart" class="w-full h-96 relative"></div>
-                <div id="overall-load-legend" class="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs"></div>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="chart-card p-4 rounded-xl">
+                    <h3 class="text-xs font-bold text-secondary uppercase">Active Projects</h3>
+                    <p class="text-3xl font-bold mt-1" id="kpi-active-projects">-</p>
+                </div>
+                <div class="chart-card p-4 rounded-xl">
+                    <h3 class="text-xs font-bold text-secondary uppercase">Overall Health</h3>
+                    <p class="text-3xl font-bold mt-1" id="kpi-health-score">-</p>
+                </div>
+                <div class="chart-card p-4 rounded-xl">
+                    <h3 class="text-xs font-bold text-secondary uppercase">Total Slippage</h3>
+                    <p class="text-3xl font-bold mt-1 text-red-500" id="kpi-total-slippage">-</p>
+                </div>
+                <div class="chart-card p-4 rounded-xl">
+                    <h3 class="text-xs font-bold text-secondary uppercase">Completion Rate</h3>
+                    <p class="text-3xl font-bold mt-1 text-blue-500" id="kpi-completion-rate">-</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <div class="chart-card p-4 rounded-xl shadow-md flex flex-col">
+                    <h3 class="font-bold mb-4">Planning Reality Gap (Drift)</h3>
+                    <div id="drift-chart" class="flex-grow w-full h-64"></div>
+                    <p class="text-xs text-secondary mt-2">Days delayed from original deadline.</p>
+                </div>
+
+                <div class="chart-card p-4 rounded-xl shadow-md flex flex-col">
+                    <h3 class="font-bold mb-4">Context Bottlenecks</h3>
+                    <div id="context-chart" class="flex-grow w-full h-64"></div>
+                    <p class="text-xs text-secondary mt-2">Active tasks by tag context.</p>
+                </div>
+            </div>
+
+            <div class="chart-card p-5 rounded-xl shadow-md border-l-4 border-indigo-500">
+                <h3 class="font-bold text-lg mb-3 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                    Strategic Recommendations
+                </h3>
+                <ul id="strategy-console-list" class="space-y-2 text-sm"></ul>
             </div>
         </div>
         
