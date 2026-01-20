@@ -1959,3 +1959,28 @@ button:not(:disabled),
     border: 1px solid var(--border-primary);
     margin-bottom: 4px;
 }
+
+/* Priority Dropdown Styling */
+.priority-select {
+    background-color: color-mix(in srgb, var(--bg-primary) 50%, transparent);
+    color: var(--text-primary);
+    border: 1px solid var(--border-secondary);
+    border-radius: 4px;
+    padding: 2px 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    height: 24px;
+    margin-right: 8px;
+    transition: all 0.2s;
+}
+
+.priority-select:hover {
+    border-color: var(--text-secondary);
+}
+
+.priority-select:focus {
+    outline: none;
+    border-color: var(--primary);
+    background-color: var(--bg-primary);
+}

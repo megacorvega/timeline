@@ -488,22 +488,24 @@ const timelineApp = {
         }
         this.projects = loadedProjects;
 
-        // Load Standalone Tasks
         const savedStandalone = localStorage.getItem('projectStandaloneTasks');
         this.standaloneTasks = savedStandalone ? JSON.parse(savedStandalone) : [];
         
-        let hasMigrated = false; // Flag to track changes
+        let hasMigrated = false;
 
-        // --- MIGRATION & NORMALIZATION ---
         this.projects.forEach(project => {
             if (!project.originalStartDate) project.originalStartDate = project.startDate;
             if (!project.originalEndDate) project.originalEndDate = project.endDate;
             if (project.locked === undefined) project.locked = false;
             
-            // --- NEW: Initialize General Tasks Array ---
-            if (!project.generalTasks) project.generalTasks = [];
-            // -------------------------------------------
+            // --- NEW: Initialize Priority ---
+            if (project.priority === undefined) {
+                project.priority = 5; // Default to Middle Priority (1-10 scale)
+                hasMigrated = true;
+            }
+            // --------------------------------
 
+            if (!project.generalTasks) project.generalTasks = [];
             if (!project.phases) project.phases = [];
             if (project.zoomDomain === undefined) project.zoomDomain = null;
             
@@ -528,7 +530,6 @@ const timelineApp = {
                 });
             });
             
-            // Normalize General Tasks (if any existed from partial update or manual edit)
             project.generalTasks.forEach(task => {
                  if(this.migrateTagsForItem(task)) hasMigrated = true;
                  if(!task.dependencies) task.dependencies = [];
@@ -552,6 +553,20 @@ const timelineApp = {
             } catch (error) {
                 console.error("Error parsing deleted project logs from localStorage:", error);
                 this.deletedProjectLogs = [];
+            }
+        }
+    },
+
+    updateProjectPriority(projectId, newPriority) {
+        const project = this.projects.find(p => p.id === projectId);
+        if (project) {
+            project.priority = parseInt(newPriority);
+            this.saveState();
+            // Re-render both views to reflect sorting
+            if (!this.elements.timelineView.classList.contains('hidden')) {
+                this.renderGanttView();
+            } else {
+                this.renderLinearView();
             }
         }
     },
@@ -1059,20 +1074,38 @@ const timelineApp = {
     },
 
     renderGanttView() {
-        // [Existing filter logic...]
+        const container = this.elements.projectsContainer;
+        container.innerHTML = '';
+
+        if (this.projects.length === 0) {
+            container.innerHTML = `<div class="text-center text-gray-400 mt-10">No projects found. Click "Add Project" to start.</div>`;
+            return;
+        }
+
         let filteredProjects = [...this.projects];
         if (this.hideCompletedProjects) {
             filteredProjects = filteredProjects.filter(p => p.overallProgress < 100);
         }
 
+        // --- UPDATED SORT LOGIC ---
         const sortedProjects = filteredProjects.sort((a, b) => {
-            if (a.overallProgress >= 100 && b.overallProgress < 100) return 1;
-            if (a.overallProgress < 100 && b.overallProgress >= 100) return -1;
+            // 1. Completion Status (Completed items sink to bottom)
+            const aComplete = a.overallProgress >= 100;
+            const bComplete = b.overallProgress >= 100;
+            if (aComplete && !bComplete) return 1;
+            if (!aComplete && bComplete) return -1;
+            
+            // 2. Priority (Ascending: 1 is top, 10 is bottom)
+            const pA = a.priority !== undefined ? a.priority : 5;
+            const pB = b.priority !== undefined ? b.priority : 5;
+            if (pA !== pB) return pA - pB;
+
+            // 3. End Date (Earliest first)
             return this.sortByEndDate(a, b, 'endDate');
         });
+        // --------------------------
 
         sortedProjects.forEach((project) => {
-            // [Existing Project Card Creation logic...]
             const projectCard = document.createElement('div');
             projectCard.className = `project-card p-3 rounded-xl mb-4`;
             
@@ -1083,7 +1116,6 @@ const timelineApp = {
             const daysLeftInfo = this.getDaysLeft(project.endDate);
             const overallProgress = Math.round(project.overallProgress);
             
-            // [Existing Status Logic...]
             let progressColor = 'var(--green)';
             let statusText = '';
             let statusColorClass = '';
@@ -1135,10 +1167,8 @@ const timelineApp = {
             
             const commentDot = project.comments && project.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
 
-            // --- NEW: Generate General Bin HTML ---
             let generalBinHtml = '';
             if (project.generalTasks && project.generalTasks.length > 0) {
-                // We reuse renderTaskList but pass 'null' as phaseId
                 const taskListHtml = this.renderTaskList(project.id, null, project.generalTasks);
                 generalBinHtml = `
                     <div class="general-bin-container">
@@ -1152,7 +1182,19 @@ const timelineApp = {
                     </div>
                 `;
             }
-            // --------------------------------------
+
+            // --- GENERATE PRIORITY OPTIONS ---
+            const priorityVal = project.priority || 5;
+            let priorityOptions = '';
+            for(let i=1; i<=10; i++) {
+                priorityOptions += `<option value="${i}" ${i === priorityVal ? 'selected' : ''}>P${i}</option>`;
+            }
+            const prioritySelect = `
+                <select onchange="timelineApp.updateProjectPriority(${project.id}, this.value)" class="priority-select" title="Priority Order">
+                    ${priorityOptions}
+                </select>
+            `;
+            // ---------------------------------
 
             projectCard.innerHTML = `
                 <div class="flex justify-between items-center mb-3 project-header">
@@ -1167,6 +1209,8 @@ const timelineApp = {
                         ${daysLeftPillHTML}
                     </div>
                     <div class="flex items-center gap-2 text-sm text-secondary flex-shrink-0">
+                        ${prioritySelect}
+                        
                         <button onclick="timelineApp.generatePrintView(${project.id})" class="print-btn" title="Print Project">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clip-rule="evenodd" /></svg>
                         </button>
@@ -1223,7 +1267,7 @@ const timelineApp = {
         const container = this.elements.projectsContainer;
         let allItems = [];
         
-        // 1. Collect Standalone Tasks (Inbox items)
+        // 1. Collect Standalone Tasks
         if (this.standaloneTasks) {
             this.standaloneTasks.forEach(task => {
                 const displayDate = (task.isFollowUp && task.followUpDate) ? task.followUpDate : (task.endDate || task.followUpDate);
@@ -1244,18 +1288,14 @@ const timelineApp = {
             });
         }
 
-        // 2. Collect Project Tasks (Phases AND General)
+        // 2. Collect Project Tasks
         this.projects.forEach(project => {
-            
-            // A. Collect General Tasks (No Phase)
             if (project.generalTasks) {
                 project.generalTasks.forEach(task => {
-                    // EXPLICITLY capture project ID here
-                    const currentProjectId = project.id; 
-                    
+                    const currentProjectId = project.id;
                     const itemBase = {
                         path: `${project.name} > General`,
-                        projectId: currentProjectId, // Ensure this is not null
+                        projectId: currentProjectId,
                         phaseId: null, 
                         taskId: task.id
                     };
@@ -1294,7 +1334,6 @@ const timelineApp = {
                 });
             }
 
-            // B. Collect Phase Tasks
             project.phases.forEach(phase => {
                 phase.tasks.forEach(task => {
                     const itemBase = {
@@ -1341,7 +1380,6 @@ const timelineApp = {
         if (this.hideCompletedTasks) allItems = allItems.filter(i => !i.completed);
         if (this.tagFilter !== 'all') allItems = allItems.filter(i => i.tags?.includes(this.tagFilter));
 
-        // Sorting helper
         const sortByDate = (a, b) => {
             if (!a.rawDate && !b.rawDate) return 0;
             if (!a.rawDate) return 1;
@@ -1349,98 +1387,71 @@ const timelineApp = {
             return a.rawDate - b.rawDate;
         };
 
-        // Render Helper
-        const renderGroup = (title, items, headerClass) => {
+        // --- UPDATED Render Group Helper with Optional Project ID for Header ---
+        const renderGroup = (title, items, headerClass, projectId = null, currentPriority = null) => {
             if (items.length === 0) return '';
+            
+            // Generate Priority Select if Project ID is present
+            let prioritySelectHtml = '';
+            if (projectId !== null) {
+                let options = '';
+                const val = currentPriority || 5;
+                for(let i=1; i<=10; i++) {
+                    options += `<option value="${i}" ${i === val ? 'selected' : ''}>P${i}</option>`;
+                }
+                prioritySelectHtml = `<select onchange="timelineApp.updateProjectPriority(${projectId}, this.value)" onclick="event.stopPropagation()" class="priority-select ml-auto" title="Priority">${options}</select>`;
+            }
+
             let groupHtml = `<div class="upcoming-card rounded-xl shadow-md mb-4">
-                <div class="p-3 border-b border-primary rounded-t-xl ${headerClass}">
+                <div class="p-3 border-b border-primary rounded-t-xl ${headerClass} flex items-center justify-between">
                     <h3 class="font-bold flex items-center gap-2">${title} 
                         <span class="text-xs font-normal opacity-75 bg-white bg-opacity-20 px-2 py-0.5 rounded-full">${items.length}</span>
                     </h3>
+                    ${prioritySelectHtml}
                 </div>
                 <div class="p-1 space-y-1">`;
             
             items.forEach(item => {
                 const tagsHtml = (item.tags || []).map(tag => {
                     const colorClass = this.getTagColor(tag);
-                    return `
-                    <span class="tag-badge ${colorClass} border-transparent">${tag}
-                        <span onclick="event.stopPropagation(); timelineApp.removeTag(${item.projectId}, ${item.phaseId || 'null'}, ${item.taskId}, ${item.subtaskId || 'null'}, '${tag}')" class="tag-remove opacity-50 hover:opacity-100 ml-1">&times;</span>
-                    </span>`;
+                    return `<span class="tag-badge ${colorClass} border-transparent">${tag}<span onclick="event.stopPropagation(); timelineApp.removeTag(${item.projectId}, ${item.phaseId || 'null'}, ${item.taskId}, ${item.subtaskId || 'null'}, '${tag}')" class="tag-remove opacity-50 hover:opacity-100 ml-1">&times;</span></span>`;
                 }).join('');
                 
-                const delegationHtml = item.delegatedTo ? 
-                    `<span class="tag-badge bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border-indigo-200" title="Waiting for ${item.delegatedTo}">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-                        ${item.delegatedTo}
-                    </span>` : '';
+                const delegationHtml = item.delegatedTo ? `<span class="tag-badge bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border-indigo-200"><svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>${item.delegatedTo}</span>` : '';
                 
-                const iconHtml = `<div class="date-input-icon-wrapper" onclick="event.stopPropagation(); timelineApp.handleDateTrigger(this.previousElementSibling)">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                </div>`;
+                const iconHtml = `<div class="date-input-icon-wrapper" onclick="event.stopPropagation(); timelineApp.handleDateTrigger(this.previousElementSibling)"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>`;
 
-                const dateType = item.isFollowUp ? 
-                    (item.subtaskId ? 'subtask-followup' : 'task-followup') : 
-                    (item.subtaskId ? 'subtask-end' : 'task-end');
-
+                const dateType = item.isFollowUp ? (item.subtaskId ? 'subtask-followup' : 'task-followup') : (item.subtaskId ? 'subtask-end' : 'task-end');
                 const dateInputColorClass = item.isFollowUp ? 'text-purple-700 dark:text-purple-300 font-bold' : '';
-
                 const pId = item.projectId === null ? 'null' : item.projectId;
                 const phId = item.phaseId === null ? 'null' : item.phaseId;
                 const tId = item.taskId;
                 const sId = item.subtaskId || 'null';
                 
-                const deleteCall = item.subtaskId 
-                    ? `timelineApp.deleteSubtask(${pId}, ${phId}, ${tId}, ${sId})`
-                    : `timelineApp.deleteTask(${pId}, ${phId}, ${tId})`;
-                
+                const deleteCall = item.subtaskId ? `timelineApp.deleteSubtask(${pId}, ${phId}, ${tId}, ${sId})` : `timelineApp.deleteTask(${pId}, ${phId}, ${tId})`;
                 const processCall = `timelineApp.handleProcessItem(${pId}, ${phId}, ${tId}, ${sId})`;
                 const uniqueId = item.subtaskId || item.taskId;
                 
-                // --- ADDED TAG MENU LOGIC ---
-                const tagMenuHtml = `
-                    <div class="relative inline-block ml-1">
-                        <button onclick="event.stopPropagation(); timelineApp.toggleTagMenu(event, ${pId}, ${phId}, ${tId}, ${sId})" class="add-tag-btn" title="Add Tag">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
-                            <span class="ml-0.5 text-[10px]">+</span>
-                        </button>
-                        <div id="tag-menu-${uniqueId}" class="tag-menu-dropdown hidden" onclick="event.stopPropagation()">
-                            <div class="tag-menu-header">
-                                <span class="text-xs font-bold text-secondary">Tags</span>
-                                <button onclick="timelineApp.toggleTagMenu(event, ${pId}, ${phId}, ${tId}, ${sId})" class="text-gray-400 hover:text-red-500 font-bold">&times;</button>
-                            </div>
-                            <input type="text" id="tag-input-${uniqueId}" class="tag-menu-input" placeholder="Search or create..." 
-                                onkeyup="timelineApp.handleTagInput(event, ${pId}, ${phId}, ${tId}, ${sId})">
-                            <div id="tag-options-${uniqueId}" class="tag-menu-options"></div>
-                        </div>
-                    </div>
-                `;
+                const tagMenuHtml = `<div class="relative inline-block ml-1"><button onclick="event.stopPropagation(); timelineApp.toggleTagMenu(event, ${pId}, ${phId}, ${tId}, ${sId})" class="add-tag-btn" title="Add Tag"><svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg><span class="ml-0.5 text-[10px]">+</span></button><div id="tag-menu-${uniqueId}" class="tag-menu-dropdown hidden" onclick="event.stopPropagation()"><div class="tag-menu-header"><span class="text-xs font-bold text-secondary">Tags</span><button onclick="timelineApp.toggleTagMenu(event, ${pId}, ${phId}, ${tId}, ${sId})" class="text-gray-400 hover:text-red-500 font-bold">&times;</button></div><input type="text" id="tag-input-${uniqueId}" class="tag-menu-input" placeholder="Search or create..." onkeyup="timelineApp.handleTagInput(event, ${pId}, ${phId}, ${tId}, ${sId})"><div id="tag-options-${uniqueId}" class="tag-menu-options"></div></div></div>`;
 
                 const itemBgClass = item.isGeneral ? 'border-l-4 border-l-gray-300 dark:border-l-gray-600 pl-2' : '';
 
                 groupHtml += `
                 <div class="upcoming-task-item flex items-center p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${item.completed ? 'line-through opacity-60' : ''} ${item.isStandalone ? 'no-nav' : 'cursor-pointer'} ${itemBgClass}" 
                     onclick="${item.isStandalone ? '' : `timelineApp.navigateToTask(${item.projectId}, ${item.phaseId || 'null'}, ${item.taskId}, ${item.subtaskId || 'null'})`}">
-                    
                     <div class="flex-shrink-0 mr-3 cursor-pointer group" onclick="event.stopPropagation(); timelineApp.toggleItemComplete(event, ${item.projectId}, ${item.phaseId || 'null'}, ${item.taskId}, ${item.subtaskId || 'null'})">
                         ${item.completed 
                             ? `<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>` 
                             : `<div class="w-5 h-5 rounded-full border-2 border-gray-300 group-hover:border-green-500"></div>`
                         }
                     </div>
-
                     <div class="flex-grow min-w-0">
                         <div class="text-[10px] text-secondary truncate w-2/3">${item.path}</div>
                         <div class="flex items-center gap-1 flex-wrap pt-0.5">
                             <span class="font-medium truncate text-sm editable-text mr-1" onclick="event.stopPropagation(); timelineApp.makeEditable(this, '${item.subtaskId ? 'updateSubtaskName' : 'updateTaskName'}', ${item.projectId}, ${item.phaseId || 'null'}, ${item.taskId}, ${item.subtaskId || ''})">${item.name}</span>
-                            <div class="flex-shrink-0 flex items-center flex-wrap">
-                                ${delegationHtml} ${tagsHtml} ${tagMenuHtml}
-                            </div>
+                            <div class="flex-shrink-0 flex items-center flex-wrap">${delegationHtml} ${tagsHtml} ${tagMenuHtml}</div>
                         </div>
                     </div>
-
                     <div class="flex-shrink-0 ml-2" onclick="event.stopPropagation()">
                         <div class="date-input-container">
                             <input type="text" value="${item.date ? this.formatDate(this.parseDate(item.date)) : ''}" placeholder="End Date" class="date-input ${dateInputColorClass}" 
@@ -1450,11 +1461,7 @@ const timelineApp = {
                             ${iconHtml}
                         </div>
                     </div>
-
-                    <button onclick="event.stopPropagation(); ${processCall}" class="text-gray-400 hover:text-blue-500 transition-colors ml-2 flex-shrink-0" title="Process / Move">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                    </button>
-                    
+                    <button onclick="event.stopPropagation(); ${processCall}" class="text-gray-400 hover:text-blue-500 transition-colors ml-2 flex-shrink-0" title="Process"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg></button>
                     <button onclick="event.stopPropagation(); ${deleteCall}" class="text-gray-400 hover:text-red-500 transition-colors text-lg font-bold ml-2 flex-shrink-0" title="Delete">&times;</button>
                 </div>`;
             });
@@ -1474,14 +1481,12 @@ const timelineApp = {
                             ${tagOptions}
                         </select>
                     </div>
-                    
                     <div class="flex bg-gray-100 dark:bg-slate-700/50 p-1 rounded-lg border border-gray-200 dark:border-gray-600">
                         <button onclick="timelineApp.setActionHubGroupMode('time')" class="px-3 py-1 text-xs font-bold rounded-md transition-all ${this.actionHubGroupMode === 'time' ? 'bg-white dark:bg-slate-600 shadow-sm text-primary' : 'text-secondary hover:text-primary'}">Time</button>
                         <button onclick="timelineApp.setActionHubGroupMode('context')" class="px-3 py-1 text-xs font-bold rounded-md transition-all ${this.actionHubGroupMode === 'context' ? 'bg-white dark:bg-slate-600 shadow-sm text-primary' : 'text-secondary hover:text-primary'}">Context</button>
                         <button onclick="timelineApp.setActionHubGroupMode('project')" class="px-3 py-1 text-xs font-bold rounded-md transition-all ${this.actionHubGroupMode === 'project' ? 'bg-white dark:bg-slate-600 shadow-sm text-primary' : 'text-secondary hover:text-primary'}">Project</button>
                     </div>
                 </div>
-
                 <label class="flex items-center text-xs font-semibold text-secondary cursor-pointer select-none">
                     <input type="checkbox" class="custom-checkbox mr-2" ${this.hideCompletedTasks ? 'checked' : ''} onchange="timelineApp.toggleHideCompleted()">
                     Hide Completed Tasks
@@ -1491,53 +1496,46 @@ const timelineApp = {
         let contentHtml = '';
 
         if (this.actionHubGroupMode === 'project') {
-            // FIX: Ensure Standalone only catches items where projectId is null or undefined
             const standaloneItems = allItems.filter(i => i.projectId === null || i.projectId === undefined).sort(sortByDate);
             if (standaloneItems.length > 0) {
                 contentHtml += renderGroup("Standalone", standaloneItems, "bg-gray-200 dark:bg-slate-700 text-secondary");
             }
-            this.projects.forEach(p => {
+            // --- NEW: Sort Projects by Priority before Rendering Groups ---
+            const sortedProjects = [...this.projects].sort((a,b) => {
+                 const pA = a.priority !== undefined ? a.priority : 5;
+                 const pB = b.priority !== undefined ? b.priority : 5;
+                 if (pA !== pB) return pA - pB;
+                 return 0; // Secondary sort handled by item sort
+            });
+            // -------------------------------------------------------------
+
+            sortedProjects.forEach(p => {
                  const pItems = allItems.filter(i => i.projectId === p.id).sort((a,b) => {
-                     // Sort General items to the top
                      if (a.isGeneral && !b.isGeneral) return -1;
                      if (!a.isGeneral && b.isGeneral) return 1;
                      return sortByDate(a,b);
                  });
                  if (pItems.length > 0) {
-                     contentHtml += renderGroup(p.name, pItems, "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-900 dark:text-indigo-200 border-indigo-100");
+                     // Pass Project ID and Priority to enable dropdown
+                     contentHtml += renderGroup(p.name, pItems, "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-900 dark:text-indigo-200 border-indigo-100", p.id, p.priority);
                  }
             });
             
         } else if (this.actionHubGroupMode === 'context') {
             const contextBuckets = {};
             const noContextBucket = [];
-
             allItems.forEach(item => {
                 const itemTags = item.tags || [];
                 const relevantTags = itemTags.filter(t => t.startsWith('@') || t.startsWith('#'));
-
-                if (relevantTags.length === 0) {
-                    noContextBucket.push(item);
-                } else {
-                    relevantTags.forEach(tag => {
-                        if (!contextBuckets[tag]) contextBuckets[tag] = [];
-                        contextBuckets[tag].push(item);
-                    });
-                }
+                if (relevantTags.length === 0) { noContextBucket.push(item); } 
+                else { relevantTags.forEach(tag => { if (!contextBuckets[tag]) contextBuckets[tag] = []; contextBuckets[tag].push(item); }); }
             });
-
-            if (noContextBucket.length > 0) {
-                contentHtml += renderGroup("Clarify (No Context)", noContextBucket, "bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-100 border-amber-200");
-            }
-
-            Object.keys(contextBuckets).sort().forEach(tag => {
-                contentHtml += renderGroup(tag, contextBuckets[tag], "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200");
-            });
+            if (noContextBucket.length > 0) contentHtml += renderGroup("Clarify (No Context)", noContextBucket, "bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-100 border-amber-200");
+            Object.keys(contextBuckets).sort().forEach(tag => contentHtml += renderGroup(tag, contextBuckets[tag], "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200"));
 
         } else {
             const today = new Date(); today.setHours(0,0,0,0);
             const buckets = { waitingFor: [], doNow: [], upcoming: [], backlog: [] };
-
             allItems.forEach(item => {
                 if (item.isFollowUp || item.delegatedTo) { buckets.waitingFor.push(item); return; }
                 if (!item.rawDate) { buckets.backlog.push(item); return; }
@@ -1545,21 +1543,16 @@ const timelineApp = {
                 if (diffDays <= 0) buckets.doNow.push(item); 
                 else buckets.upcoming.push(item);
             });
-
             buckets.waitingFor.sort(sortByDate);
             buckets.doNow.sort(sortByDate);
             buckets.upcoming.sort(sortByDate);
-
             contentHtml += renderGroup("Do Now", buckets.doNow, "bg-blue-100 dark:bg-blue-900/40 text-blue-900 dark:text-blue-100 border-blue-200") +
                            renderGroup("Upcoming", buckets.upcoming, "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200") +
                            renderGroup("Waiting For", buckets.waitingFor, "bg-purple-100 dark:bg-purple-900/40 text-purple-900 dark:text-purple-100 border-purple-200") +
                            renderGroup("Backlog", buckets.backlog, "bg-gray-200 dark:bg-slate-700/50 text-gray-600 dark:text-gray-400");
         }
         
-        if (contentHtml === '') {
-             contentHtml = `<div class="upcoming-card p-4 rounded-xl shadow-md text-center text-secondary">No visible tasks found.</div>`;
-        }
-
+        if (contentHtml === '') contentHtml = `<div class="upcoming-card p-4 rounded-xl shadow-md text-center text-secondary">No visible tasks found.</div>`;
         container.innerHTML = toolbarHtml + contentHtml;
     },
 
