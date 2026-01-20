@@ -499,6 +499,11 @@ const timelineApp = {
             if (!project.originalStartDate) project.originalStartDate = project.startDate;
             if (!project.originalEndDate) project.originalEndDate = project.endDate;
             if (project.locked === undefined) project.locked = false;
+            
+            // --- NEW: Initialize General Tasks Array ---
+            if (!project.generalTasks) project.generalTasks = [];
+            // -------------------------------------------
+
             if (!project.phases) project.phases = [];
             if (project.zoomDomain === undefined) project.zoomDomain = null;
             
@@ -509,26 +514,33 @@ const timelineApp = {
                 if(!phase.dependents) phase.dependents = [];
                 
                 phase.tasks.forEach(task => {
-                    if(this.migrateTagsForItem(task)) hasMigrated = true; // Check migration
+                    if(this.migrateTagsForItem(task)) hasMigrated = true;
                     if(task.collapsed === undefined) task.collapsed = false;
                     if(!task.dependencies) task.dependencies = [];
                     if(!task.dependents) task.dependents = [];
                     if(task.subtasks) {
                         task.subtasks.forEach(subtask => {
-                            if(this.migrateTagsForItem(subtask)) hasMigrated = true; // Check migration
+                            if(this.migrateTagsForItem(subtask)) hasMigrated = true;
                             if(!subtask.dependencies) subtask.dependencies = [];
                             if(!subtask.dependents) subtask.dependents = [];
                         });
                     }
                 });
             });
+            
+            // Normalize General Tasks (if any existed from partial update or manual edit)
+            project.generalTasks.forEach(task => {
+                 if(this.migrateTagsForItem(task)) hasMigrated = true;
+                 if(!task.dependencies) task.dependencies = [];
+                 if(!task.dependents) task.dependents = [];
+            });
+
             if (!project.logs) project.logs = [];
             if (project.collapsed === undefined) project.collapsed = false;
             if (typeof project.startDate !== 'string' || project.startDate.trim() === '') project.startDate = null;
             if (typeof project.endDate !== 'string' || project.endDate.trim() === '') project.endDate = null;
         });
         
-        // Save cleaned names immediately so they don't reappear
         if(hasMigrated) {
             this.saveState();
         }
@@ -1047,7 +1059,7 @@ const timelineApp = {
     },
 
     renderGanttView() {
-        // Filter projects based on completion if toggle is active
+        // [Existing filter logic...]
         let filteredProjects = [...this.projects];
         if (this.hideCompletedProjects) {
             filteredProjects = filteredProjects.filter(p => p.overallProgress < 100);
@@ -1060,6 +1072,7 @@ const timelineApp = {
         });
 
         sortedProjects.forEach((project) => {
+            // [Existing Project Card Creation logic...]
             const projectCard = document.createElement('div');
             projectCard.className = `project-card p-3 rounded-xl mb-4`;
             
@@ -1069,7 +1082,8 @@ const timelineApp = {
             const durationProgress = this.getDurationProgress(project.startDate, project.endDate);
             const daysLeftInfo = this.getDaysLeft(project.endDate);
             const overallProgress = Math.round(project.overallProgress);
-
+            
+            // [Existing Status Logic...]
             let progressColor = 'var(--green)';
             let statusText = '';
             let statusColorClass = '';
@@ -1091,7 +1105,7 @@ const timelineApp = {
                 statusText = 'On Track';
                 statusColorClass = 'status-on-track';
             }
-            
+
             const tooltipText = `
                 <div class="tooltip-grid">
                     <span>Status:</span><span class="status-pill ${statusColorClass}">${statusText}</span>
@@ -1111,7 +1125,6 @@ const timelineApp = {
                 </div>
             `;
 
-            // FIX: Removed the overdue bubble if the project is complete
             const daysLeftPillHTML = (isComplete || !daysLeftInfo.text || daysLeftInfo.text === '-') 
                 ? '' 
                 : `<div class="days-left-pill ${daysLeftInfo.className}" title="${daysLeftInfo.tooltip}">${daysLeftInfo.text}</div>`;
@@ -1121,6 +1134,25 @@ const timelineApp = {
                 : `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h5V3a3 3 0 0 1 6 0v4a.5.5 0 0 1-1 0V3a2 2 0 0 0-2-2z"/></svg>`;
             
             const commentDot = project.comments && project.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
+
+            // --- NEW: Generate General Bin HTML ---
+            let generalBinHtml = '';
+            if (project.generalTasks && project.generalTasks.length > 0) {
+                // We reuse renderTaskList but pass 'null' as phaseId
+                const taskListHtml = this.renderTaskList(project.id, null, project.generalTasks);
+                generalBinHtml = `
+                    <div class="general-bin-container">
+                        <div class="general-bin-header">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
+                            <span>General / Inbox (${project.generalTasks.length})</span>
+                        </div>
+                        <div class="space-y-1">
+                            ${taskListHtml}
+                        </div>
+                    </div>
+                `;
+            }
+            // --------------------------------------
 
             projectCard.innerHTML = `
                 <div class="flex justify-between items-center mb-3 project-header">
@@ -1161,6 +1193,9 @@ const timelineApp = {
                         <button onclick="timelineApp.resetZoom(${project.id})" class="reset-zoom-btn btn-secondary px-2 py-1 text-xs font-semibold rounded-md ${!project.zoomDomain ? 'hidden' : ''}">Reset Zoom</button>
                         <div id="chart-${project.id}" class="w-full h-48 mb-3 relative"></div>
                     </div>
+                    
+                    ${generalBinHtml}
+                    
                     <div id="phases-${project.id}" class="space-y-1"></div>
                     <div class="mt-3">
                         <button onclick="timelineApp.toggleLog(${project.id})" class="text-xs font-semibold text-tertiary hover-text-primary flex items-center gap-1">
@@ -1187,8 +1222,7 @@ const timelineApp = {
     renderLinearView() {
         const container = this.elements.projectsContainer;
         let allItems = [];
-        const allTags = new Set(this.getAllTags());
-
+        
         // 1. Collect Standalone Tasks (Inbox items)
         if (this.standaloneTasks) {
             this.standaloneTasks.forEach(task => {
@@ -1208,8 +1242,52 @@ const timelineApp = {
             });
         }
 
-        // 2. Collect Project Tasks
+        // 2. Collect Project Tasks (Phases AND General)
         this.projects.forEach(project => {
+            
+            // A. Collect General Tasks (No Phase)
+            if (project.generalTasks) {
+                project.generalTasks.forEach(task => {
+                    const itemBase = {
+                        path: `${project.name} > General`, // Distinct Path
+                        projectId: project.id, phaseId: null, taskId: task.id // Phase ID is null
+                    };
+                    
+                    if (task.subtasks?.length > 0) {
+                        task.subtasks.forEach(st => {
+                            const displayDate = (st.isFollowUp && st.followUpDate) ? st.followUpDate : st.endDate;
+                            allItems.push({
+                                ...itemBase,
+                                name: `${task.name}: ${st.name}`,
+                                subtaskId: st.id,
+                                date: displayDate,
+                                rawDate: displayDate ? this.parseDate(displayDate) : null,
+                                completed: st.completed,
+                                tags: st.tags || [],
+                                isFollowUp: st.isFollowUp,
+                                delegatedTo: st.delegatedTo,
+                                isGeneral: true // Flag for sorting
+                            });
+                        });
+                    } else {
+                        const displayDate = (task.isFollowUp && task.followUpDate) ? task.followUpDate : (task.effectiveEndDate || task.endDate);
+                        allItems.push({
+                            ...itemBase,
+                            subtaskId: null,
+                            name: task.name,
+                            date: displayDate,
+                            rawDate: displayDate ? this.parseDate(displayDate) : null,
+                            completed: task.completed,
+                            tags: task.tags || [],
+                            isFollowUp: task.isFollowUp,
+                            delegatedTo: task.delegatedTo,
+                            isGeneral: true // Flag for sorting
+                        });
+                    }
+                });
+            }
+
+            // B. Collect Phase Tasks
             project.phases.forEach(phase => {
                 phase.tasks.forEach(task => {
                     const itemBase = {
@@ -1262,7 +1340,7 @@ const timelineApp = {
             return a.rawDate - b.rawDate;
         };
 
-        // Render Helper
+        // Render Helper (Same as before, abbreviated here)
         const renderGroup = (title, items, headerClass) => {
             if (items.length === 0) return '';
             let groupHtml = `<div class="upcoming-card rounded-xl shadow-md mb-4">
@@ -1274,11 +1352,15 @@ const timelineApp = {
                 <div class="p-1 space-y-1">`;
             
             items.forEach(item => {
+                // ... [Existing render logic for tags, icons, date inputs] ...
+                // Note: Ensure item.phaseId (which might be null) handles correctly in onclicks.
+                // The template literals below handle null via `|| 'null'` which matches our new getItem logic.
+
                 const tagsHtml = (item.tags || []).map(tag => {
                     const colorClass = this.getTagColor(tag);
                     return `
                     <span class="tag-badge ${colorClass} border-transparent">${tag}
-                        <span onclick="event.stopPropagation(); timelineApp.removeTag(${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'}, '${tag}')" class="tag-remove opacity-50 hover:opacity-100 ml-1">&times;</span>
+                        <span onclick="event.stopPropagation(); timelineApp.removeTag(${item.projectId}, ${item.phaseId || 'null'}, ${item.taskId}, ${item.subtaskId || 'null'}, '${tag}')" class="tag-remove opacity-50 hover:opacity-100 ml-1">&times;</span>
                     </span>`;
                 }).join('');
                 
@@ -1310,7 +1392,6 @@ const timelineApp = {
                     ? `timelineApp.deleteSubtask(${pId}, ${phId}, ${tId}, ${sId})`
                     : `timelineApp.deleteTask(${pId}, ${phId}, ${tId})`;
                 
-                // Process Button Call
                 const processCall = `timelineApp.handleProcessItem(${pId}, ${phId}, ${tId}, ${sId})`;
 
                 const uniqueId = item.subtaskId || item.taskId;
@@ -1331,12 +1412,15 @@ const timelineApp = {
                         </div>
                     </div>
                 `;
+                
+                // Add distinct styling for General Items if desired
+                const itemBgClass = item.isGeneral ? 'border-l-4 border-l-gray-300 dark:border-l-gray-600 pl-2' : '';
 
                 groupHtml += `
-                <div class="upcoming-task-item flex items-center p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${item.completed ? 'line-through opacity-60' : ''} ${item.isStandalone ? 'no-nav' : 'cursor-pointer'}" 
-                    onclick="${item.isStandalone ? '' : `timelineApp.navigateToTask(${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'})`}">
+                <div class="upcoming-task-item flex items-center p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${item.completed ? 'line-through opacity-60' : ''} ${item.isStandalone ? 'no-nav' : 'cursor-pointer'} ${itemBgClass}" 
+                    onclick="${item.isStandalone ? '' : `timelineApp.navigateToTask(${item.projectId}, ${item.phaseId || 'null'}, ${item.taskId}, ${item.subtaskId || 'null'})`}">
                     
-                    <div class="flex-shrink-0 mr-3 cursor-pointer group" onclick="event.stopPropagation(); timelineApp.toggleItemComplete(event, ${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || 'null'})">
+                    <div class="flex-shrink-0 mr-3 cursor-pointer group" onclick="event.stopPropagation(); timelineApp.toggleItemComplete(event, ${item.projectId}, ${item.phaseId || 'null'}, ${item.taskId}, ${item.subtaskId || 'null'})">
                         ${item.completed 
                             ? `<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>` 
                             : `<div class="w-5 h-5 rounded-full border-2 border-gray-300 group-hover:border-green-500"></div>`
@@ -1346,7 +1430,7 @@ const timelineApp = {
                     <div class="flex-grow min-w-0">
                         <div class="text-[10px] text-secondary truncate w-2/3">${item.path}</div>
                         <div class="flex items-center gap-1 flex-wrap pt-0.5">
-                            <span class="font-medium truncate text-sm editable-text mr-1" onclick="event.stopPropagation(); timelineApp.makeEditable(this, '${item.subtaskId ? 'updateSubtaskName' : 'updateTaskName'}', ${item.projectId}, ${item.phaseId}, ${item.taskId}, ${item.subtaskId || ''})">${item.name}</span>
+                            <span class="font-medium truncate text-sm editable-text mr-1" onclick="event.stopPropagation(); timelineApp.makeEditable(this, '${item.subtaskId ? 'updateSubtaskName' : 'updateTaskName'}', ${item.projectId}, ${item.phaseId || 'null'}, ${item.taskId}, ${item.subtaskId || ''})">${item.name}</span>
                             <div class="flex-shrink-0 flex items-center flex-wrap">
                                 ${delegationHtml} ${tagsHtml} ${tagMenuHtml}
                             </div>
@@ -1356,7 +1440,7 @@ const timelineApp = {
                     <div class="flex-shrink-0 ml-2" onclick="event.stopPropagation()">
                         <div class="date-input-container">
                             <input type="text" value="${item.date ? this.formatDate(this.parseDate(item.date)) : ''}" placeholder="End Date" class="date-input ${dateInputColorClass}" 
-                                data-project-id="${item.projectId}" data-phase-id="${item.phaseId}" data-task-id="${item.taskId}" data-subtask-id="${item.subtaskId || 'null'}"
+                                data-project-id="${item.projectId}" data-phase-id="${item.phaseId || 'null'}" data-task-id="${item.taskId}" data-subtask-id="${item.subtaskId || 'null'}"
                                 data-type="${dateType}" data-date="${item.date || ''}" 
                                 oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
                             ${iconHtml}
@@ -1373,7 +1457,9 @@ const timelineApp = {
             return groupHtml + `</div></div>`;
         };
 
-        const sortedTags = Array.from(allTags).sort();
+        // [Existing Toolbar/Filter Logic...]
+        // Same as original renderLinearView...
+        const sortedTags = Array.from(new Set(this.getAllTags())).sort(); // Shortened
         const tagOptions = sortedTags.map(tag => `<option value="${tag}" ${this.tagFilter === tag ? 'selected' : ''}>${tag}</option>`).join('');
 
         const toolbarHtml = `
@@ -1408,7 +1494,12 @@ const timelineApp = {
                 contentHtml += renderGroup("Standalone", standaloneItems, "bg-gray-200 dark:bg-slate-700 text-secondary");
             }
             this.projects.forEach(p => {
-                 const pItems = allItems.filter(i => i.projectId === p.id).sort(sortByDate);
+                 const pItems = allItems.filter(i => i.projectId === p.id).sort((a,b) => {
+                     // Sort General items to the top
+                     if (a.isGeneral && !b.isGeneral) return -1;
+                     if (!a.isGeneral && b.isGeneral) return 1;
+                     return sortByDate(a,b);
+                 });
                  if (pItems.length > 0) {
                      contentHtml += renderGroup(p.name, pItems, "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-900 dark:text-indigo-200 border-indigo-100");
                  }
@@ -2849,19 +2940,35 @@ const timelineApp = {
         let itemName;
         let deleteFn;
 
-        // Check if it's a standalone task
-        if (projectId === null || projectId === 'null') {
+        const pId = (projectId === 'null' || projectId === null) ? null : parseInt(projectId);
+        const phId = (phaseId === 'null' || phaseId === null) ? null : parseInt(phaseId);
+
+        // 1. Standalone Task
+        if (pId === null) {
             item = this.standaloneTasks.find(t => t.id === taskId);
             if (!item) return;
             itemName = `Standalone Task '${item.name}'`;
             deleteFn = () => { this.standaloneTasks = this.standaloneTasks.filter(t => t.id !== taskId); };
-        } else {
-            const project = this.projects.find(p => p.id === projectId);
-            const phase = project?.phases.find(ph => ph.id === phaseId);
-            item = phase?.tasks.find(t => t.id === taskId);
-            if (!item) return;
-            itemName = `Task '${item.name}' from phase '${phase.name}'`;
-            deleteFn = () => { phase.tasks = phase.tasks.filter(t => t.id !== taskId); };
+        } 
+        // 2. Project Task
+        else {
+            const project = this.projects.find(p => p.id === pId);
+            
+            // A. General Task (No Phase)
+            if (phId === null) {
+                item = project.generalTasks.find(t => t.id === taskId);
+                if (!item) return;
+                itemName = `General Task '${item.name}' from project '${project.name}'`;
+                deleteFn = () => { project.generalTasks = project.generalTasks.filter(t => t.id !== taskId); };
+            } 
+            // B. Phase Task
+            else {
+                const phase = project?.phases.find(ph => ph.id === phId);
+                item = phase?.tasks.find(t => t.id === taskId);
+                if (!item) return;
+                itemName = `Task '${item.name}' from phase '${phase.name}'`;
+                deleteFn = () => { phase.tasks = phase.tasks.filter(t => t.id !== taskId); };
+            }
         }
 
         this.removeAllDependencies(taskId);
@@ -2869,7 +2976,7 @@ const timelineApp = {
         
         this.pendingDeletion = { 
             type: 'task', 
-            logContext: { projectId }, 
+            logContext: { projectId: pId }, 
             deleteFn: deleteFn, 
             itemName: itemName 
         };
@@ -2878,7 +2985,7 @@ const timelineApp = {
         this.elements.reasonModalDetails.textContent = `You are about to delete: "${item.name}".`;
         this.elements.reasonModal.classList.remove('hidden');
         this.elements.reasonCommentTextarea.focus();
-        },
+    },
 
     deleteSubtask(projectId, phaseId, taskId, subtaskId) {
             const project = this.projects.find(p => p.id === projectId);
@@ -3554,27 +3661,39 @@ const timelineApp = {
         },
         
     getItem(type, projectId, phaseId, taskId, subtaskId) {
-            const pId = (projectId === 'null' || projectId === null) ? null : Number(projectId);
-            
-            // Search Standalone Tasks if no Project ID is present
-            if (pId === null) {
-                return this.standaloneTasks.find(t => t.id === Number(taskId));
-            }
+        const pId = (projectId === 'null' || projectId === null) ? null : Number(projectId);
+        
+        // Search Standalone Tasks if no Project ID
+        if (pId === null) {
+            return this.standaloneTasks.find(t => t.id === Number(taskId));
+        }
 
-            const p = this.projects.find(p => p.id === pId);
-            if (!p) return null;
-            if (type === 'project') return p;
+        const p = this.projects.find(p => p.id === pId);
+        if (!p) return null;
+        if (type === 'project') return p;
 
-            const ph = p.phases.find(ph => ph.id === Number(phaseId));
-            if (!ph) return null;
-            if (type === 'phase') return ph;
+        // --- NEW: Logic for General Tasks (Phase ID is null) ---
+        const phId = (phaseId === 'null' || phaseId === null) ? null : Number(phaseId);
 
-            const t = ph.tasks.find(t => t.id === Number(taskId));
+        if (phId === null) {
+            // Looking for a General Task or its Subtask
+            const t = p.generalTasks.find(t => t.id === Number(taskId));
             if (!t) return null;
             if (type === 'task') return t;
-
             return type === 'subtask' ? t.subtasks.find(st => st.id === Number(subtaskId)) : null;
-        },
+        }
+        // --------------------------------------------------------
+
+        const ph = p.phases.find(ph => ph.id === phId);
+        if (!ph) return null;
+        if (type === 'phase') return ph;
+
+        const t = ph.tasks.find(t => t.id === Number(taskId));
+        if (!t) return null;
+        if (type === 'task') return t;
+
+        return type === 'subtask' ? t.subtasks.find(st => st.id === Number(subtaskId)) : null;
+    },
 
     promptMoveToProject(taskText, isFollowUp = false, successCallback, existingTags = [], prefillData = {}) {
         if (typeof isFollowUp === 'function') {
@@ -3760,20 +3879,17 @@ const timelineApp = {
         
         const moveType = document.getElementById('move-type-select').value;
         const projectSelectValue = this.elements.moveProjectSelect.value;
-        const phaseId = parseInt(this.elements.movePhaseSelect.value);
+        const phaseSelectValue = this.elements.movePhaseSelect.value; // Get raw value
         
-        // --- NEW: Capture "Who" Input ---
         const whoInput = document.getElementById('move-who-input').value.trim();
         const delegateTo = whoInput || null;
-        // --------------------------------
-
         const customFollowUpDate = document.getElementById('move-followup-input').dataset.date;
         
         const isDelegated = moveType === 'waiting';
         const isStandalone = moveType === 'standalone' || projectSelectValue === 'none';
+        const isGeneralBin = phaseSelectValue === 'general';
 
         const hasFollowUpDate = customFollowUpDate && customFollowUpDate !== '';
-        // If type is 'waiting', force isFollowUp to true so it appears in "Waiting For" list
         const isFollowUp = isDelegated || this.pendingMoveTask.isFollowUp || hasFollowUpDate;
 
         const newTask = {
@@ -3787,7 +3903,7 @@ const timelineApp = {
             dependents: [],
             tags: [...(this.moveModalSelectedTags || [])],
             isFollowUp: isFollowUp, 
-            delegatedTo: delegateTo, // Save the "Who" input
+            delegatedTo: delegateTo,
             followUpDate: hasFollowUpDate ? customFollowUpDate : null 
         };
 
@@ -3796,8 +3912,17 @@ const timelineApp = {
             this.standaloneTasks.push(newTask);
         } else {
             const project = this.projects.find(p => p.id === parseInt(projectSelectValue));
-            const phase = project?.phases.find(ph => ph.id === phaseId);
-            if (phase) phase.tasks.push(newTask);
+            if (project) {
+                if (isGeneralBin) {
+                    // --- NEW: Push to General Tasks ---
+                    if (!project.generalTasks) project.generalTasks = [];
+                    project.generalTasks.push(newTask);
+                } else {
+                    const phaseId = parseInt(phaseSelectValue);
+                    const phase = project.phases.find(ph => ph.id === phaseId);
+                    if (phase) phase.tasks.push(newTask);
+                }
+            }
         }
         
         this.saveState();
@@ -3837,9 +3962,17 @@ const timelineApp = {
             opt.value = 'none';
             opt.textContent = "N/A (Standalone)";
             this.elements.movePhaseSelect.appendChild(opt);
-            this.elements.confirmMoveBtn.disabled = false; // Enabled for standalone
+            this.elements.confirmMoveBtn.disabled = false;
             return;
         }
+
+        // --- NEW: Add "General / No Phase" Option ---
+        const generalOpt = document.createElement('option');
+        generalOpt.value = 'general';
+        generalOpt.textContent = "General (No Phase)";
+        generalOpt.style.fontWeight = "bold";
+        this.elements.movePhaseSelect.appendChild(generalOpt);
+        // ---------------------------------------------
 
         const projectId = parseInt(projectSelectValue);
         const project = this.projects.find(p => p.id === projectId);
@@ -3851,13 +3984,9 @@ const timelineApp = {
                 opt.textContent = ph.name;
                 this.elements.movePhaseSelect.appendChild(opt);
             });
-            this.elements.confirmMoveBtn.disabled = false;
-        } else {
-            const opt = document.createElement('option');
-            opt.textContent = "No phases available";
-            this.elements.movePhaseSelect.appendChild(opt);
-            this.elements.confirmMoveBtn.disabled = true; // Disabled if project has no phases
         }
+        // Even if no phases, we can now add to "General", so enable button
+        this.elements.confirmMoveBtn.disabled = false;
     },
 
     handleMoveTagInput(event) {

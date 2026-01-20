@@ -1931,3 +1931,31 @@ button:not(:disabled),
     margin-top: 4px;
     padding-top: 6px;
 }
+
+/* --- GENERAL BIN / PROJECT INBOX STYLES --- */
+.general-bin-container {
+    background-color: color-mix(in srgb, var(--bg-tertiary) 30%, transparent);
+    border: 2px dashed var(--border-primary);
+    border-radius: 8px;
+    padding: 8px 8px 8px 12px;
+    margin-bottom: 12px;
+}
+
+.general-bin-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+    font-weight: 700;
+}
+
+/* Ensure general tasks look consistent but compact */
+.general-bin-container .task-row {
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-primary);
+    margin-bottom: 4px;
+}
