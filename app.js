@@ -1229,7 +1229,9 @@ const timelineApp = {
                 const displayDate = (task.isFollowUp && task.followUpDate) ? task.followUpDate : (task.endDate || task.followUpDate);
                 allItems.push({
                     path: 'Inbox',
-                    projectId: null, phaseId: null, taskId: task.id,
+                    projectId: null, 
+                    phaseId: null, 
+                    taskId: task.id,
                     name: task.name,
                     date: displayDate,
                     rawDate: displayDate ? this.parseDate(displayDate) : null,
@@ -1248,9 +1250,14 @@ const timelineApp = {
             // A. Collect General Tasks (No Phase)
             if (project.generalTasks) {
                 project.generalTasks.forEach(task => {
+                    // EXPLICITLY capture project ID here
+                    const currentProjectId = project.id; 
+                    
                     const itemBase = {
-                        path: `${project.name} > General`, // Distinct Path
-                        projectId: project.id, phaseId: null, taskId: task.id // Phase ID is null
+                        path: `${project.name} > General`,
+                        projectId: currentProjectId, // Ensure this is not null
+                        phaseId: null, 
+                        taskId: task.id
                     };
                     
                     if (task.subtasks?.length > 0) {
@@ -1266,7 +1273,7 @@ const timelineApp = {
                                 tags: st.tags || [],
                                 isFollowUp: st.isFollowUp,
                                 delegatedTo: st.delegatedTo,
-                                isGeneral: true // Flag for sorting
+                                isGeneral: true
                             });
                         });
                     } else {
@@ -1281,7 +1288,7 @@ const timelineApp = {
                             tags: task.tags || [],
                             isFollowUp: task.isFollowUp,
                             delegatedTo: task.delegatedTo,
-                            isGeneral: true // Flag for sorting
+                            isGeneral: true
                         });
                     }
                 });
@@ -1292,7 +1299,9 @@ const timelineApp = {
                 phase.tasks.forEach(task => {
                     const itemBase = {
                         path: `${project.name} > ${phase.name}`,
-                        projectId: project.id, phaseId: phase.id, taskId: task.id
+                        projectId: project.id, 
+                        phaseId: phase.id, 
+                        taskId: task.id
                     };
                     
                     if (task.subtasks?.length > 0) {
@@ -1340,7 +1349,7 @@ const timelineApp = {
             return a.rawDate - b.rawDate;
         };
 
-        // Render Helper (Same as before, abbreviated here)
+        // Render Helper
         const renderGroup = (title, items, headerClass) => {
             if (items.length === 0) return '';
             let groupHtml = `<div class="upcoming-card rounded-xl shadow-md mb-4">
@@ -1352,10 +1361,6 @@ const timelineApp = {
                 <div class="p-1 space-y-1">`;
             
             items.forEach(item => {
-                // ... [Existing render logic for tags, icons, date inputs] ...
-                // Note: Ensure item.phaseId (which might be null) handles correctly in onclicks.
-                // The template literals below handle null via `|| 'null'` which matches our new getItem logic.
-
                 const tagsHtml = (item.tags || []).map(tag => {
                     const colorClass = this.getTagColor(tag);
                     return `
@@ -1382,19 +1387,19 @@ const timelineApp = {
 
                 const dateInputColorClass = item.isFollowUp ? 'text-purple-700 dark:text-purple-300 font-bold' : '';
 
-                const isSubtask = item.subtaskId && item.subtaskId !== 'null' && item.subtaskId !== null;
                 const pId = item.projectId === null ? 'null' : item.projectId;
                 const phId = item.phaseId === null ? 'null' : item.phaseId;
                 const tId = item.taskId;
                 const sId = item.subtaskId || 'null';
                 
-                const deleteCall = isSubtask 
+                const deleteCall = item.subtaskId 
                     ? `timelineApp.deleteSubtask(${pId}, ${phId}, ${tId}, ${sId})`
                     : `timelineApp.deleteTask(${pId}, ${phId}, ${tId})`;
                 
                 const processCall = `timelineApp.handleProcessItem(${pId}, ${phId}, ${tId}, ${sId})`;
-
                 const uniqueId = item.subtaskId || item.taskId;
+                
+                // --- ADDED TAG MENU LOGIC ---
                 const tagMenuHtml = `
                     <div class="relative inline-block ml-1">
                         <button onclick="event.stopPropagation(); timelineApp.toggleTagMenu(event, ${pId}, ${phId}, ${tId}, ${sId})" class="add-tag-btn" title="Add Tag">
@@ -1412,8 +1417,7 @@ const timelineApp = {
                         </div>
                     </div>
                 `;
-                
-                // Add distinct styling for General Items if desired
+
                 const itemBgClass = item.isGeneral ? 'border-l-4 border-l-gray-300 dark:border-l-gray-600 pl-2' : '';
 
                 groupHtml += `
@@ -1457,9 +1461,7 @@ const timelineApp = {
             return groupHtml + `</div></div>`;
         };
 
-        // [Existing Toolbar/Filter Logic...]
-        // Same as original renderLinearView...
-        const sortedTags = Array.from(new Set(this.getAllTags())).sort(); // Shortened
+        const sortedTags = Array.from(new Set(this.getAllTags())).sort();
         const tagOptions = sortedTags.map(tag => `<option value="${tag}" ${this.tagFilter === tag ? 'selected' : ''}>${tag}</option>`).join('');
 
         const toolbarHtml = `
@@ -1489,7 +1491,8 @@ const timelineApp = {
         let contentHtml = '';
 
         if (this.actionHubGroupMode === 'project') {
-            const standaloneItems = allItems.filter(i => !i.projectId).sort(sortByDate);
+            // FIX: Ensure Standalone only catches items where projectId is null or undefined
+            const standaloneItems = allItems.filter(i => i.projectId === null || i.projectId === undefined).sort(sortByDate);
             if (standaloneItems.length > 0) {
                 contentHtml += renderGroup("Standalone", standaloneItems, "bg-gray-200 dark:bg-slate-700 text-secondary");
             }
