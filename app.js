@@ -4360,7 +4360,9 @@ const timelineApp = {
     },
 
     drawContextChart() {
-        // Count active tasks per tag
+        const container = d3.select("#context-chart");
+        
+        // 1. Prepare Data
         const tagCounts = {};
         this.projects.forEach(p => p.phases.forEach(ph => ph.tasks.forEach(t => {
             if (!t.completed && t.tags) {
@@ -4369,17 +4371,85 @@ const timelineApp = {
                 });
             }
         })));
+        
+        // Also count standalone tasks
+        if (this.standaloneTasks) {
+            this.standaloneTasks.forEach(t => {
+                if (!t.completed && t.tags) {
+                    t.tags.forEach(tag => {
+                        tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+                    });
+                }
+            });
+        }
 
         const data = Object.entries(tagCounts)
             .map(([tag, count]) => ({ tag, count }))
             .sort((a, b) => b.count - a.count)
             .slice(0, 8); // Top 8
 
-        // (Standard D3 Bar Chart logic similar to drawOverallLoadChart, but simpler)
-        // ... Implement D3 logic here using 'data' ...
-        const container = d3.select("#context-chart");
         container.selectAll("*").remove();
-        // [Insert D3 Bar Chart Code Here]
+
+        if (data.length === 0) {
+            container.html('<div class="flex items-center justify-center h-full text-secondary">No tagged tasks found.</div>');
+            return;
+        }
+
+        // 2. D3 Setup
+        const width = container.node().getBoundingClientRect().width;
+        const height = container.node().getBoundingClientRect().height;
+        const margin = { top: 20, right: 30, bottom: 40, left: 100 };
+        
+        const svg = container.append("svg")
+            .attr("width", width)
+            .attr("height", height)
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        const x = d3.scaleLinear()
+            .domain([0, d3.max(data, d => d.count)])
+            .range([0, width - margin.left - margin.right]);
+
+        const y = d3.scaleBand()
+            .range([0, height - margin.top - margin.bottom])
+            .domain(data.map(d => d.tag))
+            .padding(0.2);
+
+        // 3. Draw Bars
+        svg.selectAll("rect")
+            .data(data)
+            .enter()
+            .append("rect")
+            .attr("x", x(0))
+            .attr("y", d => y(d.tag))
+            .attr("width", d => x(d.count))
+            .attr("height", y.bandwidth())
+            .attr("fill", "var(--accent-primary)")
+            .attr("rx", 4);
+
+        // 4. Draw Labels (Count inside bar if fits, outside if not)
+        svg.selectAll(".label")
+            .data(data)
+            .enter()
+            .append("text")
+            .attr("class", "label")
+            .attr("x", d => x(d.count) + 5)
+            .attr("y", d => y(d.tag) + y.bandwidth() / 2)
+            .attr("dy", ".35em")
+            .text(d => d.count)
+            .style("font-size", "10px")
+            .style("fill", "var(--text-secondary)");
+
+        // 5. Draw Axes
+        svg.append("g")
+            .call(d3.axisLeft(y).tickSize(0))
+            .selectAll("text")
+            .style("font-family", "inherit")
+            .style("font-weight", "600");
+
+        svg.append("g")
+            .attr("transform", `translate(0,${height - margin.top - margin.bottom})`)
+            .call(d3.axisBottom(x).ticks(5).tickSizeOuter(0));
     },
 
     generateStrategyInsights() {
