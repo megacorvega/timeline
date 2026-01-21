@@ -2219,10 +2219,16 @@ const timelineApp = {
 
         container.innerHTML = '';
 
+        // Helper to get local YYYY-MM-DD string to avoid UTC timezone shifts
+        const getLocalISODate = (date) => {
+            const offset = date.getTimezoneOffset() * 60000;
+            return new Date(date.getTime() - offset).toISOString().split('T')[0];
+        };
+
         // 1. Calculate Next 10 Business Days
         const businessDays = [];
         let cursor = new Date();
-        cursor.setHours(0, 0, 0, 0);
+        cursor.setHours(0, 0, 0, 0); // Local Midnight
         
         while (businessDays.length < 10) {
             const day = cursor.getDay();
@@ -2235,19 +2241,19 @@ const timelineApp = {
         // 2. Collect Active Tasks (Strictly by Due Date)
         const dailyBuckets = new Map(); 
         
-        // Initialize buckets for our 10 days
+        // Initialize buckets for our 10 days using local date keys
         businessDays.forEach(d => {
-            dailyBuckets.set(d.toISOString().split('T')[0], []);
+            dailyBuckets.set(getLocalISODate(d), []);
         });
 
-        // Helper to place item in the specific bucket for its due date
+        // Helper to place item in the specific bucket
         const placeInBucket = (dateStr, meta) => {
              if (!dateStr) return;
-             const date = this.parseDate(dateStr);
+             const date = this.parseDate(dateStr); // app.js parseDate (d3.timeParse) returns Local Date
              if (!date) return;
              
-             // Normalize to YYYY-MM-DD
-             const key = date.toISOString().split('T')[0];
+             // Normalize to YYYY-MM-DD (Local) to match bucket keys
+             const key = getLocalISODate(date);
              
              if (dailyBuckets.has(key)) {
                  dailyBuckets.get(key).push(meta);
@@ -2260,8 +2266,6 @@ const timelineApp = {
             // Project Tasks
             project.phases.forEach(phase => {
                 phase.tasks.forEach(task => {
-                    // Logic: If task has subtasks, show subtasks. If not, show task.
-                    // This matches Action Hub behavior and prevents double-counting.
                     const hasSubtasks = task.subtasks && task.subtasks.length > 0;
 
                     if (hasSubtasks) {
@@ -2324,8 +2328,9 @@ const timelineApp = {
             .attr("transform", `translate(${margin.left},${margin.top})`);
 
         // X Scale (Business Days)
+        // Use keys directly to ensure alignment
         const x = d3.scaleBand()
-            .domain(businessDays.map(d => d.toISOString().split('T')[0]))
+            .domain(Array.from(dailyBuckets.keys())) 
             .range([0, width])
             .padding(0.2);
 
@@ -2335,7 +2340,6 @@ const timelineApp = {
             if (tasks.length > maxLoad) maxLoad = tasks.length;
         });
         
-        // Ensure at least 5 ticks for visual balance even if low load
         maxLoad = Math.max(maxLoad, 5);
 
         const y = d3.scaleLinear()
@@ -2345,8 +2349,10 @@ const timelineApp = {
         // 4. Draw Axes
         const xAxis = d3.axisBottom(x)
             .tickFormat(d => {
-                const date = new Date(d);
-                // "Mon 12" format
+                // d is "YYYY-MM-DD"
+                // We construct the date manually to prevent any UTC conversion shifts
+                const [y, m, day] = d.split('-').map(Number);
+                const date = new Date(y, m - 1, day); 
                 return date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' });
             });
 
@@ -2378,7 +2384,7 @@ const timelineApp = {
                 .attr("x", 0)
                 .attr("y", (d, i) => y(i + 1)) // Stack from bottom up
                 .attr("width", x.bandwidth())
-                .attr("height", y(0) - y(1) - 1) // Calculate exact height of one unit
+                .attr("height", y(0) - y(1) - 1)
                 .attr("fill", (d, i) => this.taskLoadChartColor(i))
                 .attr("rx", 2)
                 .style("cursor", "pointer")
