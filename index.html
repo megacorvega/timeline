@@ -331,16 +331,16 @@
                     <p class="text-3xl font-bold mt-1" id="kpi-active-projects">-</p>
                 </div>
                 <div class="chart-card p-4 rounded-xl">
-                    <h3 class="text-xs font-bold text-secondary uppercase">Overall Health</h3>
-                    <p class="text-3xl font-bold mt-1" id="kpi-health-score">-</p>
+                    <h3 class="text-xs font-bold text-secondary uppercase">Due Soon (7 Days)</h3>
+                    <p class="text-3xl font-bold mt-1" id="kpi-due-soon">-</p>
                 </div>
                 <div class="chart-card p-4 rounded-xl">
-                    <h3 class="text-xs font-bold text-secondary uppercase">Total Slippage</h3>
-                    <p class="text-3xl font-bold mt-1 text-red-500" id="kpi-total-slippage">-</p>
+                    <h3 class="text-xs font-bold text-secondary uppercase">Overdue Projects</h3>
+                    <p class="text-3xl font-bold mt-1 text-red-500" id="kpi-overdue-projects">-</p>
                 </div>
                 <div class="chart-card p-4 rounded-xl">
                     <h3 class="text-xs font-bold text-secondary uppercase">Completion Rate</h3>
-                    <p class="text-3xl font-bold mt-1 text-blue-500" id="kpi-completion-rate">-</p>
+                    <p class="text-3xl font-bold mt-1 text-blue-500" id="kpi-overall-completion">-</p>
                 </div>
             </div>
 
@@ -361,13 +361,19 @@
                     <p class="text-xs text-secondary mt-2">Active tasks by tag context.</p>
                 </div>
             </div>
+            
+            <div class="chart-card p-4 rounded-xl shadow-md flex flex-col mb-6">
+                <h3 class="font-bold mb-4">Task Load Forecast</h3>
+                <div id="load-chart" class="flex-grow w-full h-48"></div>
+                <p class="text-xs text-secondary mt-2">Number of tasks active per day (Next 30 Days).</p>
+            </div>
 
             <div class="chart-card p-5 rounded-xl shadow-md border-l-4 border-indigo-500">
                 <h3 class="font-bold text-lg mb-3 flex items-center gap-2">
                     <svg class="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                     Strategic Recommendations
                 </h3>
-                <ul id="strategy-console-list" class="space-y-2 text-sm"></ul>
+                <div id="strategy-text-content" class="space-y-2 text-sm"></div>
             </div>
         </div>
         
