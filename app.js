@@ -4311,13 +4311,18 @@ const timelineApp = {
             }
         },
 
-// Add inside timelineApp object in app.js
-
     renderReviewDashboard() {
         this.calculateKPIs();
-        this.drawDriftChart();
+        
+        // Replaced 'drawDriftChart' with the new Risk Matrix
+        this.drawRiskMatrix(); 
+        
         this.drawContextChart();
         this.generateStrategyInsights();
+        
+        // Ensure this is called if you have the container in your HTML,
+        // otherwise this call is harmless if the ID isn't found.
+        this.drawOverallLoadChart(); 
     },
 
     calculateKPIs() {
@@ -4366,30 +4371,58 @@ const timelineApp = {
         document.getElementById('kpi-due-soon').textContent = dueThisWeek;
     },
 
-    drawDriftChart() {
-        const container = document.getElementById('drift-chart');
+    drawRiskMatrix() {
+        const container = document.getElementById('risk-matrix-chart');
+        if (!container) return;
         container.innerHTML = '';
-        
-        // --- NEW: Filter Excluded Projects ---
-        const data = this.projects
-            .filter(p => !p.excludeFromStats) 
-            .filter(p => p.originalEndDate && p.endDate && p.overallProgress < 100)
-            .map(p => {
-                const original = this.parseDate(p.originalEndDate);
-                const current = this.parseDate(p.endDate);
-                const driftDays = Math.round((current - original) / (1000 * 60 * 60 * 24));
-                return { name: p.name, drift: driftDays };
-            })
-            .sort((a, b) => b.drift - a.drift); 
 
-        if (data.length === 0) {
-            container.innerHTML = '<div class="text-center text-gray-400 text-sm mt-10">No drift data available.</div>';
+        // 1. Prepare Data
+        // Filter out completed projects and those marked 'excludeFromStats'
+        const activeProjects = this.projects.filter(p => 
+            !p.excludeFromStats && 
+            p.startDate && 
+            p.endDate && 
+            p.overallProgress < 100
+        );
+
+        if (activeProjects.length === 0) {
+            container.innerHTML = '<div class="text-center text-gray-400 text-sm mt-10">No active projects to analyze.</div>';
             return;
         }
 
-        const margin = { top: 20, right: 30, bottom: 40, left: 100 };
+        const data = activeProjects.map(p => {
+            const daysLeftInfo = this.getDaysLeft(p.endDate);
+            // Cap days left at 60 for the chart so outliers don't squash the view
+            let days = daysLeftInfo.days !== null ? daysLeftInfo.days : 0;
+            
+            // Calculate "Burn Rate Required" (Simple Linear)
+            // If you are 50% through the time, you should be 50% done.
+            const totalDuration = (this.parseDate(p.endDate) - this.parseDate(p.startDate)) / (1000 * 60 * 60 * 24);
+            const timeElapsed = (new Date() - this.parseDate(p.startDate)) / (1000 * 60 * 60 * 24);
+            const timeProgress = Math.min(100, Math.max(0, (timeElapsed / totalDuration) * 100));
+            
+            // Risk Logic:
+            // Red: Overdue OR (Progress is > 20% behind Time Elapsed)
+            // Yellow: Progress is 0-20% behind Time Elapsed
+            // Green: Progress is ahead of Time Elapsed
+            let status = 'green';
+            if (days < 0) status = 'red'; // Overdue
+            else if (p.overallProgress < (timeProgress - 20)) status = 'red';
+            else if (p.overallProgress < timeProgress) status = 'yellow';
+
+            return {
+                name: p.name,
+                daysLeft: days,
+                progress: p.overallProgress,
+                status: status,
+                realDays: daysLeftInfo.days // For tooltip
+            };
+        });
+
+        // 2. Setup Dimensions
+        const margin = { top: 20, right: 20, bottom: 40, left: 50 };
         const width = container.clientWidth - margin.left - margin.right;
-        const height = data.length * 40; 
+        const height = container.clientHeight - margin.top - margin.bottom;
 
         const svg = d3.select(container).append("svg")
             .attr("width", width + margin.left + margin.right)
@@ -4397,41 +4430,88 @@ const timelineApp = {
             .append("g")
             .attr("transform", `translate(${margin.left},${margin.top})`);
 
+        // 3. Scales
+        // X Axis: Days Remaining (0 to 60+)
         const x = d3.scaleLinear()
-            .domain([Math.min(0, d3.min(data, d => d.drift)), d3.max(data, d => d.drift)])
+            .domain([0, Math.max(60, d3.max(data, d => d.daysLeft))]) 
             .range([0, width]);
 
-        const y = d3.scaleBand()
-            .domain(data.map(d => d.name))
-            .range([0, height])
-            .padding(0.2);
+        // Y Axis: % Complete (0 to 100)
+        const y = d3.scaleLinear()
+            .domain([0, 100])
+            .range([height, 0]);
 
+        // 4. Draw Danger Zone (Background Rect)
+        // Bottom-Left (Low Time, Low Progress) = Critical Area
+        svg.append("rect")
+            .attr("x", 0)
+            .attr("y", y(50)) // Bottom half (0-50% progress)
+            .attr("width", x(14)) // First 2 weeks
+            .attr("height", height - y(50))
+            .attr("fill", "rgba(239, 68, 68, 0.1)") // Light Red
+            .attr("rx", 4);
+
+        // 5. Axes
         svg.append("g")
             .attr("transform", `translate(0,${height})`)
-            .call(d3.axisBottom(x).ticks(5));
+            .call(d3.axisBottom(x).ticks(5))
+            .append("text")
+            .attr("x", width)
+            .attr("y", 35)
+            .attr("fill", "var(--text-secondary)")
+            .attr("text-anchor", "end")
+            .text("Days Remaining →");
 
         svg.append("g")
-            .call(d3.axisLeft(y));
+            .call(d3.axisLeft(y).ticks(5))
+            .append("text")
+            .attr("x", -10)
+            .attr("y", -10)
+            .attr("fill", "var(--text-secondary)")
+            .attr("text-anchor", "end")
+            .text("% Done");
 
-        svg.selectAll(".bar")
+        // 6. Plot Points
+        const circles = svg.selectAll("circle")
             .data(data)
-            .enter().append("rect")
-            .attr("class", "bar")
-            .attr("x", d => d.drift < 0 ? x(d.drift) : x(0))
-            .attr("y", d => y(d.name))
-            .attr("width", d => Math.abs(x(d.drift) - x(0)))
-            .attr("height", y.bandwidth())
-            .attr("fill", d => d.drift > 0 ? "var(--red)" : "var(--green)");
+            .enter()
+            .append("circle")
+            .attr("cx", d => x(Math.max(0, d.daysLeft))) // Clamp negatives to 0 line
+            .attr("cy", d => y(d.progress))
+            .attr("r", 8)
+            .attr("fill", d => {
+                if(d.status === 'red') return "var(--red)";
+                if(d.status === 'yellow') return "var(--amber)";
+                return "var(--green)";
+            })
+            .attr("stroke", "var(--bg-primary)")
+            .attr("stroke-width", 2)
+            .style("cursor", "pointer")
+            .style("opacity", 0.9);
 
-        svg.selectAll(".label")
-            .data(data)
-            .enter().append("text")
-            .attr("x", d => d.drift < 0 ? x(d.drift) - 5 : x(d.drift) + 5)
-            .attr("y", d => y(d.name) + y.bandwidth() / 2 + 4)
-            .text(d => `${d.drift > 0 ? '+' : ''}${d.drift}d`)
-            .attr("text-anchor", d => d.drift < 0 ? "end" : "start")
-            .attr("font-size", "10px")
-            .attr("fill", "var(--text-primary)");
+        // 7. Tooltips
+        let tooltip = d3.select("body").select(".chart-tooltip");
+        if (tooltip.empty()) {
+            tooltip = d3.select("body").append("div").attr("class", "chart-tooltip");
+        }
+
+        circles.on("mouseover", function(event, d) {
+            d3.select(this).attr("r", 10).style("opacity", 1);
+            tooltip.style("visibility", "visible")
+                .html(`
+                    <strong>${d.name}</strong><br/>
+                    Due in: ${d.realDays} days<br/>
+                    Progress: ${Math.round(d.progress)}%
+                `);
+        })
+        .on("mousemove", (event) => {
+            tooltip.style("top", (event.pageY - 10) + "px")
+                   .style("left", (event.pageX + 10) + "px");
+        })
+        .on("mouseout", function() {
+            d3.select(this).attr("r", 8).style("opacity", 0.9);
+            tooltip.style("visibility", "hidden");
+        });
     },
 
     drawContextChart() {
