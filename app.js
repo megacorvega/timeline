@@ -3970,12 +3970,15 @@ const timelineApp = {
         const delegateTo = whoInput || null;
         const customFollowUpDate = document.getElementById('move-followup-input').dataset.date;
         
-        const isDelegated = moveType === 'waiting';
+        // MODIFICATION 1: Ensure isDelegated requires a name to be present
+        const isDelegated = moveType === 'waiting' && delegateTo !== null;
         const isStandalone = moveType === 'standalone' || projectSelectValue === 'none';
         const isGeneralBin = phaseSelectValue === 'general';
 
         const hasFollowUpDate = customFollowUpDate && customFollowUpDate !== '';
-        const isFollowUp = isDelegated || this.pendingMoveTask.isFollowUp || hasFollowUpDate;
+        
+        // MODIFICATION 2: Calculate status strictly from current inputs (do not inherit old status)
+        const isFollowUp = isDelegated || hasFollowUpDate;
 
         const newTask = {
             id: Date.now(),
@@ -3999,7 +4002,6 @@ const timelineApp = {
             const project = this.projects.find(p => p.id === parseInt(projectSelectValue));
             if (project) {
                 if (isGeneralBin) {
-                    // --- NEW: Push to General Tasks ---
                     if (!project.generalTasks) project.generalTasks = [];
                     project.generalTasks.push(newTask);
                 } else {
