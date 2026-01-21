@@ -2214,111 +2214,204 @@ const timelineApp = {
         },
 
     drawOverallLoadChart() {
-            const container = document.getElementById('load-chart');
-            // FIX: Safety check to prevent crash if element is missing
-            if (!container) return; 
+        const container = document.getElementById('load-chart');
+        if (!container) return;
 
-            container.innerHTML = '';
-            
-            const allTasks = [];
-            // --- NEW: Filter Excluded Projects ---
-            this.projects.forEach(project => {
-                if (project.excludeFromStats) return; // Added Filter
-                
-                project.phases.forEach(phase => {
-                    phase.tasks.forEach(task => {
-                        if (task.startDate && task.endDate && task.progress < 100) {
-                             allTasks.push({ start: this.parseDate(task.startDate), end: this.parseDate(task.endDate) });
-                        }
-                        if (task.subtasks) {
-                             task.subtasks.forEach(sub => {
-                                 if (sub.startDate && sub.endDate && sub.progress < 100) {
-                                      allTasks.push({ start: this.parseDate(sub.startDate), end: this.parseDate(sub.endDate) });
-                                 }
-                             });
-                        }
-                    });
-                });
-                 project.generalTasks.forEach(task => {
-                    if (task.startDate && task.endDate && task.progress < 100) {
-                             allTasks.push({ start: this.parseDate(task.startDate), end: this.parseDate(task.endDate) });
-                    }
-                 });
-            });
+        container.innerHTML = '';
 
-            if (allTasks.length === 0) {
-                 container.innerHTML = '<div class="text-center text-gray-400 text-sm mt-10">No active tasks with dates found.</div>';
-                 return;
+        // 1. Calculate Next 10 Business Days
+        const businessDays = [];
+        let cursor = new Date();
+        cursor.setHours(0, 0, 0, 0);
+        
+        while (businessDays.length < 10) {
+            const day = cursor.getDay();
+            if (day !== 0 && day !== 6) { // 0 = Sun, 6 = Sat
+                businessDays.push(new Date(cursor));
             }
+            cursor.setDate(cursor.getDate() + 1);
+        }
 
-            // Create a map of date -> task count
-            const loadMap = new Map();
-            allTasks.forEach(task => {
-                let current = new Date(task.start);
-                const end = new Date(task.end);
-                while (current <= end) {
-                    const key = current.toISOString().split('T')[0];
-                    loadMap.set(key, (loadMap.get(key) || 0) + 1);
-                    current.setDate(current.getDate() + 1);
+        const startDate = businessDays[0];
+        const endDate = businessDays[businessDays.length - 1];
+
+        // 2. Collect Active Tasks with Metadata
+        const dailyBuckets = new Map(); // Key: "YYYY-MM-DD", Value: Array of Task Objects
+        
+        // Initialize buckets for our 10 days
+        businessDays.forEach(d => {
+            dailyBuckets.set(d.toISOString().split('T')[0], []);
+        });
+
+        const addToBucket = (start, end, meta) => {
+            let current = new Date(start);
+            const finish = new Date(end);
+            current.setHours(0,0,0,0);
+            finish.setHours(0,0,0,0);
+
+            while (current <= finish) {
+                const key = current.toISOString().split('T')[0];
+                if (dailyBuckets.has(key)) {
+                    dailyBuckets.get(key).push(meta);
                 }
+                current.setDate(current.getDate() + 1);
+            }
+        };
+
+        this.projects.forEach(project => {
+            if (project.excludeFromStats) return;
+
+            // Project Tasks
+            project.phases.forEach(phase => {
+                phase.tasks.forEach(task => {
+                    const meta = { 
+                        id: task.id, 
+                        name: task.name, 
+                        projectId: project.id, 
+                        phaseId: phase.id, 
+                        taskId: task.id, 
+                        subtaskId: null,
+                        completed: task.progress >= 100
+                    };
+                    
+                    if (task.startDate && task.endDate && !meta.completed) {
+                        addToBucket(this.parseDate(task.startDate), this.parseDate(task.endDate), meta);
+                    }
+                    
+                    // Subtasks
+                    if (task.subtasks) {
+                        task.subtasks.forEach(sub => {
+                            if (sub.startDate && sub.endDate && sub.progress < 100) {
+                                addToBucket(this.parseDate(sub.startDate), this.parseDate(sub.endDate), {
+                                    ...meta,
+                                    id: sub.id,
+                                    name: sub.name,
+                                    subtaskId: sub.id,
+                                    completed: sub.progress >= 100
+                                });
+                            }
+                        });
+                    }
+                });
             });
 
-            // Convert to array and sort
-            const data = Array.from(loadMap, ([date, count]) => ({ date: this.parseDate(date), count }))
-                .sort((a, b) => a.date - b.date);
+            // General Tasks
+            project.generalTasks.forEach(task => {
+                 if (task.startDate && task.endDate && task.progress < 100) {
+                     addToBucket(this.parseDate(task.startDate), this.parseDate(task.endDate), {
+                        id: task.id, 
+                        name: task.name, 
+                        projectId: project.id, 
+                        phaseId: null, 
+                        taskId: task.id, 
+                        subtaskId: null
+                     });
+                 }
+            });
+        });
 
-            // Filter for next 30 days only to keep chart readable
-            const today = new Date();
-            today.setHours(0,0,0,0);
-            const thirtyDaysLater = new Date(today);
-            thirtyDaysLater.setDate(today.getDate() + 30);
-            
-            const filteredData = data.filter(d => d.date >= today && d.date <= thirtyDaysLater);
+        // 3. Setup D3 Chart
+        const margin = { top: 20, right: 30, bottom: 30, left: 40 };
+        const width = container.clientWidth - margin.left - margin.right;
+        const height = 200 - margin.top - margin.bottom;
 
-            if (filteredData.length === 0) {
-                 container.innerHTML = '<div class="text-center text-gray-400 text-sm mt-10">No tasks scheduled for the next 30 days.</div>';
-                 return;
-            }
+        const svg = d3.select(container).append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
 
-            const margin = { top: 20, right: 30, bottom: 30, left: 40 };
-            const width = container.clientWidth - margin.left - margin.right;
-            const height = 200 - margin.top - margin.bottom;
+        // X Scale (Business Days)
+        const x = d3.scaleBand()
+            .domain(businessDays.map(d => d.toISOString().split('T')[0]))
+            .range([0, width])
+            .padding(0.2);
 
-            const svg = d3.select(container).append("svg")
-                .attr("width", width + margin.left + margin.right)
-                .attr("height", height + margin.top + margin.bottom)
-                .append("g")
-                .attr("transform", `translate(${margin.left},${margin.top})`);
+        // Find max stack size to determine Y scale
+        let maxLoad = 0;
+        dailyBuckets.forEach(tasks => {
+            if (tasks.length > maxLoad) maxLoad = tasks.length;
+        });
+        
+        // Ensure at least 5 ticks for visual balance even if low load
+        maxLoad = Math.max(maxLoad, 5);
 
-            const x = d3.scaleTime()
-                .domain(d3.extent(filteredData, d => d.date))
-                .range([0, width]);
+        const y = d3.scaleLinear()
+            .domain([0, maxLoad])
+            .range([height, 0]);
 
-            const y = d3.scaleLinear()
-                .domain([0, d3.max(filteredData, d => d.count)])
-                .range([height, 0]);
-            
-            // Area generator
-            const area = d3.area()
-                .curve(d3.curveMonotoneX)
-                .x(d => x(d.date))
-                .y0(height)
-                .y1(d => y(d.count));
+        // 4. Draw Axes
+        const xAxis = d3.axisBottom(x)
+            .tickFormat(d => {
+                const date = new Date(d);
+                // "Mon 12" format
+                return date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' });
+            });
 
-            svg.append("path")
-                .datum(filteredData)
-                .attr("fill", "rgba(59, 130, 246, 0.2)") // Blue with opacity
-                .attr("stroke", "var(--blue)")
-                .attr("stroke-width", 1.5)
-                .attr("d", area);
+        svg.append("g")
+            .attr("transform", `translate(0,${height})`)
+            .call(xAxis)
+            .selectAll("text")
+            .style("text-anchor", "middle");
 
-            svg.append("g")
-                .attr("transform", `translate(0,${height})`)
-                .call(d3.axisBottom(x).ticks(5));
+        svg.append("g")
+            .call(d3.axisLeft(y).ticks(5));
 
-            svg.append("g")
-                .call(d3.axisLeft(y).ticks(5));
-    }, 
+        // 5. Draw Task Boxes
+        // Tooltip setup
+        let tooltip = d3.select("body").select(".chart-tooltip");
+        if (tooltip.empty()) {
+            tooltip = d3.select("body").append("div").attr("class", "chart-tooltip");
+        }
+
+        const boxHeight = (height / maxLoad) - 1; // -1 for gap
+        
+        // Prevent boxes from becoming microscopic if load is huge, or too huge if load is tiny
+        const renderedBoxHeight = Math.min(Math.max(boxHeight, 4), 30); 
+
+        dailyBuckets.forEach((tasks, dateKey) => {
+            const dayGroup = svg.append("g")
+                .attr("transform", `translate(${x(dateKey)}, 0)`);
+
+            dayGroup.selectAll("rect")
+                .data(tasks)
+                .enter()
+                .append("rect")
+                .attr("x", 0)
+                .attr("y", (d, i) => y(i + 1)) // Stack from bottom up
+                .attr("width", x.bandwidth())
+                .attr("height", y(0) - y(1) - 1) // Calculate exact height of one unit
+                .attr("fill", (d, i) => this.taskLoadChartColor(i)) // Use existing color scale or generic blue
+                .attr("rx", 2)
+                .style("cursor", "pointer")
+                .on("mouseover", function(event, d) {
+                    d3.select(this).style("opacity", 0.8);
+                    tooltip.style("visibility", "visible")
+                        .html(`<strong>${d.name}</strong><br>Click to view`);
+                })
+                .on("mousemove", (event) => {
+                    tooltip.style("top", (event.pageY - 10) + "px")
+                           .style("left", (event.pageX + 10) + "px");
+                })
+                .on("mouseout", function() {
+                    d3.select(this).style("opacity", 1);
+                    tooltip.style("visibility", "hidden");
+                })
+                .on("click", (event, d) => {
+                    // LINK BACK TO TIMELINE
+                    this.navigateToTask(d.projectId, d.phaseId, d.taskId, d.subtaskId);
+                });
+        });
+        
+        // Add "Business Days" Label
+        svg.append("text")
+            .attr("x", width)
+            .attr("y", -5)
+            .attr("text-anchor", "end")
+            .style("font-size", "10px")
+            .style("fill", "var(--text-secondary)")
+            .text("Next 10 Business Days");
+    },
 
     renderUpcomingTasks() {
             // Update Filter Dropdown
