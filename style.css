@@ -1110,13 +1110,17 @@ button:not(:disabled),
     font-weight: 700;
 }
 
-.lock-toggle-btn, .print-btn, .comment-btn {
+/* Added .favorite-btn to the list */
+.lock-toggle-btn, .print-btn, .comment-btn, .favorite-btn {
     padding: 4px;
     border-radius: 6px;
     color: var(--text-tertiary);
     transition: background-color 0.2s, color 0.2s, opacity 0.2s;
-    opacity: 0;
+    opacity: 0; /* Hidden by default */
 }
+
+/* Added the first line here for the favorite button */
+.project-header:hover .favorite-btn, 
 .project-header:hover .lock-toggle-btn,
 .project-header:hover .print-btn,
 .phase-row:hover .lock-toggle-btn,
@@ -1126,6 +1130,7 @@ button:not(:disabled),
 .subtask-row:hover .comment-btn {
     opacity: 1;
 }
+
 .lock-toggle-btn:hover:not(:disabled), .print-btn:hover, .comment-btn:hover {
     background-color: var(--bg-tertiary);
     color: var(--text-primary);
@@ -1489,6 +1494,25 @@ button:not(:disabled),
     background-color: #1e1b4b;
     border-color: #6b21a8;
     color: #e9d5ff;
+}
+
+/* --- FAVORITE BUTTON STYLES --- */
+
+/* Hover state (when mouse is over the button itself) */
+.favorite-btn:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+/* Active State (Gold Star) */
+.favorite-btn.active {
+    color: #fbbf24; /* Gold color */
+    opacity: 1; /* Keep visible even if mouse leaves the header */
+}
+
+/* Dark mode adjustment for the gold color */
+.dark .favorite-btn.active {
+    color: #fbbf24; 
 }
 
 /* Move to Project Button */

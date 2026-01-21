@@ -498,12 +498,15 @@ const timelineApp = {
             if (!project.originalEndDate) project.originalEndDate = project.endDate;
             if (project.locked === undefined) project.locked = false;
             
+            // --- NEW: Initialize Favorite Property ---
+            if (project.favorite === undefined) project.favorite = false;
+            // -----------------------------------------
+            
             // --- NEW: Initialize Priority ---
             if (project.priority === undefined) {
                 project.priority = 5; // Default to Middle Priority (1-10 scale)
                 hasMigrated = true;
             }
-            // --------------------------------
 
             if (!project.generalTasks) project.generalTasks = [];
             if (!project.phases) project.phases = [];
@@ -554,6 +557,15 @@ const timelineApp = {
                 console.error("Error parsing deleted project logs from localStorage:", error);
                 this.deletedProjectLogs = [];
             }
+        }
+    },
+
+    toggleProjectFavorite(projectId) {
+        const project = this.projects.find(p => p.id === projectId);
+        if (project) {
+            project.favorite = !project.favorite;
+            this.saveState();
+            this.renderProjects();
         }
     },
 
@@ -1087,7 +1099,6 @@ const timelineApp = {
             filteredProjects = filteredProjects.filter(p => p.overallProgress < 100);
         }
 
-        // --- UPDATED SORT LOGIC ---
         const sortedProjects = filteredProjects.sort((a, b) => {
             // 1. Completion Status (Completed items sink to bottom)
             const aComplete = a.overallProgress >= 100;
@@ -1103,7 +1114,6 @@ const timelineApp = {
             // 3. End Date (Earliest first)
             return this.sortByEndDate(a, b, 'endDate');
         });
-        // --------------------------
 
         sortedProjects.forEach((project) => {
             const projectCard = document.createElement('div');
@@ -1111,6 +1121,12 @@ const timelineApp = {
             
             const isComplete = project.overallProgress >= 100;
             let completionIcon = isComplete ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>` : '';
+
+            // --- NEW: Favorite Icon SVG Selection ---
+            const favoriteIcon = project.favorite 
+                ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>` 
+                : `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>`;
+            // ----------------------------------------
 
             const durationProgress = this.getDurationProgress(project.startDate, project.endDate);
             const daysLeftInfo = this.getDaysLeft(project.endDate);
@@ -1183,7 +1199,6 @@ const timelineApp = {
                 `;
             }
 
-            // --- GENERATE PRIORITY OPTIONS ---
             const priorityVal = project.priority || 5;
             let priorityOptions = '';
             for(let i=1; i<=10; i++) {
@@ -1194,12 +1209,15 @@ const timelineApp = {
                     ${priorityOptions}
                 </select>
             `;
-            // ---------------------------------
 
             projectCard.innerHTML = `
                 <div class="flex justify-between items-center mb-3 project-header">
                     <div class="flex items-center gap-2 flex-grow min-w-0">
                         ${completionIcon}
+
+                        <button onclick="timelineApp.toggleProjectFavorite(${project.id})" class="favorite-btn ${project.favorite ? 'active' : ''} flex-shrink-0" title="Toggle Favorite">
+                            ${favoriteIcon}
+                        </button>
                         <button onclick="timelineApp.toggleProjectCollapse(${project.id})" class="p-1 rounded-full hover-bg-secondary flex-shrink-0">
                             <svg id="chevron-${project.id}" class="w-5 h-5 text-tertiary chevron ${project.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                         </button>
