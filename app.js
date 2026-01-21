@@ -3146,7 +3146,13 @@ const timelineApp = {
 
     initializeSharedDatePicker() {
         const dummy = document.createElement('input'); 
-        dummy.style.display = 'none'; 
+        // Fix: Do not remove dummy input, but hide it. 
+        // This ensures the flatpickr instance maintains a valid reference in the DOM.
+        dummy.style.position = 'absolute';
+        dummy.style.visibility = 'hidden';
+        dummy.style.pointerEvents = 'none';
+        dummy.style.top = '0';
+        dummy.style.left = '0';
         document.body.appendChild(dummy);
         
         this.sharedPicker = flatpickr(dummy, {
@@ -3159,14 +3165,12 @@ const timelineApp = {
                 const newDate = instance.formatDate(selectedDates[0], "Y-m-d");
                 const { type, oldDate, element } = this.currentPickerContext;
 
-                // --- FIX: Added 'move-followup' to this check ---
                 if (type.startsWith('new-project') || type === 'move-followup') { 
                     element.value = this.formatDate(this.parseDate(newDate)); 
                     element.dataset.date = newDate; 
                     instance.close(); 
                     return; 
                 }
-                // ------------------------------------------------
 
                 if (oldDate && oldDate !== newDate) {
                     this.pendingDateChange = { context: this.currentPickerContext, newDate };
@@ -3188,14 +3192,13 @@ const timelineApp = {
                 button.className = "flatpickr-today-button"; 
                 button.textContent = "Today"; 
                 button.addEventListener("click", (e) => { 
-                    // Use the instance's setDate to trigger onChange
                     this.setDate(new Date(), true); 
                     e.preventDefault(); 
                 }); 
                 this.calendarContainer.appendChild(button); 
             }]
         });
-        document.body.removeChild(dummy);
+        // Removed: document.body.removeChild(dummy);
     },
 
     handleDateTrigger(trigger) {
@@ -3204,7 +3207,6 @@ const timelineApp = {
 
         this.currentPickerContext = { 
             type, 
-            // Handle "null" string from Action Hub template
             projectId: (projectId === 'null' || !projectId) ? null : parseInt(projectId), 
             phaseId: phaseId === 'null' ? null : parseInt(phaseId), 
             taskId: parseInt(taskId), 
@@ -3214,7 +3216,93 @@ const timelineApp = {
         };
 
         let d = trigger.dataset.date || new Date();
+        
+        // Fix: Position the calendar relative to the trigger icon
+        this.sharedPicker.set('positionElement', trigger);
+        
+        // Fix: Reset onClose to default (hide backdrop only) in case it was changed by Range Trigger
+        this.sharedPicker.set('onClose', () => this.elements.datepickerBackdrop.classList.add('hidden'));
+
         this.sharedPicker.set('defaultDate', d);
+        this.sharedPicker.open();
+    },
+
+    handleRangeTrigger(element, currentStart, currentEnd, projectId, phaseId, taskId, subtaskId, isDriven) {
+        element.classList.add('active');
+        this.elements.datepickerBackdrop.classList.remove('hidden');
+
+        // Fix: Position the calendar relative to the date pill
+        this.sharedPicker.set('positionElement', element);
+
+        let isEscapePressed = false;
+
+        const escapeHandler = (e) => {
+            if (e.key === 'Escape') {
+                isEscapePressed = true;
+                this.sharedPicker.close();
+            }
+        };
+
+        document.addEventListener('keydown', escapeHandler);
+
+        const typeContext = subtaskId ? 'subtask' : (taskId ? 'task' : 'phase');
+
+        if (isDriven) {
+            this.sharedPicker.set('mode', 'single');
+            
+            if (currentEnd && currentEnd !== 'null') {
+                this.sharedPicker.setDate(this.parseDate(currentEnd));
+            } else {
+                this.sharedPicker.clear();
+            }
+
+            this.sharedPicker.set('onClose', (selectedDates) => {
+                document.removeEventListener('keydown', escapeHandler);
+                this.elements.datepickerBackdrop.classList.add('hidden');
+                element.classList.remove('active');
+
+                if (isEscapePressed) return;
+
+                if (selectedDates.length > 0) {
+                    const endStr = this.sharedPicker.formatDate(selectedDates[0], "Y-m-d");
+                    this.updateDate({ type: `${typeContext}-end`, projectId, phaseId, taskId, subtaskId, element }, endStr, "Driven date update");
+                }
+            });
+
+        } else {
+            this.sharedPicker.set('mode', 'range');
+            
+            const dates = [];
+            if(currentStart && currentStart !== 'null') dates.push(this.parseDate(currentStart));
+            if(currentEnd && currentEnd !== 'null') dates.push(this.parseDate(currentEnd));
+            this.sharedPicker.setDate(dates);
+
+            this.sharedPicker.set('onClose', (selectedDates) => {
+                document.removeEventListener('keydown', escapeHandler);
+                this.elements.datepickerBackdrop.classList.add('hidden');
+                element.classList.remove('active');
+                
+                if (isEscapePressed) return;
+                
+                if (selectedDates.length > 0) {
+                    const startStr = this.sharedPicker.formatDate(selectedDates[0], "Y-m-d");
+                    
+                    // Fix: If only 1 date selected, set End Date = Start Date (Single Day Task)
+                    const endStr = selectedDates.length > 1 
+                        ? this.sharedPicker.formatDate(selectedDates[1], "Y-m-d") 
+                        : startStr;
+
+                    this.updateDate({ type: `${typeContext}-start`, projectId, phaseId, taskId, subtaskId, element }, startStr, null, false);
+                    
+                    if (endStr) {
+                        this.updateDate({ type: `${typeContext}-end`, projectId, phaseId, taskId, subtaskId, element }, endStr, "Range update");
+                    } else {
+                         this.renderProjects();
+                    }
+                }
+            });
+        }
+
         this.sharedPicker.open();
     },
 
@@ -4130,93 +4218,6 @@ const timelineApp = {
                 </svg>
             </div>
         `;
-    },
-
-// --- UPDATED HELPER: Handles the Click Logic with Escape Support ---
-    handleRangeTrigger(element, currentStart, currentEnd, projectId, phaseId, taskId, subtaskId, isDriven) {
-        element.classList.add('active');
-        this.elements.datepickerBackdrop.classList.remove('hidden'); // Ensure backdrop is shown
-
-        // Track if Escape was pressed
-        let isEscapePressed = false;
-
-        // Define Escape Key Handler
-        const escapeHandler = (e) => {
-            if (e.key === 'Escape') {
-                isEscapePressed = true;
-                this.sharedPicker.close(); // Trigger close immediately
-            }
-        };
-
-        // Attach listener
-        document.addEventListener('keydown', escapeHandler);
-
-        // Determine Context
-        const typeContext = subtaskId ? 'subtask' : (taskId ? 'task' : 'phase');
-
-        if (isDriven) {
-            // DRIVEN MODE: Single Date (End Date only)
-            this.sharedPicker.set('mode', 'single');
-            
-            if (currentEnd && currentEnd !== 'null') {
-                this.sharedPicker.setDate(this.parseDate(currentEnd));
-            } else {
-                this.sharedPicker.clear();
-            }
-
-            this.sharedPicker.set('onClose', (selectedDates) => {
-                // Clean up listener
-                document.removeEventListener('keydown', escapeHandler);
-                
-                this.elements.datepickerBackdrop.classList.add('hidden');
-                element.classList.remove('active');
-
-                // If Escape was pressed, DO NOT SAVE
-                if (isEscapePressed) return;
-
-                if (selectedDates.length > 0) {
-                    const endStr = this.sharedPicker.formatDate(selectedDates[0], "Y-m-d");
-                    this.updateDate({ type: `${typeContext}-end`, projectId, phaseId, taskId, subtaskId, element }, endStr, "Driven date update");
-                }
-            });
-
-        } else {
-            // STANDARD MODE: Range (Start -> End)
-            this.sharedPicker.set('mode', 'range');
-            
-            const dates = [];
-            if(currentStart && currentStart !== 'null') dates.push(this.parseDate(currentStart));
-            if(currentEnd && currentEnd !== 'null') dates.push(this.parseDate(currentEnd));
-            this.sharedPicker.setDate(dates);
-
-            this.sharedPicker.set('onClose', (selectedDates) => {
-                // Clean up listener
-                document.removeEventListener('keydown', escapeHandler);
-                
-                this.elements.datepickerBackdrop.classList.add('hidden');
-                element.classList.remove('active');
-                
-                // If Escape was pressed, DO NOT SAVE
-                if (isEscapePressed) return;
-                
-                if (selectedDates.length > 0) {
-                    const startStr = this.sharedPicker.formatDate(selectedDates[0], "Y-m-d");
-                    // Note: If user clicks once and closes, length is 1. If range picked, length is 2.
-                    const endStr = selectedDates.length > 1 ? this.sharedPicker.formatDate(selectedDates[1], "Y-m-d") : null;
-
-                    this.updateDate({ type: `${typeContext}-start`, projectId, phaseId, taskId, subtaskId, element }, startStr, null, false);
-                    
-                    if (endStr) {
-                        this.updateDate({ type: `${typeContext}-end`, projectId, phaseId, taskId, subtaskId, element }, endStr, "Range update");
-                    } else {
-                        // If end date was cleared or only start set, force refresh to reset highlights
-                         this.renderProjects();
-                    }
-                }
-            });
-        }
-
-        this.sharedPicker.open();
     },
 
     getTickInterval(domain) {
