@@ -4301,24 +4301,48 @@ const timelineApp = {
         const container = d3.select("#drift-chart");
         container.selectAll("*").remove();
         
-        // Get Data: Projects with Original End Dates
+        // 1. Prepare Data with Pacing Metrics
         const data = this.projects
             .filter(p => p.originalEndDate && p.endDate && p.overallProgress < 100)
             .map(p => {
+                // Historical Slip (Days)
                 const slip = (this.parseDate(p.endDate) - this.parseDate(p.originalEndDate)) / (1000 * 60 * 60 * 24);
-                return { name: p.name, slip: slip };
+                
+                // Calculate Pacing Risk
+                const start = this.parseDate(p.startDate);
+                const end = this.parseDate(p.endDate);
+                const now = new Date();
+                
+                // Avoid division by zero
+                const totalDuration = (end - start) || 1; 
+                
+                // Calculate Time Elapsed %
+                const elapsedRaw = now - start;
+                const durationProgress = Math.min(100, Math.max(0, (elapsedRaw / totalDuration) * 100));
+                
+                // Pacing Gap: Positive = Behind Schedule (Bad), Negative = Ahead (Good)
+                const pacingGap = durationProgress - (p.overallProgress || 0);
+                
+                return { 
+                    name: p.name, 
+                    slip: Math.max(0, slip), // Clamp negative slip
+                    pacingGap: pacingGap,
+                    progress: Math.round(p.overallProgress || 0),
+                    timeUsed: Math.round(durationProgress)
+                };
             })
-            .sort((a, b) => b.slip - a.slip); // Sort by biggest slip
+            // Sort by Pacing Gap (Highest Risk First) instead of just slip amount
+            .sort((a, b) => b.pacingGap - a.pacingGap); 
 
         if (data.length === 0) {
             container.html('<div class="flex items-center justify-center h-full text-secondary">No project history to analyze.</div>');
             return;
         }
 
-        // D3 Setup
+        // 2. D3 Setup
         const width = container.node().getBoundingClientRect().width;
         const height = container.node().getBoundingClientRect().height;
-        const margin = { top: 20, right: 30, bottom: 40, left: 100 };
+        const margin = { top: 20, right: 30, bottom: 40, left: 140 }; // Increased left margin for names
         
         const svg = container.append("svg")
             .attr("width", width)
@@ -4333,30 +4357,71 @@ const timelineApp = {
         const y = d3.scaleBand()
             .range([0, height - margin.top - margin.bottom])
             .domain(data.map(d => d.name))
-            .padding(0.2);
+            .padding(0.3); // Increased padding for cleaner look
 
-        // Bars
+        // 3. Define Tooltip (Re-use existing if available, or create new)
+        let tooltip = d3.select("body").select(".chart-tooltip");
+        if (tooltip.empty()) {
+            tooltip = d3.select("body").append("div").attr("class", "chart-tooltip");
+        }
+
+        // 4. Draw Bars
         svg.selectAll("rect")
             .data(data)
             .enter()
             .append("rect")
             .attr("x", x(0))
             .attr("y", d => y(d.name))
-            .attr("width", d => x(Math.max(0, d.slip)))
+            .attr("width", d => x(d.slip))
             .attr("height", y.bandwidth())
-            .attr("fill", d => d.slip > 0 ? "#ef4444" : "#22c55e")
-            .attr("rx", 4);
+            .attr("rx", 4)
+            .attr("fill", d => {
+                // Color Logic based on Pacing Risk
+                if (d.pacingGap > 20) return "#ef4444"; // Red: Critical (>20% behind)
+                if (d.pacingGap > 0) return "#f59e0b";  // Amber: At Risk (Behind)
+                return "#22c55e";                       // Green: Stabilized (Ahead/On Track)
+            })
+            // Tooltip Interaction
+            .on("mouseover", function(event, d) {
+                const riskLabel = d.pacingGap > 0 ? `${Math.round(d.pacingGap)}% Behind Pace` : "On Track";
+                tooltip.style("visibility", "visible")
+                    .html(`
+                        <strong>${d.name}</strong><br>
+                        Total Slip: ${Math.round(d.slip)} days<br>
+                        Risk: ${riskLabel}<br>
+                        (Done: ${d.progress}% vs Time: ${d.timeUsed}%)
+                    `);
+            })
+            .on("mousemove", (event) => {
+                tooltip.style("top", (event.pageY - 10) + "px").style("left", (event.pageX + 10) + "px");
+            })
+            .on("mouseout", () => {
+                tooltip.style("visibility", "hidden");
+            });
 
-        // Labels
+        // 5. Draw Axes
         svg.append("g")
             .call(d3.axisLeft(y).tickSize(0))
             .selectAll("text")
-            .style("font-family", "inherit");
+            .style("font-family", "inherit")
+            .style("font-weight", "600"); // Make labels bolder
 
-        // X Axis
         svg.append("g")
             .attr("transform", `translate(0,${height - margin.top - margin.bottom})`)
-            .call(d3.axisBottom(x).ticks(5));
+            .call(d3.axisBottom(x).ticks(5).tickFormat(d => `${d}d`));
+            
+        // 6. Add "Days Slipped" text labels at end of bars
+        svg.selectAll(".bar-label")
+            .data(data)
+            .enter()
+            .append("text")
+            .attr("class", "bar-label")
+            .attr("x", d => x(d.slip) + 5)
+            .attr("y", d => y(d.name) + y.bandwidth() / 2)
+            .attr("dy", ".35em")
+            .text(d => `+${Math.round(d.slip)}`)
+            .style("font-size", "10px")
+            .style("fill", "var(--text-secondary)");
     },
 
     drawContextChart() {
