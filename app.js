@@ -2232,30 +2232,26 @@ const timelineApp = {
             cursor.setDate(cursor.getDate() + 1);
         }
 
-        const startDate = businessDays[0];
-        const endDate = businessDays[businessDays.length - 1];
-
-        // 2. Collect Active Tasks with Metadata
-        const dailyBuckets = new Map(); // Key: "YYYY-MM-DD", Value: Array of Task Objects
+        // 2. Collect Active Tasks (Strictly by Due Date)
+        const dailyBuckets = new Map(); 
         
         // Initialize buckets for our 10 days
         businessDays.forEach(d => {
             dailyBuckets.set(d.toISOString().split('T')[0], []);
         });
 
-        const addToBucket = (start, end, meta) => {
-            let current = new Date(start);
-            const finish = new Date(end);
-            current.setHours(0,0,0,0);
-            finish.setHours(0,0,0,0);
-
-            while (current <= finish) {
-                const key = current.toISOString().split('T')[0];
-                if (dailyBuckets.has(key)) {
-                    dailyBuckets.get(key).push(meta);
-                }
-                current.setDate(current.getDate() + 1);
-            }
+        // Helper to place item in the specific bucket for its due date
+        const placeInBucket = (dateStr, meta) => {
+             if (!dateStr) return;
+             const date = this.parseDate(dateStr);
+             if (!date) return;
+             
+             // Normalize to YYYY-MM-DD
+             const key = date.toISOString().split('T')[0];
+             
+             if (dailyBuckets.has(key)) {
+                 dailyBuckets.get(key).push(meta);
+             }
         };
 
         this.projects.forEach(project => {
@@ -2264,47 +2260,53 @@ const timelineApp = {
             // Project Tasks
             project.phases.forEach(phase => {
                 phase.tasks.forEach(task => {
-                    const meta = { 
-                        id: task.id, 
-                        name: task.name, 
-                        projectId: project.id, 
-                        phaseId: phase.id, 
-                        taskId: task.id, 
-                        subtaskId: null,
-                        completed: task.progress >= 100
-                    };
-                    
-                    if (task.startDate && task.endDate && !meta.completed) {
-                        addToBucket(this.parseDate(task.startDate), this.parseDate(task.endDate), meta);
-                    }
-                    
-                    // Subtasks
-                    if (task.subtasks) {
+                    // Logic: If task has subtasks, show subtasks. If not, show task.
+                    // This matches Action Hub behavior and prevents double-counting.
+                    const hasSubtasks = task.subtasks && task.subtasks.length > 0;
+
+                    if (hasSubtasks) {
                         task.subtasks.forEach(sub => {
-                            if (sub.startDate && sub.endDate && sub.progress < 100) {
-                                addToBucket(this.parseDate(sub.startDate), this.parseDate(sub.endDate), {
-                                    ...meta,
+                            if (sub.endDate && sub.progress < 100) {
+                                placeInBucket(sub.endDate, {
                                     id: sub.id,
-                                    name: sub.name,
+                                    name: `${task.name}: ${sub.name}`,
+                                    projectId: project.id, 
+                                    phaseId: phase.id, 
+                                    taskId: task.id, 
                                     subtaskId: sub.id,
-                                    completed: sub.progress >= 100
+                                    completed: false
                                 });
                             }
                         });
+                    } else {
+                        const dueDate = task.effectiveEndDate || task.endDate;
+                        if (dueDate && task.progress < 100) {
+                            placeInBucket(dueDate, { 
+                                id: task.id, 
+                                name: task.name, 
+                                projectId: project.id, 
+                                phaseId: phase.id, 
+                                taskId: task.id, 
+                                subtaskId: null,
+                                completed: false
+                            });
+                        }
                     }
                 });
             });
 
             // General Tasks
             project.generalTasks.forEach(task => {
-                 if (task.startDate && task.endDate && task.progress < 100) {
-                     addToBucket(this.parseDate(task.startDate), this.parseDate(task.endDate), {
+                 const dueDate = task.effectiveEndDate || task.endDate;
+                 if (dueDate && task.progress < 100) {
+                     placeInBucket(dueDate, {
                         id: task.id, 
                         name: task.name, 
                         projectId: project.id, 
                         phaseId: null, 
                         taskId: task.id, 
-                        subtaskId: null
+                        subtaskId: null,
+                        completed: false
                      });
                  }
             });
@@ -2358,7 +2360,6 @@ const timelineApp = {
             .call(d3.axisLeft(y).ticks(5));
 
         // 5. Draw Task Boxes
-        // Tooltip setup
         let tooltip = d3.select("body").select(".chart-tooltip");
         if (tooltip.empty()) {
             tooltip = d3.select("body").append("div").attr("class", "chart-tooltip");
@@ -2366,9 +2367,6 @@ const timelineApp = {
 
         const boxHeight = (height / maxLoad) - 1; // -1 for gap
         
-        // Prevent boxes from becoming microscopic if load is huge, or too huge if load is tiny
-        const renderedBoxHeight = Math.min(Math.max(boxHeight, 4), 30); 
-
         dailyBuckets.forEach((tasks, dateKey) => {
             const dayGroup = svg.append("g")
                 .attr("transform", `translate(${x(dateKey)}, 0)`);
@@ -2381,13 +2379,13 @@ const timelineApp = {
                 .attr("y", (d, i) => y(i + 1)) // Stack from bottom up
                 .attr("width", x.bandwidth())
                 .attr("height", y(0) - y(1) - 1) // Calculate exact height of one unit
-                .attr("fill", (d, i) => this.taskLoadChartColor(i)) // Use existing color scale or generic blue
+                .attr("fill", (d, i) => this.taskLoadChartColor(i))
                 .attr("rx", 2)
                 .style("cursor", "pointer")
                 .on("mouseover", function(event, d) {
                     d3.select(this).style("opacity", 0.8);
                     tooltip.style("visibility", "visible")
-                        .html(`<strong>${d.name}</strong><br>Click to view`);
+                        .html(`<strong>${d.name}</strong><br>Click to go to task`);
                 })
                 .on("mousemove", (event) => {
                     tooltip.style("top", (event.pageY - 10) + "px")
@@ -2398,7 +2396,6 @@ const timelineApp = {
                     tooltip.style("visibility", "hidden");
                 })
                 .on("click", (event, d) => {
-                    // LINK BACK TO TIMELINE
                     this.navigateToTask(d.projectId, d.phaseId, d.taskId, d.subtaskId);
                 });
         });
@@ -2410,7 +2407,7 @@ const timelineApp = {
             .attr("text-anchor", "end")
             .style("font-size", "10px")
             .style("fill", "var(--text-secondary)")
-            .text("Next 10 Business Days");
+            .text("Next 10 Business Days (Due)");
     },
 
     renderUpcomingTasks() {
