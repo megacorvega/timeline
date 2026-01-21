@@ -1496,23 +1496,38 @@ button:not(:disabled),
     color: #e9d5ff;
 }
 
-/* --- FAVORITE BUTTON STYLES --- */
+/* --- Add .stats-btn to the "Hidden by Default" group --- */
+.lock-toggle-btn, .print-btn, .comment-btn, .stats-btn {
+    padding: 4px;
+    border-radius: 6px;
+    color: var(--text-tertiary);
+    transition: all 0.2s;
+    opacity: 0; /* Hidden by default */
+}
 
-/* Hover state (when mouse is over the button itself) */
-.favorite-btn:hover {
+/* --- Add to the "Show on Hover" group --- */
+.project-header:hover .stats-btn,
+.project-header:hover .lock-toggle-btn,
+.project-header:hover .print-btn,
+.phase-row:hover .lock-toggle-btn,
+.project-header:hover .comment-btn,
+.phase-row .item-main-row:hover .comment-btn,
+.task-row .item-main-row:hover .comment-btn,
+.subtask-row:hover .comment-btn {
+    opacity: 1;
+}
+
+/* --- STATS TOGGLE SPECIFIC STYLES --- */
+.stats-btn:hover {
     background-color: var(--bg-tertiary);
     color: var(--text-primary);
 }
 
-/* Active State (Gold Star) */
-.favorite-btn.active {
-    color: #fbbf24; /* Gold color */
-    opacity: 1; /* Keep visible even if mouse leaves the header */
-}
-
-/* Dark mode adjustment for the gold color */
-.dark .favorite-btn.active {
-    color: #fbbf24; 
+/* Excluded State (Visible & Red/Dimmed) */
+.stats-btn.excluded {
+    opacity: 1 !important; /* Always show if excluded */
+    color: #ef4444; /* Red color to indicate "Ignored/Off" */
+    background-color: rgba(239, 68, 68, 0.1);
 }
 
 /* Move to Project Button */

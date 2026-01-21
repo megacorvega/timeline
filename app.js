@@ -497,14 +497,13 @@ const timelineApp = {
             if (!project.originalStartDate) project.originalStartDate = project.startDate;
             if (!project.originalEndDate) project.originalEndDate = project.endDate;
             if (project.locked === undefined) project.locked = false;
-            
-            // --- NEW: Initialize Favorite Property ---
-            if (project.favorite === undefined) project.favorite = false;
-            // -----------------------------------------
-            
-            // --- NEW: Initialize Priority ---
+
+            // --- NEW: Initialize Exclude Logic ---
+            if (project.excludeFromStats === undefined) project.excludeFromStats = false;
+            // -------------------------------------
+
             if (project.priority === undefined) {
-                project.priority = 5; // Default to Middle Priority (1-10 scale)
+                project.priority = 5; 
                 hasMigrated = true;
             }
 
@@ -556,6 +555,20 @@ const timelineApp = {
             } catch (error) {
                 console.error("Error parsing deleted project logs from localStorage:", error);
                 this.deletedProjectLogs = [];
+            }
+        }
+    },
+
+    toggleProjectStats(projectId) {
+        const project = this.projects.find(p => p.id === projectId);
+        if (project) {
+            project.excludeFromStats = !project.excludeFromStats;
+            this.saveState();
+            this.renderProjects(); 
+            
+            // If the user is currently on the Review tab, refresh it immediately
+            if (this.activeTab === 'overall-load') {
+                this.renderReviewDashboard();
             }
         }
     },
@@ -1100,18 +1113,24 @@ const timelineApp = {
         }
 
         const sortedProjects = filteredProjects.sort((a, b) => {
-            // 1. Completion Status (Completed items sink to bottom)
+            // 1. Completion Status (Completed items always sink to the absolute bottom)
             const aComplete = a.overallProgress >= 100;
             const bComplete = b.overallProgress >= 100;
             if (aComplete && !bComplete) return 1;
             if (!aComplete && bComplete) return -1;
             
-            // 2. Priority (Ascending: 1 is top, 10 is bottom)
+            // 2. [NEW] Exclusion Status (Excluded items sink below Active items)
+            const aExcluded = a.excludeFromStats === true;
+            const bExcluded = b.excludeFromStats === true;
+            if (aExcluded && !bExcluded) return 1;
+            if (!aExcluded && bExcluded) return -1;
+
+            // 3. Priority (Ascending: 1 is top, 10 is bottom)
             const pA = a.priority !== undefined ? a.priority : 5;
             const pB = b.priority !== undefined ? b.priority : 5;
             if (pA !== pB) return pA - pB;
 
-            // 3. End Date (Earliest first)
+            // 4. End Date (Earliest first)
             return this.sortByEndDate(a, b, 'endDate');
         });
 
@@ -1119,14 +1138,18 @@ const timelineApp = {
             const projectCard = document.createElement('div');
             projectCard.className = `project-card p-3 rounded-xl mb-4`;
             
+            // Visual Fade for Excluded Projects (Optional: makes them look "muted")
+            if (project.excludeFromStats && project.overallProgress < 100) {
+                projectCard.style.opacity = '0.85'; 
+            }
+
             const isComplete = project.overallProgress >= 100;
             let completionIcon = isComplete ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>` : '';
 
-            // --- NEW: Favorite Icon SVG Selection ---
-            const favoriteIcon = project.favorite 
-                ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>` 
-                : `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>`;
-            // ----------------------------------------
+            // Stats Toggle Icon
+            const statsIcon = project.excludeFromStats 
+                ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>` 
+                : `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>`;
 
             const durationProgress = this.getDurationProgress(project.startDate, project.endDate);
             const daysLeftInfo = this.getDaysLeft(project.endDate);
@@ -1214,10 +1237,11 @@ const timelineApp = {
                 <div class="flex justify-between items-center mb-3 project-header">
                     <div class="flex items-center gap-2 flex-grow min-w-0">
                         ${completionIcon}
-
-                        <button onclick="timelineApp.toggleProjectFavorite(${project.id})" class="favorite-btn ${project.favorite ? 'active' : ''} flex-shrink-0" title="Toggle Favorite">
-                            ${favoriteIcon}
+                        
+                        <button onclick="timelineApp.toggleProjectStats(${project.id})" class="stats-btn ${project.excludeFromStats ? 'excluded' : ''} flex-shrink-0" title="${project.excludeFromStats ? 'Project Excluded from Review' : 'Exclude from Review Stats'}">
+                            ${statsIcon}
                         </button>
+
                         <button onclick="timelineApp.toggleProjectCollapse(${project.id})" class="p-1 rounded-full hover-bg-secondary flex-shrink-0">
                             <svg id="chevron-${project.id}" class="w-5 h-5 text-tertiary chevron ${project.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                         </button>
@@ -2190,95 +2214,108 @@ const timelineApp = {
         },
 
     drawOverallLoadChart() {
-            const containerId = `overall-load-chart`;
-            const container = d3.select(`#${containerId}`);
-            if (container.empty()) return;
-            container.selectAll("*").remove();
-
-            const legendContainer = d3.select('#overall-load-legend');
-            legendContainer.html('');
-
+            const container = document.getElementById('load-chart');
+            container.innerHTML = '';
+            
             const allTasks = [];
+            // --- NEW: Filter Excluded Projects ---
             this.projects.forEach(project => {
+                if (project.excludeFromStats) return; // Added Filter
+                
                 project.phases.forEach(phase => {
                     phase.tasks.forEach(task => {
-                        if (task.subtasks && task.subtasks.length > 0) {
-                            task.subtasks.forEach(subtask => {
-                                if (subtask.endDate) allTasks.push({ name: subtask.name, endDate: subtask.endDate, colorKey: project.name });
-                            });
-                        } else if (task.endDate) {
-                            allTasks.push({ name: task.name, endDate: task.endDate, colorKey: project.name });
+                        if (task.startDate && task.endDate && task.progress < 100) {
+                             allTasks.push({ start: this.parseDate(task.startDate), end: this.parseDate(task.endDate) });
+                        }
+                        if (task.subtasks) {
+                             task.subtasks.forEach(sub => {
+                                 if (sub.startDate && sub.endDate && sub.progress < 100) {
+                                      allTasks.push({ start: this.parseDate(sub.startDate), end: this.parseDate(sub.endDate) });
+                                 }
+                             });
                         }
                     });
                 });
+                 project.generalTasks.forEach(task => {
+                    if (task.startDate && task.endDate && task.progress < 100) {
+                             allTasks.push({ start: this.parseDate(task.startDate), end: this.parseDate(task.endDate) });
+                    }
+                 });
             });
 
             if (allTasks.length === 0) {
-                container.html(`<div class="flex items-center justify-center h-full text-gray-400">No tasks with due dates.</div>`);
-                return;
+                 container.innerHTML = '<div class="text-center text-gray-400 text-sm mt-10">No active tasks with dates found.</div>';
+                 return;
             }
 
-            const tasksByWeek = d3.group(allTasks, d => d3.timeMonday(this.parseDate(d.endDate)));
-            const uniqueProjectNames = [...new Set(allTasks.map(t => t.colorKey))];
-            const overallChartColor = d3.scaleOrdinal(d3.schemeTableau10).domain(uniqueProjectNames);
-
-            const stackData = Array.from(tasksByWeek.entries())
-                .sort((a, b) => a[0] - b[0])
-                .map(([week, tasks]) => {
-                    const weekData = { week: week };
-                    uniqueProjectNames.forEach(name => {
-                        weekData[name] = tasks.filter(t => t.colorKey === name).length;
-                    });
-                    return weekData;
-                });
-
-            const stack = d3.stack().keys(uniqueProjectNames);
-            const series = stack(stackData);
-
-            setTimeout(() => {
-                const width = container.node().getBoundingClientRect().width;
-                if (width <= 0) return;
-
-                const margin = { top: 20, right: 20, bottom: 50, left: 40 },
-                    chartWidth = width - margin.left - margin.right,
-                    height = container.node().getBoundingClientRect().height - margin.top - margin.bottom;
-
-                const svg = container.append("svg").attr("width", chartWidth + margin.left + margin.right).attr("height", height + margin.top + margin.bottom)
-                    .append("g").attr("transform", `translate(${margin.left},${margin.top})`);
-
-                const x = d3.scaleBand().domain(stackData.map(d => d.week)).range([0, chartWidth]).padding(0.2);
-                const yMax = d3.max(series, d => d3.max(d, d => d[1]));
-                const y = d3.scaleLinear().domain([0, yMax > 0 ? yMax : 1]).nice().range([height, 0]);
-
-                svg.append("g").attr("class", "chart-grid").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x).tickFormat(d3.timeFormat("%b %d")))
-                    .selectAll("text").style("font-size", "10px").attr("transform", "rotate(-45)").style("text-anchor", "end");
-
-                svg.append("g").attr("class", "chart-grid").call(d3.axisLeft(y).ticks(Math.min(yMax, 10)).tickFormat(d3.format("d")));
-
-                let tooltip = d3.select("body").select(".chart-tooltip");
-                if (tooltip.empty()) {
-                    tooltip = d3.select("body").append("div").attr("class", "chart-tooltip");
+            // Create a map of date -> task count
+            const loadMap = new Map();
+            allTasks.forEach(task => {
+                let current = new Date(task.start);
+                const end = new Date(task.end);
+                while (current <= end) {
+                    const key = current.toISOString().split('T')[0];
+                    loadMap.set(key, (loadMap.get(key) || 0) + 1);
+                    current.setDate(current.getDate() + 1);
                 }
+            });
 
-                svg.append("g").selectAll("g").data(series).enter().append("g").attr("fill", d => overallChartColor(d.key))
-                    .selectAll("rect").data(d => d).enter().append("rect")
-                    .attr("x", d => x(d.data.week)).attr("y", d => y(d[1])).attr("height", d => y(d[0]) - y(d[1])).attr("width", x.bandwidth())
-                    .on("mouseover", function(event, d) {
-                        const seriesData = d3.select(this.parentNode).datum();
-                        const projectName = seriesData.key;
-                        const taskCount = d.data[projectName];
-                        if (taskCount === 0) return;
-                        const weekStart = d3.timeFormat("%b %d")(d.data.week);
-                        tooltip.style("visibility", "visible").html(`<strong>${projectName}</strong><br>Week of ${weekStart}<br>Tasks Due: ${taskCount}`);
-                    })
-                    .on("mousemove", (event) => { tooltip.style("top", (event.pageY - 10) + "px").style("left", (event.pageX + 10) + "px"); })
-                    .on("mouseout", () => { tooltip.style("visibility", "hidden"); });
+            // Convert to array and sort
+            const data = Array.from(loadMap, ([date, count]) => ({ date: this.parseDate(date), count }))
+                .sort((a, b) => a.date - b.date);
 
-                const legend = legendContainer.selectAll('.legend-item').data(uniqueProjectNames).enter().append('div').attr('class', 'flex items-center');
-                legend.append('div').style('width', '12px').style('height', '12px').style('background-color', d => overallChartColor(d)).attr('class', 'mr-2 rounded-sm');
-                legend.append('span').text(d => d);
-            }, 0);
-        },
+            // Filter for next 30 days only to keep chart readable
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            const thirtyDaysLater = new Date(today);
+            thirtyDaysLater.setDate(today.getDate() + 30);
+            
+            const filteredData = data.filter(d => d.date >= today && d.date <= thirtyDaysLater);
+
+            if (filteredData.length === 0) {
+                 container.innerHTML = '<div class="text-center text-gray-400 text-sm mt-10">No tasks scheduled for the next 30 days.</div>';
+                 return;
+            }
+
+            const margin = { top: 20, right: 30, bottom: 30, left: 40 };
+            const width = container.clientWidth - margin.left - margin.right;
+            const height = 200 - margin.top - margin.bottom;
+
+            const svg = d3.select(container).append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            const x = d3.scaleTime()
+                .domain(d3.extent(filteredData, d => d.date))
+                .range([0, width]);
+
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(filteredData, d => d.count)])
+                .range([height, 0]);
+            
+            // Area generator
+            const area = d3.area()
+                .curve(d3.curveMonotoneX)
+                .x(d => x(d.date))
+                .y0(height)
+                .y1(d => y(d.count));
+
+            svg.append("path")
+                .datum(filteredData)
+                .attr("fill", "rgba(59, 130, 246, 0.2)") // Blue with opacity
+                .attr("stroke", "var(--blue)")
+                .attr("stroke-width", 1.5)
+                .attr("d", area);
+
+            svg.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x).ticks(5));
+
+            svg.append("g")
+                .call(d3.axisLeft(y).ticks(5));
+    },  
 
     renderUpcomingTasks() {
             // Update Filter Dropdown
@@ -4284,302 +4321,259 @@ const timelineApp = {
     },
 
     calculateKPIs() {
-        // 1. Active Projects
-        const activeProjects = this.projects.filter(p => p.overallProgress < 100);
+        // --- NEW: Filter Excluded Projects ---
+        const validProjects = this.projects.filter(p => !p.excludeFromStats);
+        // -------------------------------------
+
+        const activeProjects = validProjects.filter(p => p.overallProgress < 100);
         document.getElementById('kpi-active-projects').textContent = activeProjects.length;
 
-        // 2. Slippage
-        let totalSlipDays = 0;
-        activeProjects.forEach(p => {
-            if (p.originalEndDate && p.endDate) {
-                const original = this.parseDate(p.originalEndDate);
-                const current = this.parseDate(p.endDate);
-                const diff = (current - original) / (1000 * 60 * 60 * 24);
-                if (diff > 0) totalSlipDays += diff;
-            }
-        });
-        document.getElementById('kpi-total-slippage').textContent = `${Math.round(totalSlipDays)} days`;
+        let totalTasks = 0;
+        let completedTasks = 0;
 
-        // 3. Completion Rate (Simple avg of progress)
-        const avgProgress = activeProjects.reduce((acc, p) => acc + (p.overallProgress || 0), 0) / (activeProjects.length || 1);
-        document.getElementById('kpi-completion-rate').textContent = `${Math.round(avgProgress)}%`;
-
-        // 4. Health Score (Arbitrary calculation)
-        // Start at 100. Deduct for slippage, deduct for overdue tasks.
-        let score = 100;
-        const today = new Date();
-        activeProjects.forEach(p => {
-            if (p.endDate && this.parseDate(p.endDate) < today) score -= 10; // Late project penalty
-            if (p.overallProgress < 50 && this.getDurationProgress(p.startDate, p.endDate) > 75) score -= 5; // Dragging penalty
+        validProjects.forEach(project => {
+            project.phases.forEach(phase => {
+                totalTasks += phase.tasks.length;
+                completedTasks += phase.tasks.filter(t => t.progress >= 100).length;
+                phase.tasks.forEach(t => {
+                    if (t.subtasks) {
+                        totalTasks += t.subtasks.length;
+                        completedTasks += t.subtasks.filter(s => s.progress >= 100).length;
+                    }
+                });
+            });
+            totalTasks += project.generalTasks.length;
+            completedTasks += project.generalTasks.filter(t => t.progress >= 100).length;
         });
-        document.getElementById('kpi-health-score').textContent = Math.max(0, score);
+
+        const overallCompletion = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+        document.getElementById('kpi-overall-completion').textContent = `${overallCompletion}%`;
+
+        const overdueCount = activeProjects.filter(p => {
+             const daysLeftInfo = this.getDaysLeft(p.endDate);
+             return daysLeftInfo.isOverdue;
+        }).length;
+        document.getElementById('kpi-overdue-projects').textContent = overdueCount;
+
+        const dueThisWeek = activeProjects.filter(p => {
+            if (!p.endDate) return false;
+            const end = this.parseDate(p.endDate);
+            const today = new Date();
+            const diffTime = end - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return diffDays >= 0 && diffDays <= 7;
+        }).length;
+        document.getElementById('kpi-due-soon').textContent = dueThisWeek;
     },
 
     drawDriftChart() {
-        const container = d3.select("#drift-chart");
-        container.selectAll("*").remove();
+        const container = document.getElementById('drift-chart');
+        container.innerHTML = '';
         
-        // 1. Prepare Data with Pacing Metrics
+        // --- NEW: Filter Excluded Projects ---
         const data = this.projects
+            .filter(p => !p.excludeFromStats) 
             .filter(p => p.originalEndDate && p.endDate && p.overallProgress < 100)
             .map(p => {
-                // Historical Slip (Days)
-                const slip = (this.parseDate(p.endDate) - this.parseDate(p.originalEndDate)) / (1000 * 60 * 60 * 24);
-                
-                // Calculate Pacing Risk
-                const start = this.parseDate(p.startDate);
-                const end = this.parseDate(p.endDate);
-                const now = new Date();
-                
-                // Avoid division by zero
-                const totalDuration = (end - start) || 1; 
-                
-                // Calculate Time Elapsed %
-                const elapsedRaw = now - start;
-                const durationProgress = Math.min(100, Math.max(0, (elapsedRaw / totalDuration) * 100));
-                
-                // Pacing Gap: Positive = Behind Schedule (Bad), Negative = Ahead (Good)
-                const pacingGap = durationProgress - (p.overallProgress || 0);
-                
-                return { 
-                    name: p.name, 
-                    slip: Math.max(0, slip), // Clamp negative slip
-                    pacingGap: pacingGap,
-                    progress: Math.round(p.overallProgress || 0),
-                    timeUsed: Math.round(durationProgress)
-                };
+                const original = this.parseDate(p.originalEndDate);
+                const current = this.parseDate(p.endDate);
+                const driftDays = Math.round((current - original) / (1000 * 60 * 60 * 24));
+                return { name: p.name, drift: driftDays };
             })
-            // Sort by Pacing Gap (Highest Risk First) instead of just slip amount
-            .sort((a, b) => b.pacingGap - a.pacingGap); 
+            .sort((a, b) => b.drift - a.drift); 
 
         if (data.length === 0) {
-            container.html('<div class="flex items-center justify-center h-full text-secondary">No project history to analyze.</div>');
+            container.innerHTML = '<div class="text-center text-gray-400 text-sm mt-10">No drift data available.</div>';
             return;
         }
 
-        // 2. D3 Setup
-        const width = container.node().getBoundingClientRect().width;
-        const height = container.node().getBoundingClientRect().height;
-        const margin = { top: 20, right: 30, bottom: 40, left: 140 }; // Increased left margin for names
-        
-        const svg = container.append("svg")
-            .attr("width", width)
-            .attr("height", height)
+        const margin = { top: 20, right: 30, bottom: 40, left: 100 };
+        const width = container.clientWidth - margin.left - margin.right;
+        const height = data.length * 40; 
+
+        const svg = d3.select(container).append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
             .append("g")
             .attr("transform", `translate(${margin.left},${margin.top})`);
 
         const x = d3.scaleLinear()
-            .domain([0, d3.max(data, d => Math.max(d.slip, 10))])
-            .range([0, width - margin.left - margin.right]);
+            .domain([Math.min(0, d3.min(data, d => d.drift)), d3.max(data, d => d.drift)])
+            .range([0, width]);
 
         const y = d3.scaleBand()
-            .range([0, height - margin.top - margin.bottom])
             .domain(data.map(d => d.name))
-            .padding(0.3); // Increased padding for cleaner look
+            .range([0, height])
+            .padding(0.2);
 
-        // 3. Define Tooltip (Re-use existing if available, or create new)
-        let tooltip = d3.select("body").select(".chart-tooltip");
-        if (tooltip.empty()) {
-            tooltip = d3.select("body").append("div").attr("class", "chart-tooltip");
-        }
+        svg.append("g")
+            .attr("transform", `translate(0,${height})`)
+            .call(d3.axisBottom(x).ticks(5));
 
-        // 4. Draw Bars
-        svg.selectAll("rect")
+        svg.append("g")
+            .call(d3.axisLeft(y));
+
+        svg.selectAll(".bar")
             .data(data)
-            .enter()
-            .append("rect")
-            .attr("x", x(0))
+            .enter().append("rect")
+            .attr("class", "bar")
+            .attr("x", d => d.drift < 0 ? x(d.drift) : x(0))
             .attr("y", d => y(d.name))
-            .attr("width", d => x(d.slip))
+            .attr("width", d => Math.abs(x(d.drift) - x(0)))
             .attr("height", y.bandwidth())
-            .attr("rx", 4)
-            .attr("fill", d => {
-                // Color Logic based on Pacing Risk
-                if (d.pacingGap > 20) return "#ef4444"; // Red: Critical (>20% behind)
-                if (d.pacingGap > 0) return "#f59e0b";  // Amber: At Risk (Behind)
-                return "#22c55e";                       // Green: Stabilized (Ahead/On Track)
-            })
-            // Tooltip Interaction
-            .on("mouseover", function(event, d) {
-                const riskLabel = d.pacingGap > 0 ? `${Math.round(d.pacingGap)}% Behind Pace` : "On Track";
-                tooltip.style("visibility", "visible")
-                    .html(`
-                        <strong>${d.name}</strong><br>
-                        Total Slip: ${Math.round(d.slip)} days<br>
-                        Risk: ${riskLabel}<br>
-                        (Done: ${d.progress}% vs Time: ${d.timeUsed}%)
-                    `);
-            })
-            .on("mousemove", (event) => {
-                tooltip.style("top", (event.pageY - 10) + "px").style("left", (event.pageX + 10) + "px");
-            })
-            .on("mouseout", () => {
-                tooltip.style("visibility", "hidden");
-            });
+            .attr("fill", d => d.drift > 0 ? "var(--red)" : "var(--green)");
 
-        // 5. Draw Axes
-        svg.append("g")
-            .call(d3.axisLeft(y).tickSize(0))
-            .selectAll("text")
-            .style("font-family", "inherit")
-            .style("font-weight", "600"); // Make labels bolder
-
-        svg.append("g")
-            .attr("transform", `translate(0,${height - margin.top - margin.bottom})`)
-            .call(d3.axisBottom(x).ticks(5).tickFormat(d => `${d}d`));
-            
-        // 6. Add "Days Slipped" text labels at end of bars
-        svg.selectAll(".bar-label")
+        svg.selectAll(".label")
             .data(data)
-            .enter()
-            .append("text")
-            .attr("class", "bar-label")
-            .attr("x", d => x(d.slip) + 5)
-            .attr("y", d => y(d.name) + y.bandwidth() / 2)
-            .attr("dy", ".35em")
-            .text(d => `+${Math.round(d.slip)}`)
-            .style("font-size", "10px")
-            .style("fill", "var(--text-secondary)");
+            .enter().append("text")
+            .attr("x", d => d.drift < 0 ? x(d.drift) - 5 : x(d.drift) + 5)
+            .attr("y", d => y(d.name) + y.bandwidth() / 2 + 4)
+            .text(d => `${d.drift > 0 ? '+' : ''}${d.drift}d`)
+            .attr("text-anchor", d => d.drift < 0 ? "end" : "start")
+            .attr("font-size", "10px")
+            .attr("fill", "var(--text-primary)");
     },
 
     drawContextChart() {
-        const container = d3.select("#context-chart");
-        
-        // 1. Prepare Data
+        const container = document.getElementById('context-chart');
+        container.innerHTML = '';
+
         const tagCounts = {};
-        this.projects.forEach(p => p.phases.forEach(ph => ph.tasks.forEach(t => {
-            if (!t.completed && t.tags) {
-                t.tags.forEach(tag => {
+        
+        // --- NEW: Filter Excluded Projects ---
+        this.projects.forEach(p => {
+            if (p.excludeFromStats) return; 
+            
+            p.phases.forEach(ph => ph.tasks.forEach(t => {
+                if(t.tags) t.tags.forEach(tag => {
                     tagCounts[tag] = (tagCounts[tag] || 0) + 1;
                 });
-            }
-        })));
-        
-        // Also count standalone tasks
-        if (this.standaloneTasks) {
-            this.standaloneTasks.forEach(t => {
-                if (!t.completed && t.tags) {
-                    t.tags.forEach(tag => {
+                if(t.subtasks) t.subtasks.forEach(s => {
+                    if(s.tags) s.tags.forEach(tag => {
                         tagCounts[tag] = (tagCounts[tag] || 0) + 1;
                     });
-                }
+                });
+            }));
+            p.generalTasks.forEach(t => {
+                if(t.tags) t.tags.forEach(tag => {
+                    tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+                });
             });
-        }
+        });
 
         const data = Object.entries(tagCounts)
             .map(([tag, count]) => ({ tag, count }))
             .sort((a, b) => b.count - a.count)
-            .slice(0, 8); // Top 8
-
-        container.selectAll("*").remove();
+            .slice(0, 5); 
 
         if (data.length === 0) {
-            container.html('<div class="flex items-center justify-center h-full text-secondary">No tagged tasks found.</div>');
+            container.innerHTML = '<div class="text-center text-gray-400 text-sm mt-10">No tag data available.</div>';
             return;
         }
-
-        // 2. D3 Setup
-        const width = container.node().getBoundingClientRect().width;
-        const height = container.node().getBoundingClientRect().height;
-        const margin = { top: 20, right: 30, bottom: 40, left: 100 };
         
-        const svg = container.append("svg")
+        const width = 200;
+        const height = 200;
+        const radius = Math.min(width, height) / 2;
+
+        const svg = d3.select(container).append("svg")
             .attr("width", width)
             .attr("height", height)
             .append("g")
-            .attr("transform", `translate(${margin.left},${margin.top})`);
+            .attr("transform", `translate(${width / 2},${height / 2})`);
 
-        const x = d3.scaleLinear()
-            .domain([0, d3.max(data, d => d.count)])
-            .range([0, width - margin.left - margin.right]);
+        const color = d3.scaleOrdinal()
+             .range(["var(--blue)", "var(--green)", "var(--amber)", "var(--red)", "var(--purple)"]);
 
-        const y = d3.scaleBand()
-            .range([0, height - margin.top - margin.bottom])
-            .domain(data.map(d => d.tag))
-            .padding(0.2);
+        const pie = d3.pie()
+            .value(d => d.count);
 
-        // 3. Draw Bars
-        svg.selectAll("rect")
-            .data(data)
+        const arc = d3.arc()
+            .innerRadius(0)
+            .outerRadius(radius);
+
+        const arcs = svg.selectAll("arc")
+            .data(pie(data))
             .enter()
-            .append("rect")
-            .attr("x", x(0))
-            .attr("y", d => y(d.tag))
-            .attr("width", d => x(d.count))
-            .attr("height", y.bandwidth())
-            .attr("fill", "var(--accent-primary)")
-            .attr("rx", 4);
+            .append("g")
+            .attr("class", "arc");
 
-        // 4. Draw Labels (Count inside bar if fits, outside if not)
-        svg.selectAll(".label")
-            .data(data)
-            .enter()
-            .append("text")
-            .attr("class", "label")
-            .attr("x", d => x(d.count) + 5)
-            .attr("y", d => y(d.tag) + y.bandwidth() / 2)
-            .attr("dy", ".35em")
-            .text(d => d.count)
-            .style("font-size", "10px")
-            .style("fill", "var(--text-secondary)");
+        arcs.append("path")
+            .attr("d", arc)
+            .attr("fill", d => color(d.data.tag))
+            .attr("stroke", "var(--bg-primary)")
+            .style("stroke-width", "2px");
 
-        // 5. Draw Axes
-        svg.append("g")
-            .call(d3.axisLeft(y).tickSize(0))
-            .selectAll("text")
-            .style("font-family", "inherit")
-            .style("font-weight", "600");
-
-        svg.append("g")
-            .attr("transform", `translate(0,${height - margin.top - margin.bottom})`)
-            .call(d3.axisBottom(x).ticks(5).tickSizeOuter(0));
+        arcs.append("text")
+            .attr("transform", d => `translate(${arc.centroid(d)})`)
+            .attr("text-anchor", "middle")
+            .text(d => d.data.tag)
+            .attr("fill", "white")
+            .attr("font-size", "10px");
     },
 
     generateStrategyInsights() {
-        const insights = [];
-        const today = new Date();
+        const container = document.getElementById('strategy-text-content');
+        let insightsHTML = '';
 
-        // 1. Identify "Zombie" Projects
-        this.projects.forEach(p => {
-            if(p.overallProgress < 100 && p.overallProgress > 0) {
-                // Check if active but no recent logs
-                const lastLog = p.logs && p.logs.length > 0 ? new Date(p.logs[p.logs.length-1].timestamp) : null;
-                if (lastLog) {
-                    const daysInactive = (today - lastLog) / (1000 * 60 * 60 * 24);
-                    if (daysInactive > 14) {
-                        insights.push(`<strong>${p.name}</strong> hasn't changed in ${Math.round(daysInactive)} days. Consider archiving or breaking down the next step.`);
-                    }
-                }
-            }
+        // --- NEW: Filter Excluded Projects ---
+        const activeProjects = this.projects
+            .filter(p => !p.excludeFromStats) // Added Filter
+            .filter(p => p.overallProgress < 100);
+
+        // 1. Zombie Projects
+        activeProjects.forEach(p => {
+             const daysLeft = this.getDaysLeft(p.endDate).days;
+             const completion = p.overallProgress;
+             if (daysLeft < 0 && completion < 50) {
+                 insightsHTML += `<p class="mb-2"><strong class="text-red-400">Zombie Alert:</strong> Project <strong>${p.name}</strong> is overdue and less than 50% complete. Consider killing or rescoping.</p>`;
+             }
         });
 
-        // 2. Identify Planning Fallacy
-        const heavySlippers = this.projects.filter(p => {
-            if (!p.originalEndDate || !p.endDate) return false;
-            const slip = (this.parseDate(p.endDate) - this.parseDate(p.originalEndDate));
-            return slip > (1000 * 60 * 60 * 24 * 14); // > 14 days slip
+        // 2. Planning Fallacy
+        const heavySlippers = this.projects
+            .filter(p => !p.excludeFromStats) // Added Filter
+            .filter(p => {
+            if(!p.originalEndDate || !p.endDate) return false;
+            const original = this.parseDate(p.originalEndDate);
+            const current = this.parseDate(p.endDate);
+            const drift = (current - original) / (1000 * 60 * 60 * 24);
+            return drift > 14; 
         });
+
         if (heavySlippers.length > 0) {
-            insights.push(`You have <strong>${heavySlippers.length} projects</strong> with >2 weeks slippage. Stop adding new tasks and focus on closing these.`);
+            insightsHTML += `<p class="mb-2"><strong class="text-amber-400">Optimism Bias:</strong> ${heavySlippers.length} projects have slipped by more than 2 weeks. Add 20% buffer to future estimates.</p>`;
         }
 
-        // 3. Identify Overload (Due Today)
+        // 3. Context Switch Overload
         let dueSoon = 0;
-        this.projects.forEach(p => p.phases.forEach(ph => ph.tasks.forEach(t => {
-            if (!t.completed && t.effectiveEndDate) {
-                const d = this.parseDate(t.effectiveEndDate);
-                if (d <= today) dueSoon++;
-            }
-        })));
+        this.projects.forEach(p => {
+            if (p.excludeFromStats) return; // Added Filter
+            
+            p.phases.forEach(ph => ph.tasks.forEach(t => {
+                if (t.endDate && t.progress < 100) {
+                     const end = this.parseDate(t.endDate);
+                     const diff = (end - new Date()) / (1000*60*60*24);
+                     if(diff >=0 && diff <= 3) dueSoon++;
+                }
+            }));
+            p.generalTasks.forEach(t => {
+                 if (t.endDate && t.progress < 100) {
+                     const end = this.parseDate(t.endDate);
+                     const diff = (end - new Date()) / (1000*60*60*24);
+                     if(diff >=0 && diff <= 3) dueSoon++;
+                }
+            });
+        });
+
         if (dueSoon > 5) {
-            insights.push(`Critical load: <strong>${dueSoon} tasks</strong> are due today/overdue. Use the Action Hub to reschedule non-critical items to next week.`);
+             insightsHTML += `<p class="mb-2"><strong class="text-purple-400">Bottleneck Warning:</strong> ${dueSoon} individual tasks are due in the next 3 days. Prioritize or delegate.</p>`;
         }
 
-        // Render
-        const list = document.getElementById('strategy-console-list');
-        list.innerHTML = insights.length > 0 
-            ? insights.map(i => `<li class="flex gap-2 items-start"><span class="text-indigo-500 mt-1">●</span><span>${i}</span></li>`).join('') 
-            : '<li class="text-gray-400">System healthy. No urgent recommendations.</li>';
+        if (insightsHTML === '') {
+            insightsHTML = '<p class="text-gray-400">No critical strategic alerts at this time. Keep shipping!</p>';
+        }
+
+        container.innerHTML = insightsHTML;
     }
 };
 
