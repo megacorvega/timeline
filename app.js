@@ -1461,10 +1461,6 @@ const timelineApp = {
                 
                 const delegationHtml = item.delegatedTo ? `<span class="tag-badge bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border-indigo-200"><svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>${item.delegatedTo}</span>` : '';
                 
-                const iconHtml = `<div class="date-input-icon-wrapper" onclick="event.stopPropagation(); timelineApp.handleDateTrigger(this.previousElementSibling)"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>`;
-
-                const dateType = item.isFollowUp ? (item.subtaskId ? 'subtask-followup' : 'task-followup') : (item.subtaskId ? 'subtask-end' : 'task-end');
-                const dateInputColorClass = item.isFollowUp ? 'text-purple-700 dark:text-purple-300 font-bold' : '';
                 const pId = item.projectId === null ? 'null' : item.projectId;
                 const phId = item.phaseId === null ? 'null' : item.phaseId;
                 const tId = item.taskId;
@@ -1477,10 +1473,41 @@ const timelineApp = {
                 const tagMenuHtml = `<div class="relative inline-block ml-1"><button onclick="event.stopPropagation(); timelineApp.toggleTagMenu(event, ${pId}, ${phId}, ${tId}, ${sId})" class="add-tag-btn" title="Add Tag"><svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg><span class="ml-0.5 text-[10px]">+</span></button><div id="tag-menu-${uniqueId}" class="tag-menu-dropdown hidden" onclick="event.stopPropagation()"><div class="tag-menu-header"><span class="text-xs font-bold text-secondary">Tags</span><button onclick="timelineApp.toggleTagMenu(event, ${pId}, ${phId}, ${tId}, ${sId})" class="text-gray-400 hover:text-red-500 font-bold">&times;</button></div><input type="text" id="tag-input-${uniqueId}" class="tag-menu-input" placeholder="Search or create..." onkeyup="timelineApp.handleTagInput(event, ${pId}, ${phId}, ${tId}, ${sId})"><div id="tag-options-${uniqueId}" class="tag-menu-options"></div></div></div>`;
 
                 const itemBgClass = item.isGeneral ? 'border-l-4 border-l-gray-300 dark:border-l-gray-600 pl-2' : '';
+                
+                const navCall = item.isStandalone ? '' : `timelineApp.navigateToTask(${item.projectId}, ${item.phaseId || 'null'}, ${item.taskId}, ${item.subtaskId || 'null'})`;
+
+                // --- NEW DATE CONTROL LOGIC ---
+                let dateControlHtml = '';
+
+                if (item.isStandalone) {
+                     // 1. STANDALONE (Inbox): Editable Input
+                     const iconHtml = `<div class="date-input-icon-wrapper" onclick="event.stopPropagation(); timelineApp.handleDateTrigger(this.previousElementSibling)"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>`;
+                     const dateType = item.isFollowUp ? 'task-followup' : 'task-end';
+                     const dateInputColorClass = item.isFollowUp ? 'text-purple-700 dark:text-purple-300 font-bold' : '';
+                     
+                     dateControlHtml = `
+                        <div class="date-input-container">
+                            <input type="text" value="${item.date ? this.formatDate(this.parseDate(item.date)) : ''}" placeholder="End Date" class="date-input ${dateInputColorClass}" 
+                                data-project-id="null" data-phase-id="null" data-task-id="${item.taskId}" data-subtask-id="null"
+                                data-type="${dateType}" data-date="${item.date || ''}" 
+                                oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
+                            ${iconHtml}
+                        </div>`;
+                } else {
+                     // 2. PROJECT TASK: Read-Only Badge (Links to Timeline)
+                     const dateDisplay = item.date ? this.formatDate(this.parseDate(item.date)) : 'No Date';
+                     const dateColorClass = item.isFollowUp ? 'text-purple-700 dark:text-purple-300 font-bold' : 'text-secondary';
+                     
+                     dateControlHtml = `
+                        <div class="px-2 py-1 rounded text-xs font-semibold border border-transparent hover:border-gray-300 bg-gray-50 dark:bg-slate-700/50 ${dateColorClass}" title="Click to view/edit on Timeline" onclick="event.stopPropagation(); ${navCall}">
+                            ${dateDisplay}
+                        </div>`;
+                }
+                // ------------------------------
 
                 groupHtml += `
                 <div class="upcoming-task-item flex items-center p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${item.completed ? 'line-through opacity-60' : ''} ${item.isStandalone ? 'no-nav' : 'cursor-pointer'} ${itemBgClass}" 
-                    onclick="${item.isStandalone ? '' : `timelineApp.navigateToTask(${item.projectId}, ${item.phaseId || 'null'}, ${item.taskId}, ${item.subtaskId || 'null'})`}">
+                    onclick="${navCall}">
                     <div class="flex-shrink-0 mr-3 cursor-pointer group" onclick="event.stopPropagation(); timelineApp.toggleItemComplete(event, ${item.projectId}, ${item.phaseId || 'null'}, ${item.taskId}, ${item.subtaskId || 'null'})">
                         ${item.completed 
                             ? `<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>` 
@@ -1494,15 +1521,11 @@ const timelineApp = {
                             <div class="flex-shrink-0 flex items-center flex-wrap">${delegationHtml} ${tagsHtml} ${tagMenuHtml}</div>
                         </div>
                     </div>
+                    
                     <div class="flex-shrink-0 ml-2" onclick="event.stopPropagation()">
-                        <div class="date-input-container">
-                            <input type="text" value="${item.date ? this.formatDate(this.parseDate(item.date)) : ''}" placeholder="End Date" class="date-input ${dateInputColorClass}" 
-                                data-project-id="${item.projectId}" data-phase-id="${item.phaseId || 'null'}" data-task-id="${item.taskId}" data-subtask-id="${item.subtaskId || 'null'}"
-                                data-type="${dateType}" data-date="${item.date || ''}" 
-                                oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
-                            ${iconHtml}
-                        </div>
+                        ${dateControlHtml}
                     </div>
+
                     <button onclick="event.stopPropagation(); ${processCall}" class="text-gray-400 hover:text-blue-500 transition-colors ml-2 flex-shrink-0" title="Process"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg></button>
                     <button onclick="event.stopPropagation(); ${deleteCall}" class="text-gray-400 hover:text-red-500 transition-colors text-lg font-bold ml-2 flex-shrink-0" title="Delete">&times;</button>
                 </div>`;
@@ -1542,14 +1565,13 @@ const timelineApp = {
             if (standaloneItems.length > 0) {
                 contentHtml += renderGroup("Standalone", standaloneItems, "bg-gray-200 dark:bg-slate-700 text-secondary");
             }
-            // --- NEW: Sort Projects by Priority before Rendering Groups ---
+            // Sort Projects by Priority before Rendering Groups
             const sortedProjects = [...this.projects].sort((a,b) => {
                  const pA = a.priority !== undefined ? a.priority : 5;
                  const pB = b.priority !== undefined ? b.priority : 5;
                  if (pA !== pB) return pA - pB;
-                 return 0; // Secondary sort handled by item sort
+                 return 0; 
             });
-            // -------------------------------------------------------------
 
             sortedProjects.forEach(p => {
                  const pItems = allItems.filter(i => i.projectId === p.id).sort((a,b) => {
