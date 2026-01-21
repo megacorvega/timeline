@@ -2215,6 +2215,9 @@ const timelineApp = {
 
     drawOverallLoadChart() {
             const container = document.getElementById('load-chart');
+            // FIX: Safety check to prevent crash if element is missing
+            if (!container) return; 
+
             container.innerHTML = '';
             
             const allTasks = [];
@@ -2315,7 +2318,7 @@ const timelineApp = {
 
             svg.append("g")
                 .call(d3.axisLeft(y).ticks(5));
-    },  
+    }, 
 
     renderUpcomingTasks() {
             // Update Filter Dropdown
