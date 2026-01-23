@@ -1429,10 +1429,13 @@ const timelineApp = {
             return a.rawDate - b.rawDate;
         };
 
-        // --- UPDATED Render Group Helper ---
-        const renderGroup = (title, items, headerClass, projectId = null, currentPriority = null) => {
+        // --- UPDATED Render Group Helper with Collapsible Logic ---
+        const renderGroup = (title, items, headerClass, projectId = null, currentPriority = null, uniqueKey = null) => {
             if (items.length === 0) return '';
             
+            // Generate a robust unique ID for the collapsible container
+            const groupId = uniqueKey || title.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase() + '-' + Math.floor(Math.random() * 1000);
+
             let prioritySelectHtml = '';
             if (projectId !== null) {
                 let options = '';
@@ -1444,13 +1447,16 @@ const timelineApp = {
             }
 
             let groupHtml = `<div class="upcoming-card rounded-xl shadow-sm mb-6 border border-gray-200 dark:border-gray-700 overflow-hidden">
-                <div class="px-4 py-2 border-b border-primary ${headerClass} flex items-center justify-between">
-                    <h3 class="font-bold flex items-center gap-2 text-sm uppercase tracking-wide">${title} 
-                        <span class="text-xs font-normal opacity-75 bg-white bg-opacity-30 px-2 py-0.5 rounded-full text-current">${items.length}</span>
-                    </h3>
+                <div class="px-4 py-2 border-b border-primary ${headerClass} flex items-center justify-between cursor-pointer select-none hover:brightness-95 transition-all" onclick="timelineApp.toggleActionHubGroup('${groupId}')">
+                    <div class="flex items-center gap-3">
+                        <svg id="hub-chevron-${groupId}" class="w-5 h-5 transition-transform duration-200" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                        <h3 class="font-bold flex items-center gap-2 text-sm uppercase tracking-wide">${title} 
+                            <span class="text-xs font-normal opacity-75 bg-white bg-opacity-30 px-2 py-0.5 rounded-full text-current">${items.length}</span>
+                        </h3>
+                    </div>
                     ${prioritySelectHtml}
                 </div>
-                <div class="p-1 space-y-1 bg-white dark:bg-slate-900/50">`;
+                <div id="hub-group-${groupId}" class="p-1 space-y-1 bg-white dark:bg-slate-900/50 transition-all">`;
             
             items.forEach(item => {
                 const tagsHtml = (item.tags || []).map(tag => {
@@ -1556,7 +1562,7 @@ const timelineApp = {
         if (this.actionHubGroupMode === 'project') {
             const standaloneItems = allItems.filter(i => i.projectId === null || i.projectId === undefined).sort(sortByDate);
             if (standaloneItems.length > 0) {
-                contentHtml += renderGroup("Standalone", standaloneItems, "bg-gray-200 dark:bg-slate-700 text-secondary");
+                contentHtml += renderGroup("Standalone", standaloneItems, "bg-gray-200 dark:bg-slate-700 text-secondary", null, null, 'standalone-items');
             }
             const sortedProjects = [...this.projects].sort((a,b) => {
                  const pA = a.priority !== undefined ? a.priority : 5;
@@ -1572,7 +1578,7 @@ const timelineApp = {
                      return sortByDate(a,b);
                  });
                  if (pItems.length > 0) {
-                     contentHtml += renderGroup(p.name, pItems, "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-900 dark:text-indigo-200 border-indigo-100", p.id, p.priority);
+                     contentHtml += renderGroup(p.name, pItems, "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-900 dark:text-indigo-200 border-indigo-100", p.id, p.priority, `proj-${p.id}`);
                  }
             });
             
@@ -1585,16 +1591,15 @@ const timelineApp = {
                 if (relevantTags.length === 0) { noContextBucket.push(item); } 
                 else { relevantTags.forEach(tag => { if (!contextBuckets[tag]) contextBuckets[tag] = []; contextBuckets[tag].push(item); }); }
             });
-            if (noContextBucket.length > 0) contentHtml += renderGroup("Clarify (No Context)", noContextBucket, "bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-100 border-amber-200");
-            Object.keys(contextBuckets).sort().forEach(tag => contentHtml += renderGroup(tag, contextBuckets[tag], "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200"));
+            if (noContextBucket.length > 0) contentHtml += renderGroup("Clarify (No Context)", noContextBucket, "bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-100 border-amber-200", null, null, 'ctx-none');
+            Object.keys(contextBuckets).sort().forEach(tag => contentHtml += renderGroup(tag, contextBuckets[tag], "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200", null, null, `ctx-${tag}`));
 
         } else {
-            // --- NEW: Monthly Grouping Logic ---
+            // Month View Grouping
             const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
             const monthBuckets = {};
             const noDateBucket = [];
 
-            // Sort all items first
             allItems.sort(sortByDate);
 
             allItems.forEach(item => {
@@ -1604,19 +1609,19 @@ const timelineApp = {
                 }
 
                 const d = item.rawDate;
-                const key = `${d.getFullYear()}-${d.getMonth()}`; // e.g., "2025-0" for Jan 2025
+                const key = `${d.getFullYear()}-${d.getMonth()}`; 
                 
                 if (!monthBuckets[key]) {
                     monthBuckets[key] = {
                         title: `${monthNames[d.getMonth()]} ${d.getFullYear()}`,
-                        date: new Date(d.getFullYear(), d.getMonth(), 1), // First of the month for easy comparison
-                        items: []
+                        date: new Date(d.getFullYear(), d.getMonth(), 1),
+                        items: [],
+                        idKey: key
                     };
                 }
                 monthBuckets[key].items.push(item);
             });
 
-            // Sort Buckets Chronologically
             const sortedKeys = Object.keys(monthBuckets).sort((a, b) => {
                 const [y1, m1] = a.split('-').map(Number);
                 const [y2, m2] = b.split('-').map(Number);
@@ -1630,31 +1635,37 @@ const timelineApp = {
             sortedKeys.forEach(key => {
                 const group = monthBuckets[key];
                 const groupDate = group.date;
-                let headerClass = "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200"; // Default Future style
+                let headerClass = "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200";
 
-                // Check Past (Overdue Month)
                 if (groupDate.getFullYear() < currentYear || (groupDate.getFullYear() === currentYear && groupDate.getMonth() < currentMonth)) {
                     headerClass = "bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-200 border-red-100";
                     group.title += " (Past)";
                 } 
-                // Check Current Month
                 else if (groupDate.getFullYear() === currentYear && groupDate.getMonth() === currentMonth) {
                     headerClass = "bg-blue-100 dark:bg-blue-900/40 text-blue-900 dark:text-blue-100 border-blue-200";
                     group.title += " (Current)";
                 }
 
-                contentHtml += renderGroup(group.title, group.items, headerClass);
+                contentHtml += renderGroup(group.title, group.items, headerClass, null, null, `month-${group.idKey}`);
             });
 
             if (noDateBucket.length > 0) {
-                // Secondary sort for undated items by project name
                 noDateBucket.sort((a,b) => a.path.localeCompare(b.path));
-                contentHtml += renderGroup("Backlog / No Date", noDateBucket, "bg-gray-200 dark:bg-slate-700 text-secondary");
+                contentHtml += renderGroup("Backlog / No Date", noDateBucket, "bg-gray-200 dark:bg-slate-700 text-secondary", null, null, 'backlog');
             }
         }
         
         if (contentHtml === '') contentHtml = `<div class="upcoming-card p-4 rounded-xl shadow-md text-center text-secondary">No visible tasks found.</div>`;
         container.innerHTML = toolbarHtml + contentHtml;
+    },
+
+    toggleActionHubGroup(id) {
+        const group = document.getElementById(`hub-group-${id}`);
+        const chevron = document.getElementById(`hub-chevron-${id}`);
+        if (group) {
+            group.classList.toggle('hidden');
+            if (chevron) chevron.classList.toggle('-rotate-90');
+        }
     },
 
     getDependencyIcon(item) {
