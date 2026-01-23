@@ -1307,9 +1307,15 @@ const timelineApp = {
 
     renderLinearView() {
         const container = this.elements.projectsContainer;
+        
+        // 1. Initialize Collapsed States from LocalStorage
+        if (!this.hubCollapsedStates) {
+            this.hubCollapsedStates = JSON.parse(localStorage.getItem('timelineHubCollapsedStates')) || {};
+        }
+
         let allItems = [];
         
-        // 1. Collect Standalone Tasks
+        // 2. Collect Standalone Tasks
         if (this.standaloneTasks) {
             this.standaloneTasks.forEach(task => {
                 const displayDate = (task.isFollowUp && task.followUpDate) ? task.followUpDate : (task.endDate || task.followUpDate);
@@ -1330,7 +1336,7 @@ const timelineApp = {
             });
         }
 
-        // 2. Collect Project Tasks
+        // 3. Collect Project Tasks
         this.projects.forEach(project => {
             if (project.generalTasks) {
                 project.generalTasks.forEach(task => {
@@ -1418,7 +1424,7 @@ const timelineApp = {
             });
         });
 
-        // 3. Apply Filters
+        // 4. Apply Filters
         if (this.hideCompletedTasks) allItems = allItems.filter(i => !i.completed);
         if (this.tagFilter !== 'all') allItems = allItems.filter(i => i.tags?.includes(this.tagFilter));
 
@@ -1429,12 +1435,17 @@ const timelineApp = {
             return a.rawDate - b.rawDate;
         };
 
-        // --- UPDATED Render Group Helper with Collapsible Logic ---
+        // --- UPDATED Render Group Helper with Persistence ---
         const renderGroup = (title, items, headerClass, projectId = null, currentPriority = null, uniqueKey = null) => {
             if (items.length === 0) return '';
             
-            // Generate a robust unique ID for the collapsible container
+            // Generate ID
             const groupId = uniqueKey || title.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase() + '-' + Math.floor(Math.random() * 1000);
+            
+            // Check Persisted State
+            const isCollapsed = this.hubCollapsedStates[groupId] === true;
+            const hiddenClass = isCollapsed ? 'hidden' : '';
+            const chevronRotation = isCollapsed ? '-rotate-90' : '';
 
             let prioritySelectHtml = '';
             if (projectId !== null) {
@@ -1449,14 +1460,14 @@ const timelineApp = {
             let groupHtml = `<div class="upcoming-card rounded-xl shadow-sm mb-6 border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <div class="px-4 py-2 border-b border-primary ${headerClass} flex items-center justify-between cursor-pointer select-none hover:brightness-95 transition-all" onclick="timelineApp.toggleActionHubGroup('${groupId}')">
                     <div class="flex items-center gap-3">
-                        <svg id="hub-chevron-${groupId}" class="w-5 h-5 transition-transform duration-200" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                        <svg id="hub-chevron-${groupId}" class="w-5 h-5 transition-transform duration-200 ${chevronRotation}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
                         <h3 class="font-bold flex items-center gap-2 text-sm uppercase tracking-wide">${title} 
                             <span class="text-xs font-normal opacity-75 bg-white bg-opacity-30 px-2 py-0.5 rounded-full text-current">${items.length}</span>
                         </h3>
                     </div>
                     ${prioritySelectHtml}
                 </div>
-                <div id="hub-group-${groupId}" class="p-1 space-y-1 bg-white dark:bg-slate-900/50 transition-all">`;
+                <div id="hub-group-${groupId}" class="p-1 space-y-1 bg-white dark:bg-slate-900/50 transition-all ${hiddenClass}">`;
             
             items.forEach(item => {
                 const tagsHtml = (item.tags || []).map(tag => {
@@ -1662,9 +1673,22 @@ const timelineApp = {
     toggleActionHubGroup(id) {
         const group = document.getElementById(`hub-group-${id}`);
         const chevron = document.getElementById(`hub-chevron-${id}`);
+        
         if (group) {
+            // Toggle visibility
             group.classList.toggle('hidden');
-            if (chevron) chevron.classList.toggle('-rotate-90');
+            const isCollapsed = group.classList.contains('hidden');
+
+            // Rotate Chevron
+            if (chevron) {
+                if (isCollapsed) chevron.classList.add('-rotate-90');
+                else chevron.classList.remove('-rotate-90');
+            }
+
+            // Save State to LocalStorage
+            if (!this.hubCollapsedStates) this.hubCollapsedStates = {};
+            this.hubCollapsedStates[id] = isCollapsed;
+            localStorage.setItem('timelineHubCollapsedStates', JSON.stringify(this.hubCollapsedStates));
         }
     },
 
