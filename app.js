@@ -2146,13 +2146,13 @@ const timelineApp = {
             colorVar = 'var(--green)';
         } else if (daysLeftInfo.isOverdue) {
             colorVar = 'var(--red)';
-            daysText = `(${daysLeftInfo.text} days overdue)`;
+            daysText = `${daysLeftInfo.text} days overdue`;
         } else if (overallProgress < durationProgress) {
             colorVar = 'var(--amber)';
-            daysText = `(${daysLeftInfo.text} days left)`;
+            daysText = `${daysLeftInfo.text} days left`;
         } else {
             colorVar = 'var(--green)';
-            daysText = `(${daysLeftInfo.text} days left)`;
+            daysText = `${daysLeftInfo.text} days left`;
         }
 
         // --- HTML Generation ---
