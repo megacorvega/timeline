@@ -431,25 +431,26 @@ const timelineApp = {
         },
 
     handleResize() {
-            this.updateTabIndicator();
-            this.updateProjectViewIndicator(); // Add this line
-            
-            if (this.activeTab === 'projects') {
-                this.projects.forEach(project => {
-                    if (!project.collapsed && project.startDate && project.endDate) {
-                        this.drawChart(project);
-                    }
-                });
-            } else if (this.activeTab === 'overall-load') {
-                this.drawOverallLoadChart();
-            }
+        this.updateTabIndicator();
+        this.updateProjectViewIndicator(); 
+        
+        if (this.activeTab === 'projects') {
+            this.projects.forEach(project => {
+                if (!project.collapsed && project.startDate && project.endDate) {
+                    this.drawChart(project);
+                }
+            });
+        } else if (this.activeTab === 'overall-load') {
+            // FIX: Re-render the entire dashboard to catch layout changes
+            this.renderReviewDashboard();
+        }
 
-            if (this.elements.fullscreenModal.style.display === 'flex') {
-                const projectId = parseInt(document.getElementById('fullscreen-project-title').dataset.projectId);
-                const project = this.projects.find(p => p.id === projectId);
-                if(project) this.drawFullscreenChart(project);
-            }
-        },
+        if (this.elements.fullscreenModal.style.display === 'flex') {
+            const projectId = parseInt(document.getElementById('fullscreen-project-title').dataset.projectId);
+            const project = this.projects.find(p => p.id === projectId);
+            if(project) this.drawFullscreenChart(project);
+        }
+    },
 
     saveState() {
             this.history.push(JSON.parse(JSON.stringify(this.projects)));
@@ -4608,9 +4609,8 @@ const timelineApp = {
     },
 
     calculateKPIs() {
-        // --- NEW: Filter Excluded Projects ---
+        // Filter Excluded Projects
         const validProjects = this.projects.filter(p => !p.excludeFromStats);
-        // -------------------------------------
 
         const activeProjects = validProjects.filter(p => p.overallProgress < 100);
         document.getElementById('kpi-active-projects').textContent = activeProjects.length;
@@ -4629,22 +4629,28 @@ const timelineApp = {
                     }
                 });
             });
-            totalTasks += project.generalTasks.length;
-            completedTasks += project.generalTasks.filter(t => t.progress >= 100).length;
+            project.generalTasks.forEach(t => {
+                totalTasks += 1;
+                if (t.progress >= 100) completedTasks += 1;
+            });
         });
 
         const overallCompletion = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
         document.getElementById('kpi-overall-completion').textContent = `${overallCompletion}%`;
 
+        // FIX: Use effectiveEndDate if manual endDate is missing
         const overdueCount = activeProjects.filter(p => {
-             const daysLeftInfo = this.getDaysLeft(p.endDate);
+             const targetDate = p.endDate || p.effectiveEndDate;
+             const daysLeftInfo = this.getDaysLeft(targetDate);
              return daysLeftInfo.isOverdue;
         }).length;
         document.getElementById('kpi-overdue-projects').textContent = overdueCount;
 
+        // FIX: Use effectiveEndDate if manual endDate is missing
         const dueThisWeek = activeProjects.filter(p => {
-            if (!p.endDate) return false;
-            const end = this.parseDate(p.endDate);
+            const targetDate = p.endDate || p.effectiveEndDate;
+            if (!targetDate) return false;
+            const end = this.parseDate(targetDate);
             const today = new Date();
             const diffTime = end - today;
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -4659,11 +4665,11 @@ const timelineApp = {
         container.innerHTML = '';
 
         // 1. Prepare Data
-        // Filter out completed projects and those marked 'excludeFromStats'
+        // FIX: Allow projects with Effective Dates if Manual Dates are missing
         const activeProjects = this.projects.filter(p => 
             !p.excludeFromStats && 
-            p.startDate && 
-            p.endDate && 
+            (p.startDate || p.effectiveStartDate) && 
+            (p.endDate || p.effectiveEndDate) && 
             p.overallProgress < 100
         );
 
@@ -4673,20 +4679,25 @@ const timelineApp = {
         }
 
         const data = activeProjects.map(p => {
-            const daysLeftInfo = this.getDaysLeft(p.endDate);
+            // FIX: Prefer Manual Date, Fallback to Effective
+            const targetStart = p.startDate || p.effectiveStartDate;
+            const targetEnd = p.endDate || p.effectiveEndDate;
+
+            const daysLeftInfo = this.getDaysLeft(targetEnd);
             // Cap days left at 60 for the chart so outliers don't squash the view
             let days = daysLeftInfo.days !== null ? daysLeftInfo.days : 0;
             
             // Calculate "Burn Rate Required" (Simple Linear)
-            // If you are 50% through the time, you should be 50% done.
-            const totalDuration = (this.parseDate(p.endDate) - this.parseDate(p.startDate)) / (1000 * 60 * 60 * 24);
-            const timeElapsed = (new Date() - this.parseDate(p.startDate)) / (1000 * 60 * 60 * 24);
-            const timeProgress = Math.min(100, Math.max(0, (timeElapsed / totalDuration) * 100));
+            const totalDuration = (this.parseDate(targetEnd) - this.parseDate(targetStart)) / (1000 * 60 * 60 * 24);
+            const timeElapsed = (new Date() - this.parseDate(targetStart)) / (1000 * 60 * 60 * 24);
+            
+            // Guard against division by zero or future starts
+            let timeProgress = 0;
+            if (totalDuration > 0) {
+                 timeProgress = Math.min(100, Math.max(0, (timeElapsed / totalDuration) * 100));
+            }
             
             // Risk Logic:
-            // Red: Overdue OR (Progress is > 20% behind Time Elapsed)
-            // Yellow: Progress is 0-20% behind Time Elapsed
-            // Green: Progress is ahead of Time Elapsed
             let status = 'green';
             if (days < 0) status = 'red'; // Overdue
             else if (p.overallProgress < (timeProgress - 20)) status = 'red';
