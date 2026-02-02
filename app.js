@@ -2799,48 +2799,58 @@ const timelineApp = {
         },
 
     navigateToTask(projectId, phaseId, taskId, subtaskId) {
-            this.showMainTab('projects');
+        this.showMainTab('projects');
 
-            const project = this.projects.find(p => p.id === projectId);
-            if (!project) return;
-            project.collapsed = false;
+        const project = this.projects.find(p => p.id === projectId);
+        if (!project) return;
+        project.collapsed = false;
 
+        let task;
+
+        // FIX: Handle General Tasks (phaseId is null) vs Phase Tasks
+        if (phaseId !== null && phaseId !== 'null') {
             const phase = project.phases.find(ph => ph.id === phaseId);
-            if (!phase) return;
-            phase.collapsed = false;
+            if (phase) {
+                phase.collapsed = false;
+                task = phase.tasks.find(t => t.id === taskId);
+            }
+        } else {
+            // It's a General Task
+            task = project.generalTasks.find(t => t.id === taskId);
+        }
 
-            const task = phase.tasks.find(t => t.id === taskId);
-            if (task) {
-                task.collapsed = false;
+        // Uncollapse the task itself if it has subtasks
+        if (task) {
+            task.collapsed = false;
+        }
+
+        // Force switch to Gantt view so the rows exist in the DOM
+        this.projectViewMode = 'gantt';
+        this.elements.btnViewGantt.classList.add('active');
+        this.elements.btnViewLinear.classList.remove('active');
+        this.updateProjectViewIndicator();
+
+        // OPTIMIZATION: Pass false to skip recalculation
+        this.renderProjects(false);
+
+        // Scroll to the element
+        setTimeout(() => {
+            let element;
+            if (subtaskId && subtaskId !== 'null') {
+                element = document.querySelector(`.subtask-row[data-id='${subtaskId}']`);
+            } else {
+                element = document.querySelector(`.task-row[data-id='${taskId}']`);
             }
 
-            // Force switch to Gantt view so the rows exist in the DOM
-            this.projectViewMode = 'gantt';
-            this.elements.btnViewGantt.classList.add('active');
-            this.elements.btnViewLinear.classList.remove('active');
-            this.updateProjectViewIndicator();
-
-            // OPTIMIZATION: Pass false to skip recalculation
-            this.renderProjects(false);
-
-            // Scroll to the element
-            setTimeout(() => {
-                let element;
-                if (subtaskId && subtaskId !== 'null') {
-                    element = document.querySelector(`.subtask-row[data-id='${subtaskId}']`);
-                } else {
-                    element = document.querySelector(`.task-row[data-id='${taskId}']`);
-                }
-
-                if (element) {
-                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    element.classList.add('highlight-task');
-                    setTimeout(() => {
-                        element.classList.remove('highlight-task');
-                    }, 2000);
-                }
-            }, 100);
-        },  
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                element.classList.add('highlight-task');
+                setTimeout(() => {
+                    element.classList.remove('highlight-task');
+                }, 2000);
+            }
+        }, 100);
+    },  
 
     generatePrintView(projectId) {
             const project = this.projects.find(p => p.id === projectId);
