@@ -1011,6 +1011,23 @@ const timelineApp = {
 
     calculateRollups() {
             this.projects.forEach(p => {
+                // 1. Process General Tasks (New: needed for Project Rollup)
+                p.generalTasks.forEach(task => {
+                    const hasSubtasks = task.subtasks && task.subtasks.length > 0;
+                    if (hasSubtasks) {
+                        task.effectiveStartDate = this.getBoundaryDate(task.subtasks, 'earliest');
+                        task.effectiveEndDate = this.getBoundaryDate(task.subtasks, 'latest');
+                        const completedSubtasks = task.subtasks.filter(st => st.completed).length;
+                        task.progress = task.subtasks.length > 0 ? (completedSubtasks / task.subtasks.length) * 100 : 0;
+                        task.completed = task.progress === 100;
+                    } else {
+                        task.effectiveStartDate = task.startDate;
+                        task.effectiveEndDate = task.endDate;
+                        task.progress = task.completed ? 100 : 0;
+                    }
+                });
+
+                // 2. Process Phases
                 p.phases.forEach(phase => {
                     phase.tasks.forEach(task => {
                         const hasSubtasks = task.subtasks && task.subtasks.length > 0;
@@ -1049,6 +1066,24 @@ const timelineApp = {
 
                 p.totalPhaseProgress = p.phases.reduce((sum, ph) => sum + (ph.progress || 0), 0);
                 p.overallProgress = p.phases.length > 0 ? p.totalPhaseProgress / p.phases.length : 0;
+
+                // 3. Process Project Dates (New)
+                // Collect dates from Phases AND General Tasks
+                const phaseStarts = p.phases.map(ph => ph.effectiveStartDate).filter(Boolean);
+                const phaseEnds = p.phases.map(ph => ph.effectiveEndDate).filter(Boolean);
+                const genStarts = p.generalTasks.map(t => t.effectiveStartDate).filter(Boolean);
+                const genEnds = p.generalTasks.map(t => t.effectiveEndDate).filter(Boolean);
+
+                const allProjStarts = [...phaseStarts, ...genStarts, p.startDate].filter(Boolean).map(d => this.parseDate(d));
+                const allProjEnds = [...phaseEnds, ...genEnds, p.endDate].filter(Boolean).map(d => this.parseDate(d));
+
+                p.effectiveStartDate = allProjStarts.length > 0 
+                    ? new Date(Math.min.apply(null, allProjStarts)).toISOString().split('T')[0] 
+                    : null;
+                
+                p.effectiveEndDate = allProjEnds.length > 0 
+                    ? new Date(Math.max.apply(null, allProjEnds)).toISOString().split('T')[0] 
+                    : null;
             });
         },
 
@@ -1557,6 +1592,17 @@ const timelineApp = {
                 </select>
             `;
 
+            // --- CHANGED: Logic for Driven Dates & Progress Pill ---
+            const hasChildren = (project.phases && project.phases.length > 0) || (project.generalTasks && project.generalTasks.length > 0);
+            
+            // Use effective dates if children exist (Driven), otherwise use manual dates
+            const displayStart = hasChildren ? project.effectiveStartDate : project.startDate;
+            const displayEnd = hasChildren ? project.effectiveEndDate : project.endDate;
+            const isDriven = hasChildren; // Treat as driven if it has children
+            
+            // Pass 'false' to renderProgressPills to hide the percentage
+            // Pass 'isDriven || project.locked' to renderDateRangePill to grey it out
+            
             projectCard.innerHTML = `
                 <div class="flex justify-between items-center mb-3 project-header">
                     <div class="flex items-center gap-2 flex-grow min-w-0">
@@ -1572,7 +1618,7 @@ const timelineApp = {
                         ${commentDot}
                         <h3 class="text-xl font-bold truncate editable-text" onclick="timelineApp.makeEditable(this, 'updateProjectName', ${project.id})">${project.name}</h3>
                         
-                        ${this.renderProgressPills(project.overallProgress, project.startDate, project.endDate, isComplete)}
+                        ${this.renderProgressPills(project.overallProgress, displayStart, displayEnd, isComplete, false)}
 
                     </div>
                     <div class="flex items-center gap-2 text-sm text-secondary flex-shrink-0">
@@ -1588,7 +1634,7 @@ const timelineApp = {
                             ${lockIcon}
                         </button>
                         
-                        ${this.renderDateRangePill(project.startDate, project.endDate, project.id, null, null, null, project.locked, false)}
+                        ${this.renderDateRangePill(displayStart, displayEnd, project.id, null, null, null, project.locked || isDriven, false)}
 
                     </div>
                     <button onclick="timelineApp.deleteProject(${project.id})" class="text-gray-400 hover:text-red-500 transition-colors text-xl font-bold ml-4 flex-shrink-0">&times;</button>
@@ -1645,14 +1691,18 @@ const timelineApp = {
                 ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>`
                 : `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h5V3a3 3 0 0 1 6 0v4a.5.5 0 0 1-1 0V3a2 2 0 0 0-2-2z"/></svg>`;
 
-            // --- REPLACED: Bar with renderProgressPills ---
+            // --- CHANGED: Dates Driven by Children Logic ---
+            const displayStart = hasTasks ? phase.effectiveStartDate : phase.startDate;
+            const displayEnd = hasTasks ? phase.effectiveEndDate : phase.endDate;
+            const isDriven = hasTasks; // Treat as driven if it has children tasks
+
             html += `
                 <div class="phase-row rounded-lg p-2 ${depClass} ${selectedClass}" data-id="${phase.id}" data-type="phase" data-project-id="${project.id}" onmouseover="timelineApp.highlightPhaseOnChart(${phase.id})" onmouseout="timelineApp.unhighlightPhaseOnChart(${phase.id})">
                     <div class="flex items-center gap-3 item-main-row">
                         ${toggleButton}
                         ${commentDot}
                         
-                        ${this.renderProgressPills(phase.progress, phase.effectiveStartDate, phase.effectiveEndDate, phase.completed)}
+                        ${this.renderProgressPills(phase.progress, displayStart, displayEnd, phase.completed)}
 
                         <span class="font-semibold flex-grow editable-text" onclick="timelineApp.makeEditable(this, 'updatePhaseName', ${project.id}, ${phase.id})">${phase.name}</span>
                         
@@ -1666,7 +1716,7 @@ const timelineApp = {
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
                             </button>
                             
-                            ${this.renderDateRangePill(phase.startDate, phase.endDate, project.id, phase.id, null, null, phase.locked, phase.isDriven)}
+                            ${this.renderDateRangePill(displayStart, displayEnd, project.id, phase.id, null, null, phase.locked || isDriven, phase.isDriven)}
                         
                         </div>
                         <button onclick="timelineApp.deletePhase(${project.id}, ${phase.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold ml-2">&times;</button>
@@ -1758,6 +1808,10 @@ const timelineApp = {
                     </div>
                 </div>
             `;
+            
+            // --- CHANGED: Dates Driven by Children Logic ---
+            const displayStart = hasSubtasks ? task.effectiveStartDate : task.startDate;
+            const displayEnd = hasSubtasks ? task.effectiveEndDate : task.endDate;
 
             html += `
                 <div class="task-row rounded-lg px-2 py-1 ${depClass} ${selectedClass} ${followUpClass}" data-id="${task.id}" data-type="task" data-project-id="${projectId}" data-phase-id="${phaseId}">
@@ -1766,7 +1820,7 @@ const timelineApp = {
                         ${commentDot}
                         ${taskControlHtml}
                         
-                        ${this.renderProgressPills(task.progress, task.effectiveStartDate, task.effectiveEndDate, task.completed)}
+                        ${this.renderProgressPills(task.progress, displayStart, displayEnd, task.completed)}
 
                         <div class="flex-grow flex items-center gap-2 flex-wrap">
                             <span class="font-medium editable-text" onclick="timelineApp.makeEditable(this, 'updateTaskName', ${projectId}, ${phaseId}, ${task.id})">${task.name}</span>
@@ -1801,7 +1855,7 @@ const timelineApp = {
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
                             </button>
                             
-                            ${this.renderDateRangePill(task.startDate, task.endDate, projectId, phaseId, task.id, null, isTaskLocked, task.isDriven)}
+                            ${this.renderDateRangePill(displayStart, displayEnd, projectId, phaseId, task.id, null, isTaskLocked, task.isDriven)}
                             
                         </div>
                         
@@ -1826,7 +1880,7 @@ const timelineApp = {
         html += `
             <div>
                 <div class="flex items-center gap-2">
-                    <input type="text" id="new-task-name-${phaseId}" placeholder="Add a new task..." class="flex-grow w-full px-2 py-1 input-primary rounded-md text-xs h-[28px]" onkeydown="if(event.key==='Enter') timelineApp.addTask(${projectId}, ${phaseId})">
+                    <input type="text" id="new-task-name-${phaseId}" placeholder="Add a new task..." class="flex-grow w-full px-2 py-1 input-primary rounded-md text-xs h-[28px]" onkeydown="if(event.key==='Enter') timelineApp.addTask(${projectId}, ${phaseId})" class="flex-grow w-full px-2 py-1 input-primary rounded-md text-xs h-[28px]">
                     <button onclick="timelineApp.addTask(${projectId}, ${phaseId})" class="btn-secondary font-semibold rounded-md text-xs btn-sm">Add</button>
                 </div>
             </div>`;
@@ -1951,7 +2005,7 @@ const timelineApp = {
         return html + '</div>';
     },
 
-    renderProgressPills(progress, startDate, endDate, isComplete) {
+    renderProgressPills(progress, startDate, endDate, isComplete, showPercent = true) {
         const overallProgress = Math.round(progress || 0);
         // Use effective dates or fallbacks
         const durationProgress = this.getDurationProgress(startDate, endDate);
@@ -1975,9 +2029,10 @@ const timelineApp = {
         }
 
         // --- HTML Generation ---
-        const percentPill = `<div class="status-pill" style="background-color: ${colorVar}">${overallProgress}%</div>`;
+        // CHANGED: Only render percent pill if showPercent is true
+        const percentPill = showPercent ? `<div class="status-pill" style="background-color: ${colorVar}">${overallProgress}%</div>` : '';
         
-        // If complete or no date, only show %
+        // If complete or no date, only show % (unless % is hidden, then return empty)
         if (isComplete || daysLeftInfo.text === '-' || !endDate) {
              return percentPill;
         }
