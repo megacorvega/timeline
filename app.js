@@ -1685,24 +1685,20 @@ const timelineApp = {
         }
 
         const sortedProjects = filteredProjects.sort((a, b) => {
-            // 1. Completion Status
             const aComplete = a.overallProgress >= 100;
             const bComplete = b.overallProgress >= 100;
             if (aComplete && !bComplete) return 1;
             if (!aComplete && bComplete) return -1;
             
-            // 2. Exclusion Status
             const aExcluded = a.excludeFromStats === true;
             const bExcluded = b.excludeFromStats === true;
             if (aExcluded && !bExcluded) return 1;
             if (!aExcluded && bExcluded) return -1;
 
-            // 3. Priority
             const pA = a.priority !== undefined ? a.priority : 5;
             const pB = b.priority !== undefined ? b.priority : 5;
             if (pA !== pB) return pA - pB;
 
-            // 4. End Date
             return this.sortByEndDate(a, b, 'endDate');
         });
 
@@ -1720,58 +1716,6 @@ const timelineApp = {
             const statsIcon = project.excludeFromStats 
                 ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>` 
                 : `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>`;
-
-            const durationProgress = this.getDurationProgress(project.startDate, project.endDate);
-            const daysLeftInfo = this.getDaysLeft(project.endDate);
-            const overallProgress = Math.round(project.overallProgress);
-            
-            let progressColor = 'var(--green)';
-            let statusText = '';
-            let statusColorClass = '';
-
-            // --- REVISED COLOR LOGIC ---
-            if (isComplete) {
-                progressColor = 'var(--green)';
-                statusText = 'Complete';
-                statusColorClass = 'status-complete';
-            } else if (daysLeftInfo.isOverdue) {
-                progressColor = 'var(--red)'; // Overdue = Red
-                statusText = 'Overdue';
-                statusColorClass = 'status-late';
-            } else if (overallProgress < durationProgress) {
-                progressColor = 'var(--amber)'; // Behind schedule = Yellow/Amber
-                statusText = 'At Risk';
-                statusColorClass = 'status-at-risk';
-            } else {
-                progressColor = 'var(--green)'; // On track = Green
-                statusText = 'On Track';
-                statusColorClass = 'status-on-track';
-            }
-            // ---------------------------
-
-            const tooltipText = `
-                <div class="tooltip-grid">
-                    <span>Status:</span><span class="status-pill ${statusColorClass}">${statusText}</span>
-                    <span>Completion:</span><span>${overallProgress}%</span>
-                    <span>Time Elapsed:</span><span>${Math.round(durationProgress)}%</span>
-                    <span>Days Left:</span><span>${daysLeftInfo.days !== null ? daysLeftInfo.days : 'N/A'}</span>
-                </div>
-            `;
-
-            // --- REVISED BAR HTML (Only shows completion %) ---
-            const pacingBarHTML = `
-                <div class="duration-scale-container tooltip">
-                    <span class="tooltip-text">${tooltipText}</span>
-                    <div class="relative h-2 w-full rounded-full" style="background-color: var(--bg-tertiary);">
-                        <div class="absolute h-2 top-0 left-0 rounded-full" style="background-color: ${progressColor}; width: ${overallProgress}%; z-index: 2;"></div>
-                    </div>
-                </div>
-            `;
-            // --------------------------------------------------
-
-            const daysLeftPillHTML = (isComplete || !daysLeftInfo.text || daysLeftInfo.text === '-') 
-                ? '' 
-                : `<div class="days-left-pill ${daysLeftInfo.className}" title="${daysLeftInfo.tooltip}">${daysLeftInfo.text}</div>`;
 
             const lockIcon = project.locked
                 ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>`
@@ -1806,6 +1750,7 @@ const timelineApp = {
                 </select>
             `;
 
+            // --- REPLACED: Bar + Days Left with new renderProgressPills ---
             projectCard.innerHTML = `
                 <div class="flex justify-between items-center mb-3 project-header">
                     <div class="flex items-center gap-2 flex-grow min-w-0">
@@ -1820,8 +1765,9 @@ const timelineApp = {
                         </button>
                         ${commentDot}
                         <h3 class="text-xl font-bold truncate editable-text" onclick="timelineApp.makeEditable(this, 'updateProjectName', ${project.id})">${project.name}</h3>
-                        ${pacingBarHTML}
-                        ${daysLeftPillHTML}
+                        
+                        ${this.renderProgressPills(project.overallProgress, project.startDate, project.endDate, isComplete)}
+
                     </div>
                     <div class="flex items-center gap-2 text-sm text-secondary flex-shrink-0">
                         ${prioritySelect}
@@ -1889,36 +1835,19 @@ const timelineApp = {
             const selectedClass = this.firstSelectedItem?.id === phase.id ? 'dependency-selected' : '';
             const commentDot = phase.comments && phase.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
             
-            // --- NEW PROGRESS BAR LOGIC ---
-            const durationProgress = this.getDurationProgress(phase.effectiveStartDate, phase.effectiveEndDate);
-            const actualProgress = phase.progress || 0;
-            
-            let barColorClass = 'bg-green-500'; // Default On Track
-
-            if (phase.completed) {
-                barColorClass = 'bg-green-500'; // Complete
-            } else if (durationProgress >= 100) {
-                barColorClass = 'bg-red-500'; // Overdue
-            } else if (actualProgress < durationProgress) {
-                barColorClass = 'bg-yellow-500'; // At Risk
-            } else {
-                barColorClass = 'bg-green-500'; // On Track
-            }
-            // ------------------------------
-
             const lockIcon = phase.locked
                 ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>`
                 : `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h5V3a3 3 0 0 1 6 0v4a.5.5 0 0 1-1 0V3a2 2 0 0 0-2-2z"/></svg>`;
 
+            // --- REPLACED: Bar with renderProgressPills ---
             html += `
                 <div class="phase-row rounded-lg p-2 ${depClass} ${selectedClass}" data-id="${phase.id}" data-type="phase" data-project-id="${project.id}" onmouseover="timelineApp.highlightPhaseOnChart(${phase.id})" onmouseout="timelineApp.unhighlightPhaseOnChart(${phase.id})">
                     <div class="flex items-center gap-3 item-main-row">
                         ${toggleButton}
                         ${commentDot}
-                        <div class="text-xs font-bold text-secondary w-10 text-center flex-shrink-0">${Math.round(actualProgress)}%</div>
-                        <div class="duration-scale-container" title="Completion Status">
-                            <div class="duration-scale-bar ${barColorClass}" style="width: ${actualProgress}%;"></div>
-                        </div>
+                        
+                        ${this.renderProgressPills(phase.progress, phase.effectiveStartDate, phase.effectiveEndDate, phase.completed)}
+
                         <span class="font-semibold flex-grow editable-text" onclick="timelineApp.makeEditable(this, 'updatePhaseName', ${project.id}, ${phase.id})">${phase.name}</span>
                         
                         ${this.getDependencyIcon(phase)}
@@ -1965,7 +1894,9 @@ const timelineApp = {
 
         sortedTasks.forEach(task => {
             const hasSubtasks = task.subtasks && task.subtasks.length > 0;
-            let taskControlHtml = hasSubtasks ? `<div class="text-xs font-bold text-secondary w-10 text-center flex-shrink-0">${Math.round(task.progress || 0)}%</div>` : `<input type="checkbox" class="custom-checkbox" onchange="timelineApp.toggleTaskComplete(${projectId}, ${phaseId}, ${task.id})" ${task.completed ? 'checked' : ''}>`;
+            // Removed old % text, now handled by pills. Keep checkbox for leaf tasks.
+            let taskControlHtml = hasSubtasks ? '' : `<input type="checkbox" class="custom-checkbox" onchange="timelineApp.toggleTaskComplete(${projectId}, ${phaseId}, ${task.id})" ${task.completed ? 'checked' : ''}>`;
+            
             const toggleButton = hasSubtasks ?
                 `<button onclick="timelineApp.toggleTaskCollapse(${projectId}, ${phaseId}, ${task.id})" class="p-1 rounded-full hover-bg-tertiary flex-shrink-0">
                     <svg id="task-chevron-${task.id}" class="w-4 h-4 text-tertiary chevron ${task.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
@@ -1974,24 +1905,6 @@ const timelineApp = {
             const selectedClass = this.firstSelectedItem?.id === task.id ? 'dependency-selected' : '';
             const commentDot = task.comments && task.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
             
-            // --- NEW PROGRESS BAR LOGIC ---
-            const durationProgress = this.getDurationProgress(task.effectiveStartDate, task.effectiveEndDate);
-            const actualProgress = task.progress || (task.completed ? 100 : 0);
-            
-            let barColorClass = 'bg-green-500';
-
-            if (task.completed) {
-                barColorClass = 'bg-green-500';
-            } else if (durationProgress >= 100) {
-                barColorClass = 'bg-red-500';
-            } else if (actualProgress < durationProgress) {
-                barColorClass = 'bg-yellow-500';
-            } else {
-                barColorClass = 'bg-green-500';
-            }
-            // ------------------------------
-
-            // Tasks with subtasks are effectively locked (rollup)
             const isTaskLocked = hasSubtasks; 
             const followUpClass = task.isFollowUp ? 'follow-up-active' : '';
             const followUpIconColor = task.isFollowUp ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400 hover:text-purple-500';
@@ -2036,15 +1949,16 @@ const timelineApp = {
                 </div>
             `;
 
+            // --- REPLACED: Bar with renderProgressPills ---
             html += `
                 <div class="task-row rounded-lg px-2 py-1 ${depClass} ${selectedClass} ${followUpClass}" data-id="${task.id}" data-type="task" data-project-id="${projectId}" data-phase-id="${phaseId}">
                     <div class="flex items-center gap-3 item-main-row">
                         ${toggleButton}
                         ${commentDot}
                         ${taskControlHtml}
-                        <div class="duration-scale-container" title="Completion Status">
-                            <div class="duration-scale-bar ${barColorClass}" style="width: ${actualProgress}%;"></div>
-                        </div>
+                        
+                        ${this.renderProgressPills(task.progress, task.effectiveStartDate, task.effectiveEndDate, task.completed)}
+
                         <div class="flex-grow flex items-center gap-2 flex-wrap">
                             <span class="font-medium editable-text" onclick="timelineApp.makeEditable(this, 'updateTaskName', ${projectId}, ${phaseId}, ${task.id})">${task.name}</span>
                             <div class="flex items-center">${tagHtml}${tagMenuHtml}</div>
@@ -2129,23 +2043,6 @@ const timelineApp = {
             const selectedClass = this.firstSelectedItem?.id === subtask.id ? 'dependency-selected' : '';
             const commentDot = subtask.comments && subtask.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
             
-            // --- NEW PROGRESS BAR LOGIC ---
-            const durationProgress = this.getDurationProgress(subtask.startDate, subtask.endDate);
-            const actualProgress = subtask.completed ? 100 : 0;
-            
-            let barColorClass = 'bg-green-500';
-
-            if (subtask.completed) {
-                barColorClass = 'bg-green-500';
-            } else if (durationProgress >= 100) {
-                barColorClass = 'bg-red-500';
-            } else if (actualProgress < durationProgress) {
-                barColorClass = 'bg-yellow-500';
-            } else {
-                barColorClass = 'bg-green-500';
-            }
-            // ------------------------------
-            
             const followUpClass = subtask.isFollowUp ? 'follow-up-active' : '';
             const followUpIconColor = subtask.isFollowUp ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400 hover:text-purple-500';
             
@@ -2190,14 +2087,15 @@ const timelineApp = {
                 </div>
             `;
 
+            // --- REPLACED: Bar with renderProgressPills ---
             html += `
                 <div class="subtask-row-wrapper">
                     <div class="flex items-center gap-3 subtask-row ${depClass} ${selectedClass} ${followUpClass}" data-id="${subtask.id}" data-type="subtask" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}">
                         ${commentDot}
                         <input type="checkbox" class="custom-checkbox" onchange="timelineApp.toggleSubtaskComplete(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" ${subtask.completed ? 'checked' : ''}>
-                        <div class="duration-scale-container" title="Completion Status">
-                            <div class="duration-scale-bar ${barColorClass}" style="width: ${actualProgress}%;"></div>
-                        </div>
+                        
+                        ${this.renderProgressPills(subtask.completed ? 100 : 0, subtask.startDate, subtask.endDate, subtask.completed)}
+
                         <div class="flex-grow flex items-center flex-wrap gap-2">
                             <span class="text-sm ${subtask.completed ? 'line-through opacity-60' : ''} editable-text" onclick="timelineApp.makeEditable(this, 'updateSubtaskName', ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})">${subtask.name}</span>
                             <div class="flex items-center">${tagHtml}${tagMenuHtml}</div>
@@ -2232,6 +2130,47 @@ const timelineApp = {
                 `;
         });
         return html + '</div>';
+    },
+
+    renderProgressPills(progress, startDate, endDate, isComplete) {
+        const overallProgress = Math.round(progress || 0);
+        // Use effective dates or fallbacks
+        const durationProgress = this.getDurationProgress(startDate, endDate);
+        const daysLeftInfo = this.getDaysLeft(endDate);
+
+        let colorVar = 'var(--green)';
+        let daysText = '';
+        
+        // --- Color Logic ---
+        if (isComplete) {
+            colorVar = 'var(--green)';
+        } else if (daysLeftInfo.isOverdue) {
+            colorVar = 'var(--red)';
+            daysText = `(${daysLeftInfo.text} days overdue)`;
+        } else if (overallProgress < durationProgress) {
+            colorVar = 'var(--amber)';
+            daysText = `(${daysLeftInfo.text} days left)`;
+        } else {
+            colorVar = 'var(--green)';
+            daysText = `(${daysLeftInfo.text} days left)`;
+        }
+
+        // --- HTML Generation ---
+        const percentPill = `<div class="status-pill" style="background-color: ${colorVar}">${overallProgress}%</div>`;
+        
+        // If complete or no date, only show %
+        if (isComplete || daysLeftInfo.text === '-' || !endDate) {
+             return percentPill;
+        }
+
+        const daysPill = `<div class="status-pill" style="background-color: ${colorVar}">${daysText}</div>`;
+
+        return `
+            <div class="flex items-center gap-2">
+                ${percentPill}
+                ${daysPill}
+            </div>
+        `;
     },
 
     toggleActionHubGroup(id) {
