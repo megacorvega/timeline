@@ -2313,10 +2313,8 @@ const timelineApp = {
             cursor.setDate(cursor.getDate() + 1);
         }
 
-        // 2. Collect Active Tasks (Strictly by Due Date)
+        // 2. Setup Buckets
         const dailyBuckets = new Map(); 
-        
-        // Initialize buckets for our 10 days using local date keys
         businessDays.forEach(d => {
             dailyBuckets.set(getLocalISODate(d), []);
         });
@@ -2324,74 +2322,69 @@ const timelineApp = {
         // Helper to place item in the specific bucket
         const placeInBucket = (dateStr, meta) => {
              if (!dateStr) return;
-             const date = this.parseDate(dateStr); // app.js parseDate (d3.timeParse) returns Local Date
+             const date = this.parseDate(dateStr); 
              if (!date) return;
              
-             // Normalize to YYYY-MM-DD (Local) to match bucket keys
              const key = getLocalISODate(date);
-             
              if (dailyBuckets.has(key)) {
                  dailyBuckets.get(key).push(meta);
              }
         };
 
+        // --- UNIFIED ITEM PROCESSOR ---
+        // Handles recursion for subtasks and checks dates/completion
+        const processItem = (item, project, phase, parentTask) => {
+            // A. If item has subtasks, process THEM instead of the parent
+            if (item.subtasks && item.subtasks.length > 0) {
+                item.subtasks.forEach(sub => processItem(sub, project, phase, item));
+                return; 
+            }
+
+            // B. Filter Completed
+            if (item.completed || (item.progress !== undefined && item.progress >= 100)) return;
+
+            // C. Determine Effective Date (FollowUp takes precedence if active)
+            const targetDate = (item.isFollowUp && item.followUpDate) ? item.followUpDate : item.endDate;
+            if (!targetDate) return;
+
+            // D. Construct Label
+            let displayName = item.name;
+            if (parentTask) displayName = `${parentTask.name}: ${item.name}`;
+            if (!project) displayName = `[Inbox] ${displayName}`; // Mark standalone items
+
+            // E. Add to Bucket
+            placeInBucket(targetDate, {
+                id: item.id,
+                name: displayName,
+                projectId: project ? project.id : null,
+                phaseId: phase ? phase.id : null,
+                taskId: parentTask ? parentTask.id : item.id,
+                subtaskId: parentTask ? item.id : null,
+                completed: false
+            });
+        };
+
+        // 3. Process All Sources
+        
+        // Source A: Standalone Inbox Tasks
+        if (this.standaloneTasks) {
+            this.standaloneTasks.forEach(task => processItem(task, null, null, null));
+        }
+
+        // Source B: Projects (General & Phases)
         this.projects.forEach(project => {
             if (project.excludeFromStats) return;
 
-            // Project Tasks
+            // Phase Tasks
             project.phases.forEach(phase => {
-                phase.tasks.forEach(task => {
-                    const hasSubtasks = task.subtasks && task.subtasks.length > 0;
-
-                    if (hasSubtasks) {
-                        task.subtasks.forEach(sub => {
-                            if (sub.endDate && sub.progress < 100) {
-                                placeInBucket(sub.endDate, {
-                                    id: sub.id,
-                                    name: `${task.name}: ${sub.name}`,
-                                    projectId: project.id, 
-                                    phaseId: phase.id, 
-                                    taskId: task.id, 
-                                    subtaskId: sub.id,
-                                    completed: false
-                                });
-                            }
-                        });
-                    } else {
-                        const dueDate = task.effectiveEndDate || task.endDate;
-                        if (dueDate && task.progress < 100) {
-                            placeInBucket(dueDate, { 
-                                id: task.id, 
-                                name: task.name, 
-                                projectId: project.id, 
-                                phaseId: phase.id, 
-                                taskId: task.id, 
-                                subtaskId: null,
-                                completed: false
-                            });
-                        }
-                    }
-                });
+                phase.tasks.forEach(task => processItem(task, project, phase, null));
             });
 
             // General Tasks
-            project.generalTasks.forEach(task => {
-                 const dueDate = task.effectiveEndDate || task.endDate;
-                 if (dueDate && task.progress < 100) {
-                     placeInBucket(dueDate, {
-                        id: task.id, 
-                        name: task.name, 
-                        projectId: project.id, 
-                        phaseId: null, 
-                        taskId: task.id, 
-                        subtaskId: null,
-                        completed: false
-                     });
-                 }
-            });
+            project.generalTasks.forEach(task => processItem(task, project, null, null));
         });
 
-        // 3. Setup D3 Chart
+        // 4. Setup D3 Chart
         const margin = { top: 20, right: 30, bottom: 30, left: 40 };
         const width = container.clientWidth - margin.left - margin.right;
         const height = 200 - margin.top - margin.bottom;
@@ -2402,30 +2395,26 @@ const timelineApp = {
             .append("g")
             .attr("transform", `translate(${margin.left},${margin.top})`);
 
-        // X Scale (Business Days)
-        // Use keys directly to ensure alignment
+        // X Scale
         const x = d3.scaleBand()
             .domain(Array.from(dailyBuckets.keys())) 
             .range([0, width])
             .padding(0.2);
 
-        // Find max stack size to determine Y scale
+        // Y Scale (Dynamic max height)
         let maxLoad = 0;
         dailyBuckets.forEach(tasks => {
             if (tasks.length > maxLoad) maxLoad = tasks.length;
         });
-        
-        maxLoad = Math.max(maxLoad, 5);
+        maxLoad = Math.max(maxLoad, 5); // Minimum height of 5 units
 
         const y = d3.scaleLinear()
             .domain([0, maxLoad])
             .range([height, 0]);
 
-        // 4. Draw Axes
+        // Draw Axes
         const xAxis = d3.axisBottom(x)
             .tickFormat(d => {
-                // d is "YYYY-MM-DD"
-                // We construct the date manually to prevent any UTC conversion shifts
                 const [y, m, day] = d.split('-').map(Number);
                 const date = new Date(y, m - 1, day); 
                 return date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' });
@@ -2440,13 +2429,11 @@ const timelineApp = {
         svg.append("g")
             .call(d3.axisLeft(y).ticks(5));
 
-        // 5. Draw Task Boxes
+        // Draw Task Boxes
         let tooltip = d3.select("body").select(".chart-tooltip");
         if (tooltip.empty()) {
             tooltip = d3.select("body").append("div").attr("class", "chart-tooltip");
         }
-
-        const boxHeight = (height / maxLoad) - 1; // -1 for gap
         
         dailyBuckets.forEach((tasks, dateKey) => {
             const dayGroup = svg.append("g")
@@ -2457,7 +2444,7 @@ const timelineApp = {
                 .enter()
                 .append("rect")
                 .attr("x", 0)
-                .attr("y", (d, i) => y(i + 1)) // Stack from bottom up
+                .attr("y", (d, i) => y(i + 1))
                 .attr("width", x.bandwidth())
                 .attr("height", y(0) - y(1) - 1)
                 .attr("fill", (d, i) => this.taskLoadChartColor(i))
@@ -2481,7 +2468,6 @@ const timelineApp = {
                 });
         });
         
-        // Add "Business Days" Label
         svg.append("text")
             .attr("x", width)
             .attr("y", -5)
@@ -2490,7 +2476,7 @@ const timelineApp = {
             .style("fill", "var(--text-secondary)")
             .text("Next 10 Business Days (Due)");
     },
-
+    
     renderUpcomingTasks() {
             // Update Filter Dropdown
             const filterDropdown = this.elements.upcomingProjectFilter;
