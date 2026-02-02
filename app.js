@@ -1010,9 +1010,26 @@ const timelineApp = {
         },
 
     calculateRollups() {
-            this.projects.forEach(p => {
-                // 1. Process General Tasks (New: needed for Project Rollup)
-                p.generalTasks.forEach(task => {
+        this.projects.forEach(p => {
+            // 1. Process General Tasks (New: needed for Project Rollup)
+            p.generalTasks.forEach(task => {
+                const hasSubtasks = task.subtasks && task.subtasks.length > 0;
+                if (hasSubtasks) {
+                    task.effectiveStartDate = this.getBoundaryDate(task.subtasks, 'earliest');
+                    task.effectiveEndDate = this.getBoundaryDate(task.subtasks, 'latest');
+                    const completedSubtasks = task.subtasks.filter(st => st.completed).length;
+                    task.progress = task.subtasks.length > 0 ? (completedSubtasks / task.subtasks.length) * 100 : 0;
+                    task.completed = task.progress === 100;
+                } else {
+                    task.effectiveStartDate = task.startDate;
+                    task.effectiveEndDate = task.endDate;
+                    task.progress = task.completed ? 100 : 0;
+                }
+            });
+
+            // 2. Process Phases
+            p.phases.forEach(phase => {
+                phase.tasks.forEach(task => {
                     const hasSubtasks = task.subtasks && task.subtasks.length > 0;
                     if (hasSubtasks) {
                         task.effectiveStartDate = this.getBoundaryDate(task.subtasks, 'earliest');
@@ -1027,65 +1044,48 @@ const timelineApp = {
                     }
                 });
 
-                // 2. Process Phases
-                p.phases.forEach(phase => {
-                    phase.tasks.forEach(task => {
-                        const hasSubtasks = task.subtasks && task.subtasks.length > 0;
-                        if (hasSubtasks) {
-                            task.effectiveStartDate = this.getBoundaryDate(task.subtasks, 'earliest');
-                            task.effectiveEndDate = this.getBoundaryDate(task.subtasks, 'latest');
-                            const completedSubtasks = task.subtasks.filter(st => st.completed).length;
-                            task.progress = task.subtasks.length > 0 ? (completedSubtasks / task.subtasks.length) * 100 : 0;
-                            task.completed = task.progress === 100;
-                        } else {
-                            task.effectiveStartDate = task.startDate;
-                            task.effectiveEndDate = task.endDate;
-                            task.progress = task.completed ? 100 : 0;
-                        }
-                    });
+                const tasksStartDate = this.getBoundaryDate(phase.tasks, 'earliest');
+                const tasksEndDate = this.getBoundaryDate(phase.tasks, 'latest');
 
-                    const tasksStartDate = this.getBoundaryDate(phase.tasks, 'earliest');
-                    const tasksEndDate = this.getBoundaryDate(phase.tasks, 'latest');
+                // Combine the phase's own dates with the calculated task boundaries
+                const allStartDates = [tasksStartDate, phase.startDate].filter(Boolean).map(d => this.parseDate(d));
+                const allEndDates = [tasksEndDate, phase.endDate].filter(Boolean).map(d => this.parseDate(d));
 
-                    // Combine the phase's own dates with the calculated task boundaries
-                    const allStartDates = [tasksStartDate, phase.startDate].filter(Boolean).map(d => this.parseDate(d));
-                    const allEndDates = [tasksEndDate, phase.endDate].filter(Boolean).map(d => this.parseDate(d));
-
-                    phase.effectiveStartDate = allStartDates.length > 0
-                        ? new Date(Math.min.apply(null, allStartDates)).toISOString().split('T')[0]
-                        : null;
-
-                    phase.effectiveEndDate = allEndDates.length > 0
-                        ? new Date(Math.max.apply(null, allEndDates)).toISOString().split('T')[0]
-                        : null;
-
-                    const totalProgress = phase.tasks.reduce((sum, t) => sum + (t.progress || 0), 0);
-                    phase.progress = phase.tasks.length > 0 ? totalProgress / phase.tasks.length : 0;
-                    phase.completed = phase.progress === 100;
-                });
-
-                p.totalPhaseProgress = p.phases.reduce((sum, ph) => sum + (ph.progress || 0), 0);
-                p.overallProgress = p.phases.length > 0 ? p.totalPhaseProgress / p.phases.length : 0;
-
-                // 3. Process Project Dates (New)
-                // Collect dates from Phases AND General Tasks
-                const phaseStarts = p.phases.map(ph => ph.effectiveStartDate).filter(Boolean);
-                const phaseEnds = p.phases.map(ph => ph.effectiveEndDate).filter(Boolean);
-                const genStarts = p.generalTasks.map(t => t.effectiveStartDate).filter(Boolean);
-                const genEnds = p.generalTasks.map(t => t.effectiveEndDate).filter(Boolean);
-
-                const allProjStarts = [...phaseStarts, ...genStarts, p.startDate].filter(Boolean).map(d => this.parseDate(d));
-                const allProjEnds = [...phaseEnds, ...genEnds, p.endDate].filter(Boolean).map(d => this.parseDate(d));
-
-                p.effectiveStartDate = allProjStarts.length > 0 
-                    ? new Date(Math.min.apply(null, allProjStarts)).toISOString().split('T')[0] 
+                phase.effectiveStartDate = allStartDates.length > 0
+                    ? new Date(Math.min.apply(null, allStartDates)).toISOString().split('T')[0]
                     : null;
-                
-                p.effectiveEndDate = allProjEnds.length > 0 
-                    ? new Date(Math.max.apply(null, allProjEnds)).toISOString().split('T')[0] 
+
+                phase.effectiveEndDate = allEndDates.length > 0
+                    ? new Date(Math.max.apply(null, allEndDates)).toISOString().split('T')[0]
                     : null;
+
+                const totalProgress = phase.tasks.reduce((sum, t) => sum + (t.progress || 0), 0);
+                phase.progress = phase.tasks.length > 0 ? totalProgress / phase.tasks.length : 0;
+                phase.completed = phase.progress === 100;
             });
-        },
+
+            p.totalPhaseProgress = p.phases.reduce((sum, ph) => sum + (ph.progress || 0), 0);
+            p.overallProgress = p.phases.length > 0 ? p.totalPhaseProgress / p.phases.length : 0;
+
+            // 3. Process Project Dates (New: Calculate Effective Project Dates)
+            // Collect dates from Phases AND General Tasks
+            const phaseStarts = p.phases.map(ph => ph.effectiveStartDate).filter(Boolean);
+            const phaseEnds = p.phases.map(ph => ph.effectiveEndDate).filter(Boolean);
+            const genStarts = p.generalTasks.map(t => t.effectiveStartDate).filter(Boolean);
+            const genEnds = p.generalTasks.map(t => t.effectiveEndDate).filter(Boolean);
+
+            const allProjStarts = [...phaseStarts, ...genStarts, p.startDate].filter(Boolean).map(d => this.parseDate(d));
+            const allProjEnds = [...phaseEnds, ...genEnds, p.endDate].filter(Boolean).map(d => this.parseDate(d));
+
+            p.effectiveStartDate = allProjStarts.length > 0 
+                ? new Date(Math.min.apply(null, allProjStarts)).toISOString().split('T')[0] 
+                : null;
+            
+            p.effectiveEndDate = allProjEnds.length > 0 
+                ? new Date(Math.max.apply(null, allProjEnds)).toISOString().split('T')[0] 
+                : null;
+        });
+    },
 
     resolveDependencies() {
             const allItems = new Map();
@@ -1600,9 +1600,6 @@ const timelineApp = {
             const displayEnd = hasChildren ? project.effectiveEndDate : project.endDate;
             const isDriven = hasChildren; // Treat as driven if it has children
             
-            // Pass 'false' to renderProgressPills to hide the percentage
-            // Pass 'isDriven || project.locked' to renderDateRangePill to grey it out
-            
             projectCard.innerHTML = `
                 <div class="flex justify-between items-center mb-3 project-header">
                     <div class="flex items-center gap-2 flex-grow min-w-0">
@@ -1618,7 +1615,7 @@ const timelineApp = {
                         ${commentDot}
                         <h3 class="text-xl font-bold truncate editable-text" onclick="timelineApp.makeEditable(this, 'updateProjectName', ${project.id})">${project.name}</h3>
                         
-                        ${this.renderProgressPills(project.overallProgress, displayStart, displayEnd, isComplete, false)}
+                        ${this.renderProgressPills(project.overallProgress, displayStart, displayEnd, isComplete, true)}
 
                     </div>
                     <div class="flex items-center gap-2 text-sm text-secondary flex-shrink-0">
@@ -1694,7 +1691,7 @@ const timelineApp = {
             // --- CHANGED: Dates Driven by Children Logic ---
             const displayStart = hasTasks ? phase.effectiveStartDate : phase.startDate;
             const displayEnd = hasTasks ? phase.effectiveEndDate : phase.endDate;
-            const isDriven = hasTasks; // Treat as driven if it has children tasks
+            const isDriven = hasTasks; 
 
             html += `
                 <div class="phase-row rounded-lg p-2 ${depClass} ${selectedClass}" data-id="${phase.id}" data-type="phase" data-project-id="${project.id}" onmouseover="timelineApp.highlightPhaseOnChart(${phase.id})" onmouseout="timelineApp.unhighlightPhaseOnChart(${phase.id})">
@@ -1702,7 +1699,7 @@ const timelineApp = {
                         ${toggleButton}
                         ${commentDot}
                         
-                        ${this.renderProgressPills(phase.progress, displayStart, displayEnd, phase.completed)}
+                        ${this.renderProgressPills(phase.progress, displayStart, displayEnd, phase.completed, false)}
 
                         <span class="font-semibold flex-grow editable-text" onclick="timelineApp.makeEditable(this, 'updatePhaseName', ${project.id}, ${phase.id})">${phase.name}</span>
                         
@@ -1748,7 +1745,6 @@ const timelineApp = {
             return this.sortByEndDate(a, b, 'effectiveEndDate');
         });
 
-        // --- NEW: Apply global filter ---
         if (this.hideCompletedTasks) {
             sortedTasks = sortedTasks.filter(t => !t.completed);
         }
@@ -1820,7 +1816,7 @@ const timelineApp = {
                         ${commentDot}
                         ${taskControlHtml}
                         
-                        ${this.renderProgressPills(task.progress, displayStart, displayEnd, task.completed)}
+                        ${this.renderProgressPills(task.progress, displayStart, displayEnd, task.completed, false)}
 
                         <div class="flex-grow flex items-center gap-2 flex-wrap">
                             <span class="font-medium editable-text" onclick="timelineApp.makeEditable(this, 'updateTaskName', ${projectId}, ${phaseId}, ${task.id})">${task.name}</span>
@@ -1890,7 +1886,6 @@ const timelineApp = {
     renderSubtaskList(projectId, phaseId, taskId, subtasks) {
         if (!subtasks || subtasks.length === 0) return '';
         
-        // --- NEW: Apply global filter ---
         let sortedSubtasks = [...subtasks];
         if (this.hideCompletedTasks) {
             sortedSubtasks = sortedSubtasks.filter(s => !s.completed);
@@ -1908,7 +1903,7 @@ const timelineApp = {
             return this.sortByEndDate(a, b, 'endDate');
         });
 
-        if (sortedSubtasks.length === 0) return ''; // Don't render empty container if filtered
+        if (sortedSubtasks.length === 0) return ''; 
 
         let html = '<div class="ml-12 mt-1 space-y-1 pt-1">';
         
@@ -1967,7 +1962,7 @@ const timelineApp = {
                         ${commentDot}
                         <input type="checkbox" class="custom-checkbox" onchange="timelineApp.toggleSubtaskComplete(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" ${subtask.completed ? 'checked' : ''}>
                         
-                        ${this.renderProgressPills(subtask.completed ? 100 : 0, subtask.startDate, subtask.endDate, subtask.completed)}
+                        ${this.renderProgressPills(subtask.completed ? 100 : 0, subtask.startDate, subtask.endDate, subtask.completed, false)}
 
                         <div class="flex-grow flex items-center flex-wrap gap-2">
                             <span class="text-sm ${subtask.completed ? 'line-through opacity-60' : ''} editable-text" onclick="timelineApp.makeEditable(this, 'updateSubtaskName', ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})">${subtask.name}</span>
@@ -2005,7 +2000,7 @@ const timelineApp = {
         return html + '</div>';
     },
 
-    renderProgressPills(progress, startDate, endDate, isComplete, showPercent = true) {
+    renderProgressPills(progress, startDate, endDate, isComplete, showDaysLabel = true) {
         const overallProgress = Math.round(progress || 0);
         // Use effective dates or fallbacks
         const durationProgress = this.getDurationProgress(startDate, endDate);
@@ -2029,15 +2024,14 @@ const timelineApp = {
         }
 
         // --- HTML Generation ---
-        // CHANGED: Only render percent pill if showPercent is true
-        const percentPill = showPercent ? `<div class="status-pill" style="background-color: ${colorVar}">${overallProgress}%</div>` : '';
+        // Always show percentage pill (User Requirement)
+        const percentPill = `<div class="status-pill" style="background-color: ${colorVar}">${overallProgress}%</div>`;
         
-        // If complete or no date, only show % (unless % is hidden, then return empty)
-        if (isComplete || daysLeftInfo.text === '-' || !endDate) {
-             return percentPill;
+        // Conditionally show Days pill
+        let daysPill = '';
+        if (showDaysLabel && !isComplete && daysLeftInfo.text !== '-' && endDate) {
+             daysPill = `<div class="status-pill" style="background-color: ${colorVar}">${daysText}</div>`;
         }
-
-        const daysPill = `<div class="status-pill" style="background-color: ${colorVar}">${daysText}</div>`;
 
         return `
             <div class="flex items-center gap-2">
