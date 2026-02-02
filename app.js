@@ -1011,7 +1011,7 @@ const timelineApp = {
 
     calculateRollups() {
         this.projects.forEach(p => {
-            // 1. Process General Tasks (New: needed for Project Rollup)
+            // 1. Process General Tasks
             p.generalTasks.forEach(task => {
                 const hasSubtasks = task.subtasks && task.subtasks.length > 0;
                 if (hasSubtasks) {
@@ -1047,7 +1047,6 @@ const timelineApp = {
                 const tasksStartDate = this.getBoundaryDate(phase.tasks, 'earliest');
                 const tasksEndDate = this.getBoundaryDate(phase.tasks, 'latest');
 
-                // Combine the phase's own dates with the calculated task boundaries
                 const allStartDates = [tasksStartDate, phase.startDate].filter(Boolean).map(d => this.parseDate(d));
                 const allEndDates = [tasksEndDate, phase.endDate].filter(Boolean).map(d => this.parseDate(d));
 
@@ -1067,8 +1066,7 @@ const timelineApp = {
             p.totalPhaseProgress = p.phases.reduce((sum, ph) => sum + (ph.progress || 0), 0);
             p.overallProgress = p.phases.length > 0 ? p.totalPhaseProgress / p.phases.length : 0;
 
-            // 3. Process Project Dates (New: Calculate Effective Project Dates)
-            // Collect dates from Phases AND General Tasks
+            // 3. Process Project Dates (Collect dates from Phases AND General Tasks)
             const phaseStarts = p.phases.map(ph => ph.effectiveStartDate).filter(Boolean);
             const phaseEnds = p.phases.map(ph => ph.effectiveEndDate).filter(Boolean);
             const genStarts = p.generalTasks.map(t => t.effectiveStartDate).filter(Boolean);
@@ -1077,13 +1075,14 @@ const timelineApp = {
             const allProjStarts = [...phaseStarts, ...genStarts, p.startDate].filter(Boolean).map(d => this.parseDate(d));
             const allProjEnds = [...phaseEnds, ...genEnds, p.endDate].filter(Boolean).map(d => this.parseDate(d));
 
+            // Set effective dates for the project so the header knows what dates to use for color logic
             p.effectiveStartDate = allProjStarts.length > 0 
                 ? new Date(Math.min.apply(null, allProjStarts)).toISOString().split('T')[0] 
-                : null;
+                : (p.startDate || null);
             
             p.effectiveEndDate = allProjEnds.length > 0 
                 ? new Date(Math.max.apply(null, allProjEnds)).toISOString().split('T')[0] 
-                : null;
+                : (p.endDate || null);
         });
     },
 
@@ -1592,13 +1591,14 @@ const timelineApp = {
                 </select>
             `;
 
-            // --- CHANGED: Logic for Driven Dates & Progress Pill ---
+            // Logic for Driven Dates & Progress Pill
             const hasChildren = (project.phases && project.phases.length > 0) || (project.generalTasks && project.generalTasks.length > 0);
             
             // Use effective dates if children exist (Driven), otherwise use manual dates
+            // Note: calculateRollups ensures effective dates are set even if just from manual dates
             const displayStart = hasChildren ? project.effectiveStartDate : project.startDate;
             const displayEnd = hasChildren ? project.effectiveEndDate : project.endDate;
-            const isDriven = hasChildren; // Treat as driven if it has children
+            const isDriven = hasChildren; 
             
             projectCard.innerHTML = `
                 <div class="flex justify-between items-center mb-3 project-header">
@@ -1688,7 +1688,6 @@ const timelineApp = {
                 ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>`
                 : `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h5V3a3 3 0 0 1 6 0v4a.5.5 0 0 1-1 0V3a2 2 0 0 0-2-2z"/></svg>`;
 
-            // --- CHANGED: Dates Driven by Children Logic ---
             const displayStart = hasTasks ? phase.effectiveStartDate : phase.startDate;
             const displayEnd = hasTasks ? phase.effectiveEndDate : phase.endDate;
             const isDriven = hasTasks; 
@@ -1805,7 +1804,6 @@ const timelineApp = {
                 </div>
             `;
             
-            // --- CHANGED: Dates Driven by Children Logic ---
             const displayStart = hasSubtasks ? task.effectiveStartDate : task.startDate;
             const displayEnd = hasSubtasks ? task.effectiveEndDate : task.endDate;
 
