@@ -461,7 +461,8 @@ const timelineApp = {
             this.updateUndoRedoButtons();
         },
 
-    undo() {
+    undo(e) {
+            if (e) e.stopPropagation();
             if (this.history.length > 0) {
                 this.redoStack.push(JSON.parse(JSON.stringify(this.projects)));
                 this.projects = this.history.pop();
@@ -469,15 +470,22 @@ const timelineApp = {
                 this.renderProjects();
                 this.updateUndoRedoButtons();
             }
+            if (this.elements.optionsMenuDropdown) {
+                this.elements.optionsMenuDropdown.classList.add('hidden');
+            }
         },
 
-    redo() {
+    redo(e) {
+            if (e) e.stopPropagation();
             if (this.redoStack.length > 0) {
                 this.history.push(JSON.parse(JSON.stringify(this.projects)));
                 this.projects = this.redoStack.pop();
                 this.saveProjects();
                 this.renderProjects();
                 this.updateUndoRedoButtons();
+            }
+            if (this.elements.optionsMenuDropdown) {
+                this.elements.optionsMenuDropdown.classList.add('hidden');
             }
         },
 
