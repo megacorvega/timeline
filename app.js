@@ -1098,213 +1098,6 @@ const timelineApp = {
         this.renderDeletedProjectsLog();
     },
 
-    renderGanttView() {
-        const container = this.elements.projectsContainer;
-        container.innerHTML = '';
-
-        if (this.projects.length === 0) {
-            container.innerHTML = `<div class="text-center text-gray-400 mt-10">No projects found. Click "Add Project" to start.</div>`;
-            return;
-        }
-
-        let filteredProjects = [...this.projects];
-        if (this.hideCompletedProjects) {
-            filteredProjects = filteredProjects.filter(p => p.overallProgress < 100);
-        }
-
-        const sortedProjects = filteredProjects.sort((a, b) => {
-            // 1. Completion Status (Completed items always sink to the absolute bottom)
-            const aComplete = a.overallProgress >= 100;
-            const bComplete = b.overallProgress >= 100;
-            if (aComplete && !bComplete) return 1;
-            if (!aComplete && bComplete) return -1;
-            
-            // 2. [NEW] Exclusion Status (Excluded items sink below Active items)
-            const aExcluded = a.excludeFromStats === true;
-            const bExcluded = b.excludeFromStats === true;
-            if (aExcluded && !bExcluded) return 1;
-            if (!aExcluded && bExcluded) return -1;
-
-            // 3. Priority (Ascending: 1 is top, 10 is bottom)
-            const pA = a.priority !== undefined ? a.priority : 5;
-            const pB = b.priority !== undefined ? b.priority : 5;
-            if (pA !== pB) return pA - pB;
-
-            // 4. End Date (Earliest first)
-            return this.sortByEndDate(a, b, 'endDate');
-        });
-
-        sortedProjects.forEach((project) => {
-            const projectCard = document.createElement('div');
-            projectCard.className = `project-card p-3 rounded-xl mb-4`;
-            
-            // Visual Fade for Excluded Projects (Optional: makes them look "muted")
-            if (project.excludeFromStats && project.overallProgress < 100) {
-                projectCard.style.opacity = '0.85'; 
-            }
-
-            const isComplete = project.overallProgress >= 100;
-            let completionIcon = isComplete ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>` : '';
-
-            // Stats Toggle Icon
-            const statsIcon = project.excludeFromStats 
-                ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>` 
-                : `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>`;
-
-            const durationProgress = this.getDurationProgress(project.startDate, project.endDate);
-            const daysLeftInfo = this.getDaysLeft(project.endDate);
-            const overallProgress = Math.round(project.overallProgress);
-            
-            let progressColor = 'var(--green)';
-            let statusText = '';
-            let statusColorClass = '';
-
-            if (isComplete) {
-                progressColor = 'var(--green)';
-                statusText = 'Complete';
-                statusColorClass = 'status-complete';
-            } else if (daysLeftInfo.isOverdue) {
-                progressColor = 'var(--red)';
-                statusText = 'Late';
-                statusColorClass = 'status-late';
-            } else if (overallProgress < durationProgress) {
-                progressColor = 'var(--amber)';
-                statusText = 'At Risk';
-                statusColorClass = 'status-at-risk';
-            } else {
-                progressColor = 'var(--blue)';
-                statusText = 'On Track';
-                statusColorClass = 'status-on-track';
-            }
-
-            const tooltipText = `
-                <div class="tooltip-grid">
-                    <span>Status:</span><span class="status-pill ${statusColorClass}">${statusText}</span>
-                    <span>Completion:</span><span>${overallProgress}%</span>
-                    <span>Time Elapsed:</span><span>${Math.round(durationProgress)}%</span>
-                    <span>Days Left:</span><span>${daysLeftInfo.days !== null ? daysLeftInfo.days : 'N/A'}</span>
-                </div>
-            `;
-
-            const pacingBarHTML = `
-                <div class="duration-scale-container tooltip">
-                    <span class="tooltip-text">${tooltipText}</span>
-                    <div class="relative h-2 w-full rounded-full" style="background-color: var(--bg-tertiary);">
-                        <div class="absolute h-2 top-0 left-0 rounded-full" style="background-color: var(--bg-tertiary); width: ${durationProgress}%; z-index: 1;"></div>
-                        <div class="absolute h-2 top-0 left-0 rounded-full" style="background-color: ${progressColor}; width: ${overallProgress}%; z-index: 2;"></div>
-                    </div>
-                </div>
-            `;
-
-            const daysLeftPillHTML = (isComplete || !daysLeftInfo.text || daysLeftInfo.text === '-') 
-                ? '' 
-                : `<div class="days-left-pill ${daysLeftInfo.className}" title="${daysLeftInfo.tooltip}">${daysLeftInfo.text}</div>`;
-
-            const lockIcon = project.locked
-                ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>`
-                : `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h5V3a3 3 0 0 1 6 0v4a.5.5 0 0 1-1 0V3a2 2 0 0 0-2-2z"/></svg>`;
-            
-            const commentDot = project.comments && project.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
-
-            let generalBinHtml = '';
-            if (project.generalTasks && project.generalTasks.length > 0) {
-                const taskListHtml = this.renderTaskList(project.id, null, project.generalTasks);
-                generalBinHtml = `
-                    <div class="general-bin-container">
-                        <div class="general-bin-header">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
-                            <span>General / Inbox (${project.generalTasks.length})</span>
-                        </div>
-                        <div class="space-y-1">
-                            ${taskListHtml}
-                        </div>
-                    </div>
-                `;
-            }
-
-            const priorityVal = project.priority || 5;
-            let priorityOptions = '';
-            for(let i=1; i<=10; i++) {
-                priorityOptions += `<option value="${i}" ${i === priorityVal ? 'selected' : ''}>P${i}</option>`;
-            }
-            const prioritySelect = `
-                <select onchange="timelineApp.updateProjectPriority(${project.id}, this.value)" class="priority-select" title="Priority Order">
-                    ${priorityOptions}
-                </select>
-            `;
-
-            projectCard.innerHTML = `
-                <div class="flex justify-between items-center mb-3 project-header">
-                    <div class="flex items-center gap-2 flex-grow min-w-0">
-                        ${completionIcon}
-                        
-                        <button onclick="timelineApp.toggleProjectStats(${project.id})" class="stats-btn ${project.excludeFromStats ? 'excluded' : ''} flex-shrink-0" title="${project.excludeFromStats ? 'Project Excluded from Review' : 'Exclude from Review Stats'}">
-                            ${statsIcon}
-                        </button>
-
-                        <button onclick="timelineApp.toggleProjectCollapse(${project.id})" class="p-1 rounded-full hover-bg-secondary flex-shrink-0">
-                            <svg id="chevron-${project.id}" class="w-5 h-5 text-tertiary chevron ${project.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
-                        </button>
-                        ${commentDot}
-                        <h3 class="text-xl font-bold truncate editable-text" onclick="timelineApp.makeEditable(this, 'updateProjectName', ${project.id})">${project.name}</h3>
-                        ${pacingBarHTML}
-                        ${daysLeftPillHTML}
-                    </div>
-                    <div class="flex items-center gap-2 text-sm text-secondary flex-shrink-0">
-                        ${prioritySelect}
-                        
-                        <button onclick="timelineApp.generatePrintView(${project.id})" class="print-btn" title="Print Project">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clip-rule="evenodd" /></svg>
-                        </button>
-                        <button onclick="timelineApp.toggleCommentSection('project', ${project.id})" class="comment-btn" title="Comments">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-                        </button>
-                        <button onclick="timelineApp.toggleProjectLock(${project.id})" class="lock-toggle-btn" title="${project.locked ? 'Unlock Project Dates' : 'Lock Project Dates'}">
-                            ${lockIcon}
-                        </button>
-                        <div class="date-input-container">
-                            <input type="text" value="${project.startDate ? this.formatDate(this.parseDate(project.startDate)) : ''}" placeholder="Start Date" class="date-input" data-project-id="${project.id}" data-type="project-start" data-date="${project.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)" ${project.locked ? 'disabled' : ''}>
-                            <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
-                        </div>
-                        <div class="date-input-container">
-                            <input type="text" value="${project.endDate ? this.formatDate(this.parseDate(project.endDate)) : ''}" placeholder="End Date" class="date-input" data-project-id="${project.id}" data-type="project-end" data-date="${project.endDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)" ${project.locked ? 'disabled' : ''}>
-                            <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
-                        </div>
-                    </div>
-                    <button onclick="timelineApp.deleteProject(${project.id})" class="text-gray-400 hover:text-red-500 transition-colors text-xl font-bold ml-4 flex-shrink-0">&times;</button>
-                </div>
-                <div id="project-body-${project.id}" class="${project.collapsed ? 'hidden' : ''}">
-                    <div id="comment-section-project-${project.id}" class="comment-section hidden"></div>
-                    <div class="relative">
-                        <button onclick="timelineApp.resetZoom(${project.id})" class="reset-zoom-btn btn-secondary px-2 py-1 text-xs font-semibold rounded-md ${!project.zoomDomain ? 'hidden' : ''}">Reset Zoom</button>
-                        <div id="chart-${project.id}" class="w-full h-48 mb-3 relative"></div>
-                    </div>
-                    
-                    ${generalBinHtml}
-                    
-                    <div id="phases-${project.id}" class="space-y-1"></div>
-                    <div class="mt-3">
-                        <button onclick="timelineApp.toggleLog(${project.id})" class="text-xs font-semibold text-tertiary hover-text-primary flex items-center gap-1">
-                            <svg id="log-chevron-${project.id}" class="w-4 h-4 chevron -rotate-90" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
-                            Change Log
-                        </button>
-                        <div id="log-container-${project.id}" class="hidden mt-2 p-2 log-container-bg rounded-md">${this.renderLog(project)}</div>
-                    </div>
-                </div>
-            `;
-            this.elements.projectsContainer.appendChild(projectCard);
-            this.renderPhaseList(project);
-            if (!project.collapsed && project.startDate && project.endDate) {
-                this.drawChart(project);
-            } else if (!project.startDate || !project.endDate) {
-                const chartContainer = document.getElementById(`chart-${project.id}`);
-                if (chartContainer) {
-                    chartContainer.innerHTML = `<div class="flex items-center justify-center h-full text-gray-400">Set project start and end dates to see progress chart.</div>`;
-                }
-            }
-        });
-    },
-
     renderLinearView() {
         const container = this.elements.projectsContainer;
         
@@ -1670,6 +1463,777 @@ const timelineApp = {
         container.innerHTML = toolbarHtml + contentHtml;
     },
 
+    renderGanttView() {
+        const container = this.elements.projectsContainer;
+        container.innerHTML = '';
+
+        if (this.projects.length === 0) {
+            container.innerHTML = `<div class="text-center text-gray-400 mt-10">No projects found. Click "Add Project" to start.</div>`;
+            return;
+        }
+
+        let filteredProjects = [...this.projects];
+        if (this.hideCompletedProjects) {
+            filteredProjects = filteredProjects.filter(p => p.overallProgress < 100);
+        }
+
+        const sortedProjects = filteredProjects.sort((a, b) => {
+            // 1. Completion Status (Completed items always sink to the absolute bottom)
+            const aComplete = a.overallProgress >= 100;
+            const bComplete = b.overallProgress >= 100;
+            if (aComplete && !bComplete) return 1;
+            if (!aComplete && bComplete) return -1;
+            
+            // 2. [NEW] Exclusion Status (Excluded items sink below Active items)
+            const aExcluded = a.excludeFromStats === true;
+            const bExcluded = b.excludeFromStats === true;
+            if (aExcluded && !bExcluded) return 1;
+            if (!aExcluded && bExcluded) return -1;
+
+            // 3. Priority (Ascending: 1 is top, 10 is bottom)
+            const pA = a.priority !== undefined ? a.priority : 5;
+            const pB = b.priority !== undefined ? b.priority : 5;
+            if (pA !== pB) return pA - pB;
+
+            // 4. End Date (Earliest first)
+            return this.sortByEndDate(a, b, 'endDate');
+        });
+
+        sortedProjects.forEach((project) => {
+            const projectCard = document.createElement('div');
+            projectCard.className = `project-card p-3 rounded-xl mb-4`;
+            
+            // Visual Fade for Excluded Projects (Optional: makes them look "muted")
+            if (project.excludeFromStats && project.overallProgress < 100) {
+                projectCard.style.opacity = '0.85'; 
+            }
+
+            const isComplete = project.overallProgress >= 100;
+            let completionIcon = isComplete ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>` : '';
+
+            // Stats Toggle Icon
+            const statsIcon = project.excludeFromStats 
+                ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>` 
+                : `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>`;
+
+            const durationProgress = this.getDurationProgress(project.startDate, project.endDate);
+            const daysLeftInfo = this.getDaysLeft(project.endDate);
+            const overallProgress = Math.round(project.overallProgress);
+            
+            let progressColor = 'var(--green)';
+            let statusText = '';
+            let statusColorClass = '';
+
+            if (isComplete) {
+                progressColor = 'var(--green)';
+                statusText = 'Complete';
+                statusColorClass = 'status-complete';
+            } else if (daysLeftInfo.isOverdue) {
+                progressColor = 'var(--red)';
+                statusText = 'Late';
+                statusColorClass = 'status-late';
+            } else if (overallProgress < durationProgress) {
+                progressColor = 'var(--amber)';
+                statusText = 'At Risk';
+                statusColorClass = 'status-at-risk';
+            } else {
+                progressColor = 'var(--blue)';
+                statusText = 'On Track';
+                statusColorClass = 'status-on-track';
+            }
+
+            const tooltipText = `
+                <div class="tooltip-grid">
+                    <span>Status:</span><span class="status-pill ${statusColorClass}">${statusText}</span>
+                    <span>Completion:</span><span>${overallProgress}%</span>
+                    <span>Time Elapsed:</span><span>${Math.round(durationProgress)}%</span>
+                    <span>Days Left:</span><span>${daysLeftInfo.days !== null ? daysLeftInfo.days : 'N/A'}</span>
+                </div>
+            `;
+
+            const pacingBarHTML = `
+                <div class="duration-scale-container tooltip">
+                    <span class="tooltip-text">${tooltipText}</span>
+                    <div class="relative h-2 w-full rounded-full" style="background-color: var(--bg-tertiary);">
+                        <div class="absolute h-2 top-0 left-0 rounded-full" style="background-color: var(--bg-tertiary); width: ${durationProgress}%; z-index: 1;"></div>
+                        <div class="absolute h-2 top-0 left-0 rounded-full" style="background-color: ${progressColor}; width: ${overallProgress}%; z-index: 2;"></div>
+                    </div>
+                </div>
+            `;
+
+            const daysLeftPillHTML = (isComplete || !daysLeftInfo.text || daysLeftInfo.text === '-') 
+                ? '' 
+                : `<div class="days-left-pill ${daysLeftInfo.className}" title="${daysLeftInfo.tooltip}">${daysLeftInfo.text}</div>`;
+
+            const lockIcon = project.locked
+                ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>`
+                : `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h5V3a3 3 0 0 1 6 0v4a.5.5 0 0 1-1 0V3a2 2 0 0 0-2-2z"/></svg>`;
+            
+            const commentDot = project.comments && project.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
+
+            let generalBinHtml = '';
+            if (project.generalTasks && project.generalTasks.length > 0) {
+                const taskListHtml = this.renderTaskList(project.id, null, project.generalTasks);
+                generalBinHtml = `
+                    <div class="general-bin-container">
+                        <div class="general-bin-header">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
+                            <span>General / Inbox (${project.generalTasks.length})</span>
+                        </div>
+                        <div class="space-y-1">
+                            ${taskListHtml}
+                        </div>
+                    </div>
+                `;
+            }
+
+            const priorityVal = project.priority || 5;
+            let priorityOptions = '';
+            for(let i=1; i<=10; i++) {
+                priorityOptions += `<option value="${i}" ${i === priorityVal ? 'selected' : ''}>P${i}</option>`;
+            }
+            const prioritySelect = `
+                <select onchange="timelineApp.updateProjectPriority(${project.id}, this.value)" class="priority-select" title="Priority Order">
+                    ${priorityOptions}
+                </select>
+            `;
+
+            projectCard.innerHTML = `
+                <div class="flex justify-between items-center mb-3 project-header">
+                    <div class="flex items-center gap-2 flex-grow min-w-0">
+                        ${completionIcon}
+                        
+                        <button onclick="timelineApp.toggleProjectStats(${project.id})" class="stats-btn ${project.excludeFromStats ? 'excluded' : ''} flex-shrink-0" title="${project.excludeFromStats ? 'Project Excluded from Review' : 'Exclude from Review Stats'}">
+                            ${statsIcon}
+                        </button>
+
+                        <button onclick="timelineApp.toggleProjectCollapse(${project.id})" class="p-1 rounded-full hover-bg-secondary flex-shrink-0">
+                            <svg id="chevron-${project.id}" class="w-5 h-5 text-tertiary chevron ${project.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+                        </button>
+                        ${commentDot}
+                        <h3 class="text-xl font-bold truncate editable-text" onclick="timelineApp.makeEditable(this, 'updateProjectName', ${project.id})">${project.name}</h3>
+                        ${pacingBarHTML}
+                        ${daysLeftPillHTML}
+                    </div>
+                    <div class="flex items-center gap-2 text-sm text-secondary flex-shrink-0">
+                        ${prioritySelect}
+                        
+                        <button onclick="timelineApp.generatePrintView(${project.id})" class="print-btn" title="Print Project">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clip-rule="evenodd" /></svg>
+                        </button>
+                        <button onclick="timelineApp.toggleCommentSection('project', ${project.id})" class="comment-btn" title="Comments">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                        </button>
+                        <button onclick="timelineApp.toggleProjectLock(${project.id})" class="lock-toggle-btn" title="${project.locked ? 'Unlock Project Dates' : 'Lock Project Dates'}">
+                            ${lockIcon}
+                        </button>
+                        <div class="date-input-container">
+                            <input type="text" value="${project.startDate ? this.formatDate(this.parseDate(project.startDate)) : ''}" placeholder="Start Date" class="date-input" data-project-id="${project.id}" data-type="project-start" data-date="${project.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)" ${project.locked ? 'disabled' : ''}>
+                            <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
+                        </div>
+                        <div class="date-input-container">
+                            <input type="text" value="${project.endDate ? this.formatDate(this.parseDate(project.endDate)) : ''}" placeholder="End Date" class="date-input" data-project-id="${project.id}" data-type="project-end" data-date="${project.endDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)" ${project.locked ? 'disabled' : ''}>
+                            <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
+                        </div>
+                    </div>
+                    <button onclick="timelineApp.deleteProject(${project.id})" class="text-gray-400 hover:text-red-500 transition-colors text-xl font-bold ml-4 flex-shrink-0">&times;</button>
+                </div>
+                <div id="project-body-${project.id}" class="${project.collapsed ? 'hidden' : ''}">
+                    <div id="comment-section-project-${project.id}" class="comment-section hidden"></div>
+                    <div class="relative">
+                        <button onclick="timelineApp.resetZoom(${project.id})" class="reset-zoom-btn btn-secondary px-2 py-1 text-xs font-semibold rounded-md ${!project.zoomDomain ? 'hidden' : ''}">Reset Zoom</button>
+                        <div id="chart-${project.id}" class="w-full h-48 mb-3 relative"></div>
+                    </div>
+                    
+                    ${generalBinHtml}
+                    
+                    <div id="phases-${project.id}" class="space-y-1"></div>
+                    <div class="mt-3">
+                        <button onclick="timelineApp.toggleLog(${project.id})" class="text-xs font-semibold text-tertiary hover-text-primary flex items-center gap-1">
+                            <svg id="log-chevron-${project.id}" class="w-4 h-4 chevron -rotate-90" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+                            Change Log
+                        </button>
+                        <div id="log-container-${project.id}" class="hidden mt-2 p-2 log-container-bg rounded-md">${this.renderLog(project)}</div>
+                    </div>
+                </div>
+            `;
+            this.elements.projectsContainer.appendChild(projectCard);
+            this.renderPhaseList(project);
+            if (!project.collapsed && project.startDate && project.endDate) {
+                this.drawChart(project);
+            } else if (!project.startDate || !project.endDate) {
+                const chartContainer = document.getElementById(`chart-${project.id}`);
+                if (chartContainer) {
+                    chartContainer.innerHTML = `<div class="flex items-center justify-center h-full text-gray-400">Set project start and end dates to see progress chart.</div>`;
+                }
+            }
+        });
+    },
+
+    renderGanttView() {
+        const container = this.elements.projectsContainer;
+        container.innerHTML = '';
+
+        if (this.projects.length === 0) {
+            container.innerHTML = `<div class="text-center text-gray-400 mt-10">No projects found. Click "Add Project" to start.</div>`;
+            return;
+        }
+
+        let filteredProjects = [...this.projects];
+        if (this.hideCompletedProjects) {
+            filteredProjects = filteredProjects.filter(p => p.overallProgress < 100);
+        }
+
+        const sortedProjects = filteredProjects.sort((a, b) => {
+            // 1. Completion Status
+            const aComplete = a.overallProgress >= 100;
+            const bComplete = b.overallProgress >= 100;
+            if (aComplete && !bComplete) return 1;
+            if (!aComplete && bComplete) return -1;
+            
+            // 2. Exclusion Status
+            const aExcluded = a.excludeFromStats === true;
+            const bExcluded = b.excludeFromStats === true;
+            if (aExcluded && !bExcluded) return 1;
+            if (!aExcluded && bExcluded) return -1;
+
+            // 3. Priority
+            const pA = a.priority !== undefined ? a.priority : 5;
+            const pB = b.priority !== undefined ? b.priority : 5;
+            if (pA !== pB) return pA - pB;
+
+            // 4. End Date
+            return this.sortByEndDate(a, b, 'endDate');
+        });
+
+        sortedProjects.forEach((project) => {
+            const projectCard = document.createElement('div');
+            projectCard.className = `project-card p-3 rounded-xl mb-4`;
+            
+            if (project.excludeFromStats && project.overallProgress < 100) {
+                projectCard.style.opacity = '0.85'; 
+            }
+
+            const isComplete = project.overallProgress >= 100;
+            let completionIcon = isComplete ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>` : '';
+
+            const statsIcon = project.excludeFromStats 
+                ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>` 
+                : `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>`;
+
+            const durationProgress = this.getDurationProgress(project.startDate, project.endDate);
+            const daysLeftInfo = this.getDaysLeft(project.endDate);
+            const overallProgress = Math.round(project.overallProgress);
+            
+            let progressColor = 'var(--green)';
+            let statusText = '';
+            let statusColorClass = '';
+
+            // --- REVISED COLOR LOGIC ---
+            if (isComplete) {
+                progressColor = 'var(--green)';
+                statusText = 'Complete';
+                statusColorClass = 'status-complete';
+            } else if (daysLeftInfo.isOverdue) {
+                progressColor = 'var(--red)'; // Overdue = Red
+                statusText = 'Overdue';
+                statusColorClass = 'status-late';
+            } else if (overallProgress < durationProgress) {
+                progressColor = 'var(--amber)'; // Behind schedule = Yellow/Amber
+                statusText = 'At Risk';
+                statusColorClass = 'status-at-risk';
+            } else {
+                progressColor = 'var(--green)'; // On track = Green
+                statusText = 'On Track';
+                statusColorClass = 'status-on-track';
+            }
+            // ---------------------------
+
+            const tooltipText = `
+                <div class="tooltip-grid">
+                    <span>Status:</span><span class="status-pill ${statusColorClass}">${statusText}</span>
+                    <span>Completion:</span><span>${overallProgress}%</span>
+                    <span>Time Elapsed:</span><span>${Math.round(durationProgress)}%</span>
+                    <span>Days Left:</span><span>${daysLeftInfo.days !== null ? daysLeftInfo.days : 'N/A'}</span>
+                </div>
+            `;
+
+            // --- REVISED BAR HTML (Only shows completion %) ---
+            const pacingBarHTML = `
+                <div class="duration-scale-container tooltip">
+                    <span class="tooltip-text">${tooltipText}</span>
+                    <div class="relative h-2 w-full rounded-full" style="background-color: var(--bg-tertiary);">
+                        <div class="absolute h-2 top-0 left-0 rounded-full" style="background-color: ${progressColor}; width: ${overallProgress}%; z-index: 2;"></div>
+                    </div>
+                </div>
+            `;
+            // --------------------------------------------------
+
+            const daysLeftPillHTML = (isComplete || !daysLeftInfo.text || daysLeftInfo.text === '-') 
+                ? '' 
+                : `<div class="days-left-pill ${daysLeftInfo.className}" title="${daysLeftInfo.tooltip}">${daysLeftInfo.text}</div>`;
+
+            const lockIcon = project.locked
+                ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>`
+                : `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h5V3a3 3 0 0 1 6 0v4a.5.5 0 0 1-1 0V3a2 2 0 0 0-2-2z"/></svg>`;
+            
+            const commentDot = project.comments && project.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
+
+            let generalBinHtml = '';
+            if (project.generalTasks && project.generalTasks.length > 0) {
+                const taskListHtml = this.renderTaskList(project.id, null, project.generalTasks);
+                generalBinHtml = `
+                    <div class="general-bin-container">
+                        <div class="general-bin-header">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
+                            <span>General / Inbox (${project.generalTasks.length})</span>
+                        </div>
+                        <div class="space-y-1">
+                            ${taskListHtml}
+                        </div>
+                    </div>
+                `;
+            }
+
+            const priorityVal = project.priority || 5;
+            let priorityOptions = '';
+            for(let i=1; i<=10; i++) {
+                priorityOptions += `<option value="${i}" ${i === priorityVal ? 'selected' : ''}>P${i}</option>`;
+            }
+            const prioritySelect = `
+                <select onchange="timelineApp.updateProjectPriority(${project.id}, this.value)" class="priority-select" title="Priority Order">
+                    ${priorityOptions}
+                </select>
+            `;
+
+            projectCard.innerHTML = `
+                <div class="flex justify-between items-center mb-3 project-header">
+                    <div class="flex items-center gap-2 flex-grow min-w-0">
+                        ${completionIcon}
+                        
+                        <button onclick="timelineApp.toggleProjectStats(${project.id})" class="stats-btn ${project.excludeFromStats ? 'excluded' : ''} flex-shrink-0" title="${project.excludeFromStats ? 'Project Excluded from Review' : 'Exclude from Review Stats'}">
+                            ${statsIcon}
+                        </button>
+
+                        <button onclick="timelineApp.toggleProjectCollapse(${project.id})" class="p-1 rounded-full hover-bg-secondary flex-shrink-0">
+                            <svg id="chevron-${project.id}" class="w-5 h-5 text-tertiary chevron ${project.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+                        </button>
+                        ${commentDot}
+                        <h3 class="text-xl font-bold truncate editable-text" onclick="timelineApp.makeEditable(this, 'updateProjectName', ${project.id})">${project.name}</h3>
+                        ${pacingBarHTML}
+                        ${daysLeftPillHTML}
+                    </div>
+                    <div class="flex items-center gap-2 text-sm text-secondary flex-shrink-0">
+                        ${prioritySelect}
+                        
+                        <button onclick="timelineApp.generatePrintView(${project.id})" class="print-btn" title="Print Project">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clip-rule="evenodd" /></svg>
+                        </button>
+                        <button onclick="timelineApp.toggleCommentSection('project', ${project.id})" class="comment-btn" title="Comments">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                        </button>
+                        <button onclick="timelineApp.toggleProjectLock(${project.id})" class="lock-toggle-btn" title="${project.locked ? 'Unlock Project Dates' : 'Lock Project Dates'}">
+                            ${lockIcon}
+                        </button>
+                        
+                        ${this.renderDateRangePill(project.startDate, project.endDate, project.id, null, null, null, project.locked, false)}
+
+                    </div>
+                    <button onclick="timelineApp.deleteProject(${project.id})" class="text-gray-400 hover:text-red-500 transition-colors text-xl font-bold ml-4 flex-shrink-0">&times;</button>
+                </div>
+                <div id="project-body-${project.id}" class="${project.collapsed ? 'hidden' : ''}">
+                    <div id="comment-section-project-${project.id}" class="comment-section hidden"></div>
+                    <div class="relative">
+                        <button onclick="timelineApp.resetZoom(${project.id})" class="reset-zoom-btn btn-secondary px-2 py-1 text-xs font-semibold rounded-md ${!project.zoomDomain ? 'hidden' : ''}">Reset Zoom</button>
+                        <div id="chart-${project.id}" class="w-full h-48 mb-3 relative"></div>
+                    </div>
+                    
+                    ${generalBinHtml}
+                    
+                    <div id="phases-${project.id}" class="space-y-1"></div>
+                    <div class="mt-3">
+                        <button onclick="timelineApp.toggleLog(${project.id})" class="text-xs font-semibold text-tertiary hover-text-primary flex items-center gap-1">
+                            <svg id="log-chevron-${project.id}" class="w-4 h-4 chevron -rotate-90" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+                            Change Log
+                        </button>
+                        <div id="log-container-${project.id}" class="hidden mt-2 p-2 log-container-bg rounded-md">${this.renderLog(project)}</div>
+                    </div>
+                </div>
+            `;
+            this.elements.projectsContainer.appendChild(projectCard);
+            this.renderPhaseList(project);
+            if (!project.collapsed && project.startDate && project.endDate) {
+                this.drawChart(project);
+            } else if (!project.startDate || !project.endDate) {
+                const chartContainer = document.getElementById(`chart-${project.id}`);
+                if (chartContainer) {
+                    chartContainer.innerHTML = `<div class="flex items-center justify-center h-full text-gray-400">Set project start and end dates to see progress chart.</div>`;
+                }
+            }
+        });
+    },
+
+    renderPhaseList(project) {
+        const phaseContainer = document.getElementById(`phases-${project.id}`);
+        let html = '';
+        const sortedPhases = [...project.phases].sort((a, b) => this.sortByEndDate(a, b, 'endDate'));
+
+        sortedPhases.forEach((phase) => {
+            const hasTasks = phase.tasks && phase.tasks.length > 0;
+            const toggleButton = hasTasks ?
+                `<button onclick="timelineApp.togglePhaseCollapse(${project.id}, ${phase.id})" class="p-1 rounded-full hover-bg-tertiary flex-shrink-0">
+                    <svg id="phase-chevron-${phase.id}" class="w-4 h-4 text-tertiary chevron ${phase.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+                </button>` : `<div class="w-6 h-6 flex-shrink-0"></div>`;
+
+            const depClass = this.dependencyMode && this.firstSelectedItem?.id !== phase.id ? 'dependency-candidate' : '';
+            const selectedClass = this.firstSelectedItem?.id === phase.id ? 'dependency-selected' : '';
+            const commentDot = phase.comments && phase.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
+            
+            // --- NEW PROGRESS BAR LOGIC ---
+            const durationProgress = this.getDurationProgress(phase.effectiveStartDate, phase.effectiveEndDate);
+            const actualProgress = phase.progress || 0;
+            
+            let barColorClass = 'bg-green-500'; // Default On Track
+
+            if (phase.completed) {
+                barColorClass = 'bg-green-500'; // Complete
+            } else if (durationProgress >= 100) {
+                barColorClass = 'bg-red-500'; // Overdue
+            } else if (actualProgress < durationProgress) {
+                barColorClass = 'bg-yellow-500'; // At Risk
+            } else {
+                barColorClass = 'bg-green-500'; // On Track
+            }
+            // ------------------------------
+
+            const lockIcon = phase.locked
+                ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>`
+                : `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h5V3a3 3 0 0 1 6 0v4a.5.5 0 0 1-1 0V3a2 2 0 0 0-2-2z"/></svg>`;
+
+            html += `
+                <div class="phase-row rounded-lg p-2 ${depClass} ${selectedClass}" data-id="${phase.id}" data-type="phase" data-project-id="${project.id}" onmouseover="timelineApp.highlightPhaseOnChart(${phase.id})" onmouseout="timelineApp.unhighlightPhaseOnChart(${phase.id})">
+                    <div class="flex items-center gap-3 item-main-row">
+                        ${toggleButton}
+                        ${commentDot}
+                        <div class="text-xs font-bold text-secondary w-10 text-center flex-shrink-0">${Math.round(actualProgress)}%</div>
+                        <div class="duration-scale-container" title="Completion Status">
+                            <div class="duration-scale-bar ${barColorClass}" style="width: ${actualProgress}%;"></div>
+                        </div>
+                        <span class="font-semibold flex-grow editable-text" onclick="timelineApp.makeEditable(this, 'updatePhaseName', ${project.id}, ${phase.id})">${phase.name}</span>
+                        
+                        ${this.getDependencyIcon(phase)}
+
+                        <div class="flex items-center gap-2 text-sm text-secondary flex-shrink-0">
+                            <button onclick="timelineApp.togglePhaseLock(${project.id}, ${phase.id})" class="lock-toggle-btn" title="${phase.locked ? 'Unlock Phase Dates' : 'Lock Phase Dates'}">
+                                ${lockIcon}
+                            </button>
+                            <button onclick="timelineApp.toggleCommentSection('phase', ${project.id}, ${phase.id})" class="comment-btn" title="Comments">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                            </button>
+                            
+                            ${this.renderDateRangePill(phase.startDate, phase.endDate, project.id, phase.id, null, null, phase.locked, phase.isDriven)}
+                        
+                        </div>
+                        <button onclick="timelineApp.deletePhase(${project.id}, ${phase.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold ml-2">&times;</button>
+                    </div>
+                    <div id="comment-section-phase-${phase.id}" class="comment-section hidden"></div>
+                    <div id="tasks-container-${phase.id}" class="pl-12 mt-2 space-y-1 pt-2 border-t border-primary ${phase.collapsed ? 'hidden' : ''}">${this.renderTaskList(project.id, phase.id, phase.tasks)}</div>
+                </div>`;
+        });
+        html += `
+            <div class="mt-2 pl-4">
+                <div class="flex items-center gap-2">
+                    <input type="text" id="new-phase-name-${project.id}" placeholder="Add a new phase..." class="flex-grow w-full px-2 py-1 input-primary rounded-md text-sm h-[28px]" onkeydown="if(event.key==='Enter') timelineApp.addPhase(${project.id})">
+                    <button onclick="timelineApp.addPhase(${project.id})" class="btn-secondary font-semibold rounded-md text-sm btn-sm">Add</button>
+                </div>
+            </div>`;
+        phaseContainer.innerHTML = html;
+    },
+
+    renderTaskList(projectId, phaseId, tasks) {
+        let html = '';
+        const sortedTasks = [...tasks].sort((a, b) => {
+            if (a.isFollowUp && !b.isFollowUp) return -1;
+            if (!a.isFollowUp && b.isFollowUp) return 1;
+            if (a.isFollowUp && b.isFollowUp) {
+                const dateA = a.followUpDate ? new Date(a.followUpDate) : new Date(9999, 11, 31);
+                const dateB = b.followUpDate ? new Date(b.followUpDate) : new Date(9999, 11, 31);
+                return dateA - dateB;
+            }
+            return this.sortByEndDate(a, b, 'effectiveEndDate');
+        });
+
+        sortedTasks.forEach(task => {
+            const hasSubtasks = task.subtasks && task.subtasks.length > 0;
+            let taskControlHtml = hasSubtasks ? `<div class="text-xs font-bold text-secondary w-10 text-center flex-shrink-0">${Math.round(task.progress || 0)}%</div>` : `<input type="checkbox" class="custom-checkbox" onchange="timelineApp.toggleTaskComplete(${projectId}, ${phaseId}, ${task.id})" ${task.completed ? 'checked' : ''}>`;
+            const toggleButton = hasSubtasks ?
+                `<button onclick="timelineApp.toggleTaskCollapse(${projectId}, ${phaseId}, ${task.id})" class="p-1 rounded-full hover-bg-tertiary flex-shrink-0">
+                    <svg id="task-chevron-${task.id}" class="w-4 h-4 text-tertiary chevron ${task.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+                </button>` : `<div class="w-6 h-6 flex-shrink-0"></div>`;
+            const depClass = this.dependencyMode && this.firstSelectedItem?.id !== task.id ? 'dependency-candidate' : '';
+            const selectedClass = this.firstSelectedItem?.id === task.id ? 'dependency-selected' : '';
+            const commentDot = task.comments && task.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
+            
+            // --- NEW PROGRESS BAR LOGIC ---
+            const durationProgress = this.getDurationProgress(task.effectiveStartDate, task.effectiveEndDate);
+            const actualProgress = task.progress || (task.completed ? 100 : 0);
+            
+            let barColorClass = 'bg-green-500';
+
+            if (task.completed) {
+                barColorClass = 'bg-green-500';
+            } else if (durationProgress >= 100) {
+                barColorClass = 'bg-red-500';
+            } else if (actualProgress < durationProgress) {
+                barColorClass = 'bg-yellow-500';
+            } else {
+                barColorClass = 'bg-green-500';
+            }
+            // ------------------------------
+
+            // Tasks with subtasks are effectively locked (rollup)
+            const isTaskLocked = hasSubtasks; 
+            const followUpClass = task.isFollowUp ? 'follow-up-active' : '';
+            const followUpIconColor = task.isFollowUp ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400 hover:text-purple-500';
+            
+            const followUpDateHtml = task.isFollowUp ? `
+                <div class="date-input-container mr-2">
+                    <input type="text" 
+                        value="${task.followUpDate ? this.formatDate(this.parseDate(task.followUpDate)) : ''}" 
+                        class="date-input border-purple-300 dark:border-purple-700 font-bold text-purple-700 dark:text-purple-300" 
+                        placeholder="Follow Up"
+                        data-project-id="${projectId}" 
+                        data-phase-id="${phaseId}" 
+                        data-task-id="${task.id}" 
+                        data-type="task-followup" 
+                        data-date="${task.followUpDate || ''}" 
+                        oninput="timelineApp.formatDateInput(event)" 
+                        onblur="timelineApp.handleManualDateInput(event)" 
+                        onkeydown="timelineApp.handleDateInputKeydown(event)">
+                    <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
+                </div>
+            ` : '';
+
+            const tags = task.tags || [];
+            const tagHtml = tags.map(tag => `
+                <span class="tag-badge">
+                    ${tag}
+                    <span onclick="event.stopPropagation(); timelineApp.removeTag(${projectId}, ${phaseId}, ${task.id}, null, '${tag}')" class="tag-remove">&times;</span>
+                </span>
+            `).join('');
+
+            const tagMenuHtml = `
+                <div class="relative inline-block ml-2">
+                    <button onclick="timelineApp.toggleTagMenu(event, ${projectId}, ${phaseId}, ${task.id}, null)" class="add-tag-btn" title="Add Tag">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
+                        <span class="ml-0.5 text-[10px]">+</span>
+                    </button>
+                    <div id="tag-menu-${task.id}" class="tag-menu-dropdown hidden" onclick="event.stopPropagation()">
+                        <input type="text" id="tag-input-${task.id}" class="tag-menu-input" placeholder="Search or create..." 
+                            onkeyup="timelineApp.handleTagInput(event, ${projectId}, ${phaseId}, ${task.id}, null)">
+                        <div id="tag-options-${task.id}" class="tag-menu-options"></div>
+                    </div>
+                </div>
+            `;
+
+            html += `
+                <div class="task-row rounded-lg px-2 py-1 ${depClass} ${selectedClass} ${followUpClass}" data-id="${task.id}" data-type="task" data-project-id="${projectId}" data-phase-id="${phaseId}">
+                    <div class="flex items-center gap-3 item-main-row">
+                        ${toggleButton}
+                        ${commentDot}
+                        ${taskControlHtml}
+                        <div class="duration-scale-container" title="Completion Status">
+                            <div class="duration-scale-bar ${barColorClass}" style="width: ${actualProgress}%;"></div>
+                        </div>
+                        <div class="flex-grow flex items-center gap-2 flex-wrap">
+                            <span class="font-medium editable-text" onclick="timelineApp.makeEditable(this, 'updateTaskName', ${projectId}, ${phaseId}, ${task.id})">${task.name}</span>
+                            <div class="flex items-center">${tagHtml}${tagMenuHtml}</div>
+                            <button onclick="timelineApp.showAddSubtaskInput(${task.id})" class="add-subtask-btn items-center gap-1 text-xs btn-secondary font-semibold rounded-md px-2 py-1 flex-shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                                <span>Subtask</span>
+                            </button>
+                            <div class="relative">
+                                <button onclick="timelineApp.toggleMoveTaskDropdown(event, ${projectId}, ${phaseId}, ${task.id})" class="move-task-btn items-center gap-1 text-xs btn-secondary font-semibold rounded-md px-2 py-1 flex-shrink-0">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                                    <span>Move</span>
+                                </button>
+                                <div id="move-task-dropdown-${task.id}" class="move-task-dropdown"></div>
+                            </div>
+                        </div>
+                        ${this.getDependencyIcon(task)}
+                        
+                        <div class="flex items-center">
+                            ${followUpDateHtml}
+                            <button onclick="timelineApp.toggleTaskFollowUp(${projectId}, ${phaseId}, ${task.id})" 
+                                    class="p-1 rounded-md ${followUpIconColor} transition-colors" 
+                                    title="Toggle Follow Up">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="${task.isFollowUp ? 'currentColor' : 'none'}" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div class="flex items-center gap-2 text-sm text-secondary">
+                            <button onclick="timelineApp.toggleCommentSection('task', ${projectId}, ${phaseId}, ${task.id})" class="comment-btn" title="Comments">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                            </button>
+                            
+                            ${this.renderDateRangePill(task.startDate, task.endDate, projectId, phaseId, task.id, null, isTaskLocked, task.isDriven)}
+                            
+                        </div>
+                        
+                        <button onclick="timelineApp.handleProcessItem(${projectId}, ${phaseId}, ${task.id}, null)" class="text-gray-400 hover:text-blue-500 transition-colors ml-2" title="Process / Move">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                        </button>
+
+                        <button onclick="timelineApp.deleteTask(${projectId}, ${phaseId}, ${task.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold ml-2">&times;</button>
+                    </div>
+                    <div id="comment-section-task-${task.id}" class="comment-section hidden"></div>
+                    <div id="subtasks-container-${task.id}" class="pl-12 mt-2 space-y-2 pt-2 border-t border-primary ${task.collapsed || !hasSubtasks ? 'hidden' : ''}">
+                        ${this.renderSubtaskList(projectId, phaseId, task.id, task.subtasks || [])}
+                    </div>
+                    <div id="add-subtask-form-${task.id}" class="hidden ml-12 mt-2">
+                        <div class="flex items-center gap-2">
+                            <input type="text" id="new-subtask-name-${task.id}" placeholder="Add subtask..." class="flex-grow w-full px-2 py-1 input-primary rounded-md text-xs h-[28px]" onkeydown="if(event.key==='Enter') timelineApp.addSubtask(${projectId}, ${phaseId}, ${task.id})">
+                            <button onclick="timelineApp.addSubtask(${projectId}, ${phaseId}, ${task.id})" class="btn-secondary font-semibold rounded-md text-xs btn-sm">Add</button>
+                        </div>
+                    </div>
+                </div>`;
+        });
+        html += `
+            <div>
+                <div class="flex items-center gap-2">
+                    <input type="text" id="new-task-name-${phaseId}" placeholder="Add a new task..." class="flex-grow w-full px-2 py-1 input-primary rounded-md text-xs h-[28px]" onkeydown="if(event.key==='Enter') timelineApp.addTask(${projectId}, ${phaseId})">
+                    <button onclick="timelineApp.addTask(${projectId}, ${phaseId})" class="btn-secondary font-semibold rounded-md text-xs btn-sm">Add</button>
+                </div>
+            </div>`;
+        return html;
+    },
+
+    renderSubtaskList(projectId, phaseId, taskId, subtasks) {
+        if (!subtasks || subtasks.length === 0) return '';
+        let html = '<div class="ml-12 mt-1 space-y-1 pt-1">';
+        const sortedSubtasks = [...subtasks].sort((a,b) => {
+            if (a.isFollowUp && !b.isFollowUp) return -1;
+            if (!a.isFollowUp && b.isFollowUp) return 1;
+            if (a.isFollowUp && b.isFollowUp) {
+                const dateA = a.followUpDate ? new Date(a.followUpDate) : new Date(9999, 11, 31);
+                const dateB = b.followUpDate ? new Date(b.followUpDate) : new Date(9999, 11, 31);
+                return dateA - dateB;
+            }
+            return this.sortByEndDate(a, b, 'endDate');
+        });
+
+        sortedSubtasks.forEach(subtask => {
+            const depClass = this.dependencyMode && this.firstSelectedItem?.id !== subtask.id ? 'dependency-candidate' : '';
+            const selectedClass = this.firstSelectedItem?.id === subtask.id ? 'dependency-selected' : '';
+            const commentDot = subtask.comments && subtask.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
+            
+            // --- NEW PROGRESS BAR LOGIC ---
+            const durationProgress = this.getDurationProgress(subtask.startDate, subtask.endDate);
+            const actualProgress = subtask.completed ? 100 : 0;
+            
+            let barColorClass = 'bg-green-500';
+
+            if (subtask.completed) {
+                barColorClass = 'bg-green-500';
+            } else if (durationProgress >= 100) {
+                barColorClass = 'bg-red-500';
+            } else if (actualProgress < durationProgress) {
+                barColorClass = 'bg-yellow-500';
+            } else {
+                barColorClass = 'bg-green-500';
+            }
+            // ------------------------------
+            
+            const followUpClass = subtask.isFollowUp ? 'follow-up-active' : '';
+            const followUpIconColor = subtask.isFollowUp ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400 hover:text-purple-500';
+            
+            const followUpDateHtml = subtask.isFollowUp ? `
+                <div class="date-input-container mr-2">
+                    <input type="text" 
+                        value="${subtask.followUpDate ? this.formatDate(this.parseDate(subtask.followUpDate)) : ''}" 
+                        class="date-input border-purple-300 dark:border-purple-700 font-bold text-purple-700 dark:text-purple-300" 
+                        placeholder="Follow Up"
+                        data-project-id="${projectId}" 
+                        data-phase-id="${phaseId}" 
+                        data-task-id="${taskId}" 
+                        data-subtask-id="${subtask.id}"
+                        data-type="subtask-followup" 
+                        data-date="${subtask.followUpDate || ''}" 
+                        oninput="timelineApp.formatDateInput(event)" 
+                        onblur="timelineApp.handleManualDateInput(event)" 
+                        onkeydown="timelineApp.handleDateInputKeydown(event)">
+                    <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
+                </div>
+            ` : '';
+
+            const tags = subtask.tags || [];
+            const tagHtml = tags.map(tag => `
+                <span class="tag-badge">
+                    ${tag}
+                    <span onclick="event.stopPropagation(); timelineApp.removeTag(${projectId}, ${phaseId}, ${taskId}, ${subtask.id}, '${tag}')" class="tag-remove">&times;</span>
+                </span>
+            `).join('');
+
+            const tagMenuHtml = `
+                <div class="relative inline-block ml-2">
+                    <button onclick="timelineApp.toggleTagMenu(event, ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" class="add-tag-btn" title="Add Tag">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
+                        <span class="ml-0.5 text-[10px]">+</span>
+                    </button>
+                    <div id="tag-menu-${subtask.id}" class="tag-menu-dropdown hidden" onclick="event.stopPropagation()">
+                        <input type="text" id="tag-input-${subtask.id}" class="tag-menu-input" placeholder="Search or create..." 
+                            onkeyup="timelineApp.handleTagInput(event, ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})">
+                        <div id="tag-options-${subtask.id}" class="tag-menu-options"></div>
+                    </div>
+                </div>
+            `;
+
+            html += `
+                <div class="subtask-row-wrapper">
+                    <div class="flex items-center gap-3 subtask-row ${depClass} ${selectedClass} ${followUpClass}" data-id="${subtask.id}" data-type="subtask" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}">
+                        ${commentDot}
+                        <input type="checkbox" class="custom-checkbox" onchange="timelineApp.toggleSubtaskComplete(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" ${subtask.completed ? 'checked' : ''}>
+                        <div class="duration-scale-container" title="Completion Status">
+                            <div class="duration-scale-bar ${barColorClass}" style="width: ${actualProgress}%;"></div>
+                        </div>
+                        <div class="flex-grow flex items-center flex-wrap gap-2">
+                            <span class="text-sm ${subtask.completed ? 'line-through opacity-60' : ''} editable-text" onclick="timelineApp.makeEditable(this, 'updateSubtaskName', ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})">${subtask.name}</span>
+                            <div class="flex items-center">${tagHtml}${tagMenuHtml}</div>
+                        </div>
+                        ${this.getDependencyIcon(subtask)}
+                        
+                        <div class="flex items-center">
+                            ${followUpDateHtml}
+                            <button onclick="timelineApp.toggleSubtaskFollowUp(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" 
+                                    class="p-1 rounded-md ${followUpIconColor} transition-colors" 
+                                    title="Toggle Follow Up">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="${subtask.isFollowUp ? 'currentColor' : 'none'}" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                </svg>
+                            </button>
+                        </div>
+                        
+                        <button onclick="timelineApp.toggleCommentSection('subtask', ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" class="comment-btn" title="Comments">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                        </button>
+                        
+                        ${this.renderDateRangePill(subtask.startDate, subtask.endDate, projectId, phaseId, taskId, subtask.id, false, subtask.isDriven)}
+
+                        <button onclick="timelineApp.handleProcessItem(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" class="text-gray-400 hover:text-blue-500 transition-colors ml-2" title="Process / Move">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                        </button>
+
+                        <button onclick="timelineApp.deleteSubtask(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold w-5 text-center flex-shrink-0 ml-2">&times;</button>
+                    </div>
+                    <div id="comment-section-subtask-${subtask.id}" class="comment-section hidden"></div>
+                </div>
+                `;
+        });
+        return html + '</div>';
+    },
+
     toggleActionHubGroup(id) {
         const group = document.getElementById(`hub-group-${id}`);
         const chevron = document.getElementById(`hub-chevron-${id}`);
@@ -1711,347 +2275,6 @@ const timelineApp = {
                         onclick="timelineApp.handleCircleClick(${item.id})"></div>
                 </div>
             `;
-        },
-        
-    renderPhaseList(project) {
-            const phaseContainer = document.getElementById(`phases-${project.id}`);
-            let html = '';
-            const sortedPhases = [...project.phases].sort((a, b) => this.sortByEndDate(a, b, 'endDate'));
-
-            sortedPhases.forEach((phase) => {
-                const hasTasks = phase.tasks && phase.tasks.length > 0;
-                const toggleButton = hasTasks ?
-                    `<button onclick="timelineApp.togglePhaseCollapse(${project.id}, ${phase.id})" class="p-1 rounded-full hover-bg-tertiary flex-shrink-0">
-                        <svg id="phase-chevron-${phase.id}" class="w-4 h-4 text-tertiary chevron ${phase.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
-                    </button>` : `<div class="w-6 h-6 flex-shrink-0"></div>`;
-
-                const depClass = this.dependencyMode && this.firstSelectedItem?.id !== phase.id ? 'dependency-candidate' : '';
-                const selectedClass = this.firstSelectedItem?.id === phase.id ? 'dependency-selected' : '';
-                const commentDot = phase.comments && phase.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
-                
-                const durationProgress = this.getDurationProgress(phase.effectiveStartDate, phase.effectiveEndDate);
-                let durationBarColorClass = 'bg-blue-500';
-                if (phase.completed) {
-                    durationBarColorClass = 'bg-green-500';
-                } else if (durationProgress === 100) {
-                    durationBarColorClass = 'bg-red-500';
-                } else if (durationProgress > 90) {
-                    durationBarColorClass = 'bg-orange-500';
-                } else if (durationProgress > 75) {
-                    durationBarColorClass = 'bg-yellow-500';
-                }
-
-                const lockIcon = phase.locked
-                    ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>`
-                    : `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h5V3a3 3 0 0 1 6 0v4a.5.5 0 0 1-1 0V3a2 2 0 0 0-2-2z"/></svg>`;
-
-                html += `
-                    <div class="phase-row rounded-lg p-2 ${depClass} ${selectedClass}" data-id="${phase.id}" data-type="phase" data-project-id="${project.id}" onmouseover="timelineApp.highlightPhaseOnChart(${phase.id})" onmouseout="timelineApp.unhighlightPhaseOnChart(${phase.id})">
-                        <div class="flex items-center gap-3 item-main-row">
-                            ${toggleButton}
-                            ${commentDot}
-                            <div class="text-xs font-bold text-secondary w-10 text-center flex-shrink-0">${Math.round(phase.progress || 0)}%</div>
-                            <div class="duration-scale-container" title="Duration Progress">
-                                <div class="duration-scale-bar ${durationBarColorClass}" style="width: ${durationProgress}%;"></div>
-                            </div>
-                            <span class="font-semibold flex-grow editable-text" onclick="timelineApp.makeEditable(this, 'updatePhaseName', ${project.id}, ${phase.id})">${phase.name}</span>
-                            
-                            ${this.getDependencyIcon(phase)}
-
-                            <div class="flex items-center gap-2 text-sm text-secondary flex-shrink-0">
-                                <button onclick="timelineApp.togglePhaseLock(${project.id}, ${phase.id})" class="lock-toggle-btn" title="${phase.locked ? 'Unlock Phase Dates' : 'Lock Phase Dates'}">
-                                    ${lockIcon}
-                                </button>
-                                <button onclick="timelineApp.toggleCommentSection('phase', ${project.id}, ${phase.id})" class="comment-btn" title="Comments">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-                                </button>
-                                
-                                ${this.renderDateRangePill(phase.startDate, phase.endDate, project.id, phase.id, null, null, phase.locked, phase.isDriven)}
-                            
-                            </div>
-                            <button onclick="timelineApp.deletePhase(${project.id}, ${phase.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold ml-2">&times;</button>
-                        </div>
-                        <div id="comment-section-phase-${phase.id}" class="comment-section hidden"></div>
-                        <div id="tasks-container-${phase.id}" class="pl-12 mt-2 space-y-1 pt-2 border-t border-primary ${phase.collapsed ? 'hidden' : ''}">${this.renderTaskList(project.id, phase.id, phase.tasks)}</div>
-                    </div>`;
-            });
-            html += `
-                <div class="mt-2 pl-4">
-                    <div class="flex items-center gap-2">
-                        <input type="text" id="new-phase-name-${project.id}" placeholder="Add a new phase..." class="flex-grow w-full px-2 py-1 input-primary rounded-md text-sm h-[28px]" onkeydown="if(event.key==='Enter') timelineApp.addPhase(${project.id})">
-                        <button onclick="timelineApp.addPhase(${project.id})" class="btn-secondary font-semibold rounded-md text-sm btn-sm">Add</button>
-                    </div>
-                </div>`;
-            phaseContainer.innerHTML = html;
-        },
-
-    renderTaskList(projectId, phaseId, tasks) {
-            let html = '';
-            const sortedTasks = [...tasks].sort((a, b) => {
-                if (a.isFollowUp && !b.isFollowUp) return -1;
-                if (!a.isFollowUp && b.isFollowUp) return 1;
-                if (a.isFollowUp && b.isFollowUp) {
-                    const dateA = a.followUpDate ? new Date(a.followUpDate) : new Date(9999, 11, 31);
-                    const dateB = b.followUpDate ? new Date(b.followUpDate) : new Date(9999, 11, 31);
-                    return dateA - dateB;
-                }
-                return this.sortByEndDate(a, b, 'effectiveEndDate');
-            });
-
-            sortedTasks.forEach(task => {
-                const hasSubtasks = task.subtasks && task.subtasks.length > 0;
-                let taskControlHtml = hasSubtasks ? `<div class="text-xs font-bold text-secondary w-10 text-center flex-shrink-0">${Math.round(task.progress || 0)}%</div>` : `<input type="checkbox" class="custom-checkbox" onchange="timelineApp.toggleTaskComplete(${projectId}, ${phaseId}, ${task.id})" ${task.completed ? 'checked' : ''}>`;
-                const toggleButton = hasSubtasks ?
-                    `<button onclick="timelineApp.toggleTaskCollapse(${projectId}, ${phaseId}, ${task.id})" class="p-1 rounded-full hover-bg-tertiary flex-shrink-0">
-                        <svg id="task-chevron-${task.id}" class="w-4 h-4 text-tertiary chevron ${task.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
-                    </button>` : `<div class="w-6 h-6 flex-shrink-0"></div>`;
-                const depClass = this.dependencyMode && this.firstSelectedItem?.id !== task.id ? 'dependency-candidate' : '';
-                const selectedClass = this.firstSelectedItem?.id === task.id ? 'dependency-selected' : '';
-                const commentDot = task.comments && task.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
-                
-                const durationProgress = this.getDurationProgress(task.effectiveStartDate, task.effectiveEndDate);
-                let durationBarColorClass = 'bg-blue-500';
-                if (task.completed) {
-                    durationBarColorClass = 'bg-green-500';
-                } else if (durationProgress === 100) {
-                    durationBarColorClass = 'bg-red-500';
-                } else if (durationProgress > 90) {
-                    durationBarColorClass = 'bg-orange-500';
-                } else if (durationProgress > 75) {
-                    durationBarColorClass = 'bg-yellow-500';
-                }
-
-                // Tasks with subtasks are effectively locked (rollup)
-                const isTaskLocked = hasSubtasks; 
-                const followUpClass = task.isFollowUp ? 'follow-up-active' : '';
-                const followUpIconColor = task.isFollowUp ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400 hover:text-purple-500';
-                
-                const followUpDateHtml = task.isFollowUp ? `
-                    <div class="date-input-container mr-2">
-                        <input type="text" 
-                            value="${task.followUpDate ? this.formatDate(this.parseDate(task.followUpDate)) : ''}" 
-                            class="date-input border-purple-300 dark:border-purple-700 font-bold text-purple-700 dark:text-purple-300" 
-                            placeholder="Follow Up"
-                            data-project-id="${projectId}" 
-                            data-phase-id="${phaseId}" 
-                            data-task-id="${task.id}" 
-                            data-type="task-followup" 
-                            data-date="${task.followUpDate || ''}" 
-                            oninput="timelineApp.formatDateInput(event)" 
-                            onblur="timelineApp.handleManualDateInput(event)" 
-                            onkeydown="timelineApp.handleDateInputKeydown(event)">
-                        <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
-                    </div>
-                ` : '';
-
-                const tags = task.tags || [];
-                const tagHtml = tags.map(tag => `
-                    <span class="tag-badge">
-                        ${tag}
-                        <span onclick="event.stopPropagation(); timelineApp.removeTag(${projectId}, ${phaseId}, ${task.id}, null, '${tag}')" class="tag-remove">&times;</span>
-                    </span>
-                `).join('');
-
-                const tagMenuHtml = `
-                    <div class="relative inline-block ml-2">
-                        <button onclick="timelineApp.toggleTagMenu(event, ${projectId}, ${phaseId}, ${task.id}, null)" class="add-tag-btn" title="Add Tag">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
-                            <span class="ml-0.5 text-[10px]">+</span>
-                        </button>
-                        <div id="tag-menu-${task.id}" class="tag-menu-dropdown hidden" onclick="event.stopPropagation()">
-                            <input type="text" id="tag-input-${task.id}" class="tag-menu-input" placeholder="Search or create..." 
-                                onkeyup="timelineApp.handleTagInput(event, ${projectId}, ${phaseId}, ${task.id}, null)">
-                            <div id="tag-options-${task.id}" class="tag-menu-options"></div>
-                        </div>
-                    </div>
-                `;
-
-                html += `
-                    <div class="task-row rounded-lg px-2 py-1 ${depClass} ${selectedClass} ${followUpClass}" data-id="${task.id}" data-type="task" data-project-id="${projectId}" data-phase-id="${phaseId}">
-                        <div class="flex items-center gap-3 item-main-row">
-                            ${toggleButton}
-                            ${commentDot}
-                            ${taskControlHtml}
-                            <div class="duration-scale-container" title="Duration Progress">
-                                <div class="duration-scale-bar ${durationBarColorClass}" style="width: ${durationProgress}%;"></div>
-                            </div>
-                            <div class="flex-grow flex items-center gap-2 flex-wrap">
-                                <span class="font-medium editable-text" onclick="timelineApp.makeEditable(this, 'updateTaskName', ${projectId}, ${phaseId}, ${task.id})">${task.name}</span>
-                                <div class="flex items-center">${tagHtml}${tagMenuHtml}</div>
-                                <button onclick="timelineApp.showAddSubtaskInput(${task.id})" class="add-subtask-btn items-center gap-1 text-xs btn-secondary font-semibold rounded-md px-2 py-1 flex-shrink-0">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-                                    <span>Subtask</span>
-                                </button>
-                                <div class="relative">
-                                    <button onclick="timelineApp.toggleMoveTaskDropdown(event, ${projectId}, ${phaseId}, ${task.id})" class="move-task-btn items-center gap-1 text-xs btn-secondary font-semibold rounded-md px-2 py-1 flex-shrink-0">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
-                                        <span>Move</span>
-                                    </button>
-                                    <div id="move-task-dropdown-${task.id}" class="move-task-dropdown"></div>
-                                </div>
-                            </div>
-                            ${this.getDependencyIcon(task)}
-                            
-                            <div class="flex items-center">
-                                ${followUpDateHtml}
-                                <button onclick="timelineApp.toggleTaskFollowUp(${projectId}, ${phaseId}, ${task.id})" 
-                                        class="p-1 rounded-md ${followUpIconColor} transition-colors" 
-                                        title="Toggle Follow Up">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="${task.isFollowUp ? 'currentColor' : 'none'}" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                                    </svg>
-                                </button>
-                            </div>
-
-                            <div class="flex items-center gap-2 text-sm text-secondary">
-                                <button onclick="timelineApp.toggleCommentSection('task', ${projectId}, ${phaseId}, ${task.id})" class="comment-btn" title="Comments">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-                                </button>
-                                
-                                ${this.renderDateRangePill(task.startDate, task.endDate, projectId, phaseId, task.id, null, isTaskLocked, task.isDriven)}
-                                
-                            </div>
-                            
-                            <button onclick="timelineApp.handleProcessItem(${projectId}, ${phaseId}, ${task.id}, null)" class="text-gray-400 hover:text-blue-500 transition-colors ml-2" title="Process / Move">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                            </button>
-
-                            <button onclick="timelineApp.deleteTask(${projectId}, ${phaseId}, ${task.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold ml-2">&times;</button>
-                        </div>
-                        <div id="comment-section-task-${task.id}" class="comment-section hidden"></div>
-                        <div id="subtasks-container-${task.id}" class="pl-12 mt-2 space-y-2 pt-2 border-t border-primary ${task.collapsed || !hasSubtasks ? 'hidden' : ''}">
-                            ${this.renderSubtaskList(projectId, phaseId, task.id, task.subtasks || [])}
-                        </div>
-                        <div id="add-subtask-form-${task.id}" class="hidden ml-12 mt-2">
-                            <div class="flex items-center gap-2">
-                                <input type="text" id="new-subtask-name-${task.id}" placeholder="Add subtask..." class="flex-grow w-full px-2 py-1 input-primary rounded-md text-xs h-[28px]" onkeydown="if(event.key==='Enter') timelineApp.addSubtask(${projectId}, ${phaseId}, ${task.id})">
-                                <button onclick="timelineApp.addSubtask(${projectId}, ${phaseId}, ${task.id})" class="btn-secondary font-semibold rounded-md text-xs btn-sm">Add</button>
-                            </div>
-                        </div>
-                    </div>`;
-            });
-            html += `
-                <div>
-                    <div class="flex items-center gap-2">
-                        <input type="text" id="new-task-name-${phaseId}" placeholder="Add a new task..." class="flex-grow w-full px-2 py-1 input-primary rounded-md text-xs h-[28px]" onkeydown="if(event.key==='Enter') timelineApp.addTask(${projectId}, ${phaseId})">
-                        <button onclick="timelineApp.addTask(${projectId}, ${phaseId})" class="btn-secondary font-semibold rounded-md text-xs btn-sm">Add</button>
-                    </div>
-                </div>`;
-            return html;
-        },
-
-    renderSubtaskList(projectId, phaseId, taskId, subtasks) {
-            if (!subtasks || subtasks.length === 0) return '';
-            let html = '<div class="ml-12 mt-1 space-y-1 pt-1">';
-            const sortedSubtasks = [...subtasks].sort((a,b) => {
-                if (a.isFollowUp && !b.isFollowUp) return -1;
-                if (!a.isFollowUp && b.isFollowUp) return 1;
-                if (a.isFollowUp && b.isFollowUp) {
-                    const dateA = a.followUpDate ? new Date(a.followUpDate) : new Date(9999, 11, 31);
-                    const dateB = b.followUpDate ? new Date(b.followUpDate) : new Date(9999, 11, 31);
-                    return dateA - dateB;
-                }
-                return this.sortByEndDate(a, b, 'endDate');
-            });
-
-            sortedSubtasks.forEach(subtask => {
-                const depClass = this.dependencyMode && this.firstSelectedItem?.id !== subtask.id ? 'dependency-candidate' : '';
-                const selectedClass = this.firstSelectedItem?.id === subtask.id ? 'dependency-selected' : '';
-                const commentDot = subtask.comments && subtask.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
-                
-                const durationProgress = this.getDurationProgress(subtask.startDate, subtask.endDate);
-                let durationBarColorClass = 'bg-blue-500';
-                if (subtask.completed) durationBarColorClass = 'bg-green-500';
-                else if (durationProgress === 100) durationBarColorClass = 'bg-red-500';
-                else if (durationProgress > 90) durationBarColorClass = 'bg-orange-500';
-                else if (durationProgress > 75) durationBarColorClass = 'bg-yellow-500';
-                
-                const followUpClass = subtask.isFollowUp ? 'follow-up-active' : '';
-                const followUpIconColor = subtask.isFollowUp ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400 hover:text-purple-500';
-                
-                const followUpDateHtml = subtask.isFollowUp ? `
-                    <div class="date-input-container mr-2">
-                        <input type="text" 
-                            value="${subtask.followUpDate ? this.formatDate(this.parseDate(subtask.followUpDate)) : ''}" 
-                            class="date-input border-purple-300 dark:border-purple-700 font-bold text-purple-700 dark:text-purple-300" 
-                            placeholder="Follow Up"
-                            data-project-id="${projectId}" 
-                            data-phase-id="${phaseId}" 
-                            data-task-id="${taskId}" 
-                            data-subtask-id="${subtask.id}"
-                            data-type="subtask-followup" 
-                            data-date="${subtask.followUpDate || ''}" 
-                            oninput="timelineApp.formatDateInput(event)" 
-                            onblur="timelineApp.handleManualDateInput(event)" 
-                            onkeydown="timelineApp.handleDateInputKeydown(event)">
-                        <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
-                    </div>
-                ` : '';
-
-                const tags = subtask.tags || [];
-                const tagHtml = tags.map(tag => `
-                    <span class="tag-badge">
-                        ${tag}
-                        <span onclick="event.stopPropagation(); timelineApp.removeTag(${projectId}, ${phaseId}, ${taskId}, ${subtask.id}, '${tag}')" class="tag-remove">&times;</span>
-                    </span>
-                `).join('');
-
-                const tagMenuHtml = `
-                    <div class="relative inline-block ml-2">
-                        <button onclick="timelineApp.toggleTagMenu(event, ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" class="add-tag-btn" title="Add Tag">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
-                            <span class="ml-0.5 text-[10px]">+</span>
-                        </button>
-                        <div id="tag-menu-${subtask.id}" class="tag-menu-dropdown hidden" onclick="event.stopPropagation()">
-                            <input type="text" id="tag-input-${subtask.id}" class="tag-menu-input" placeholder="Search or create..." 
-                                onkeyup="timelineApp.handleTagInput(event, ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})">
-                            <div id="tag-options-${subtask.id}" class="tag-menu-options"></div>
-                        </div>
-                    </div>
-                `;
-
-                html += `
-                    <div class="subtask-row-wrapper">
-                        <div class="flex items-center gap-3 subtask-row ${depClass} ${selectedClass} ${followUpClass}" data-id="${subtask.id}" data-type="subtask" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}">
-                            ${commentDot}
-                            <input type="checkbox" class="custom-checkbox" onchange="timelineApp.toggleSubtaskComplete(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" ${subtask.completed ? 'checked' : ''}>
-                            <div class="duration-scale-container" title="Duration Progress">
-                                <div class="duration-scale-bar ${durationBarColorClass}" style="width: ${durationProgress}%;"></div>
-                            </div>
-                            <div class="flex-grow flex items-center flex-wrap gap-2">
-                                <span class="text-sm ${subtask.completed ? 'line-through opacity-60' : ''} editable-text" onclick="timelineApp.makeEditable(this, 'updateSubtaskName', ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})">${subtask.name}</span>
-                                <div class="flex items-center">${tagHtml}${tagMenuHtml}</div>
-                            </div>
-                            ${this.getDependencyIcon(subtask)}
-                            
-                            <div class="flex items-center">
-                                ${followUpDateHtml}
-                                <button onclick="timelineApp.toggleSubtaskFollowUp(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" 
-                                        class="p-1 rounded-md ${followUpIconColor} transition-colors" 
-                                        title="Toggle Follow Up">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="${subtask.isFollowUp ? 'currentColor' : 'none'}" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                                    </svg>
-                                </button>
-                            </div>
-                            
-                            <button onclick="timelineApp.toggleCommentSection('subtask', ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" class="comment-btn" title="Comments">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-                            </button>
-                            
-                            ${this.renderDateRangePill(subtask.startDate, subtask.endDate, projectId, phaseId, taskId, subtask.id, false, subtask.isDriven)}
-
-                            <button onclick="timelineApp.handleProcessItem(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" class="text-gray-400 hover:text-blue-500 transition-colors ml-2" title="Process / Move">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                            </button>
-
-                            <button onclick="timelineApp.deleteSubtask(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold w-5 text-center flex-shrink-0 ml-2">&times;</button>
-                        </div>
-                        <div id="comment-section-subtask-${subtask.id}" class="comment-section hidden"></div>
-                    </div>
-                    `;
-            });
-            return html + '</div>';
         },
         
     renderLog(project) {
