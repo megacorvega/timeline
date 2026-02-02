@@ -4413,61 +4413,119 @@ const timelineApp = {
         if (toggle) toggle.checked = this.hideCompletedProjects;
     },
 
-// --- UPDATED HELPER: Renders the Date Pill with Grid Alignment ---
+    handlePillDateClick(element, position, currentDate, projectId, phaseId, taskId, subtaskId) {
+    event.stopPropagation();
+    
+    // 1. Determine context type based on IDs present
+    let itemType = 'phase';
+    if (subtaskId !== null && subtaskId !== 'null' && subtaskId !== undefined) itemType = 'subtask';
+    else if (taskId !== null && taskId !== 'null' && taskId !== undefined) itemType = 'task';
+    
+    // Construct the type string expected by updateDate (e.g., 'task-start', 'subtask-end')
+    const type = `${itemType}-${position}`;
+
+    // 2. Setup Context for the Picker
+    this.currentPickerContext = { 
+        type, 
+        projectId: (projectId === 'null' || !projectId) ? null : parseInt(projectId), 
+        phaseId: (phaseId === 'null' || !phaseId) ? null : parseInt(phaseId), 
+        taskId: (taskId === 'null' || !taskId) ? null : parseInt(taskId), 
+        subtaskId: (subtaskId === 'null' || !subtaskId) ? null : parseInt(subtaskId), 
+        element: element, 
+        oldDate: currentDate && currentDate !== 'null' && currentDate !== 'undefined' ? currentDate : null 
+    };
+
+    // 3. Configure Shared Picker for Single Date Selection
+    // Position relative to the specific text clicked, not the whole pill
+    this.sharedPicker.set('positionElement', element);
+    this.sharedPicker.set('mode', 'single');
+    
+    // Ensure backdrop hides on close
+    this.sharedPicker.set('onClose', () => {
+            this.elements.datepickerBackdrop.classList.add('hidden');
+    });
+
+    // Set initial date if exists, otherwise default to today
+    const dateToSet = (currentDate && currentDate !== 'null' && currentDate !== 'undefined') 
+        ? this.parseDate(currentDate) 
+        : new Date();
+    
+    this.sharedPicker.setDate(dateToSet);
+    this.elements.datepickerBackdrop.classList.remove('hidden');
+    this.sharedPicker.open();
+    },
+
     renderDateRangePill(start, end, projectId, phaseId, taskId, subtaskId, isLocked = false, isDriven = false) {
-        // Format dates
-        const startStr = start ? this.formatDate(this.parseDate(start)) : 'Set Start';
-        const endStr = end ? this.formatDate(this.parseDate(end)) : 'Set End';
-        
-        // Define Icon for the Status Column (Leftmost)
-        let statusIconHtml = '';
-        if (isLocked) {
-            // Lock Icon
-            statusIconHtml = `<svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>`;
-        } else if (isDriven) {
-            // Dependency/Link Icon
-            statusIconHtml = `<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>`;
-        }
+    // Format dates
+    const startStr = start ? this.formatDate(this.parseDate(start)) : 'Set Start';
+    const endStr = end ? this.formatDate(this.parseDate(end)) : 'Set End';
+    
+    // Define Icon for the Status Column (Leftmost)
+    let statusIconHtml = '';
+    if (isLocked) {
+        statusIconHtml = `<svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>`;
+    } else if (isDriven) {
+        statusIconHtml = `<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>`;
+    }
 
-        // Generate Inner HTML based on state
-        let innerHtml;
+    const pId = projectId || 'null';
+    const phId = phaseId || 'null';
+    const tId = taskId || 'null';
+    const sId = subtaskId || 'null';
 
-        // CASE 1: Empty State
-        if (!start && !end) {
-            innerHtml = `<div class="full-span-col">Set Dates</div>`;
-        } 
-        // CASE 2: Locked but dates missing (Edge case)
-        else if (isLocked && (!start || !end)) {
-            innerHtml = `
-                <div class="status-col">${statusIconHtml}</div>
-                <div class="full-span-col" style="grid-column: 2 / -1;">Dates Locked</div>
-            `;
-        }
-        // CASE 3: Standard / Driven / Locked (With Dates)
-        else {
-            innerHtml = `
-                <div class="status-col" title="${isDriven ? 'Start date driven by dependency' : (isLocked ? 'Dates locked' : '')}">${statusIconHtml}</div>
-                <div class="date-col ${!start ? 'opacity-50' : ''}">${startStr}</div>
-                <div class="arrow-col">→</div>
-                <div class="date-col ${!end ? 'opacity-50' : ''}">${endStr}</div>
-            `;
-        }
+    // --- Logic for Interactivity ---
+    // 1. Start Date: Clickable ONLY if not Locked AND not Driven (dependency)
+    const startOnClick = (!isLocked && !isDriven) 
+        ? `onclick="timelineApp.handlePillDateClick(this, 'start', '${start || ''}', ${pId}, ${phId}, ${tId}, ${sId})"` 
+        : '';
+    
+    // 2. End Date: Clickable if not Locked
+    const endOnClick = (!isLocked) 
+        ? `onclick="timelineApp.handlePillDateClick(this, 'end', '${end || ''}', ${pId}, ${phId}, ${tId}, ${sId})"` 
+        : '';
 
-        // Wrapper Attributes
-        const clickHandler = `timelineApp.handleRangeTrigger(this, '${start || ''}', '${end || ''}', ${projectId}, ${phaseId}, ${taskId || 'null'}, ${subtaskId || 'null'}, ${isDriven})`;
-        const disabledClass = isLocked ? 'disabled' : '';
-        const pointerEvents = isLocked ? '' : 'onclick="' + clickHandler + '"';
+    // --- Visual Classes ---
+    const startHoverClass = (!isLocked && !isDriven) ? 'hoverable-date' : 'locked-date';
+    const endHoverClass = (!isLocked) ? 'hoverable-date' : 'locked-date';
 
-        return `
-            <div class="date-range-pill ${disabledClass}" ${pointerEvents}>
-                <div class="date-content-grid">
-                    ${innerHtml}
-                </div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="range-icon ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-            </div>
+    let innerHtml;
+
+    if (!start && !end) {
+        // Empty State: Show placeholders with independent clicks
+        innerHtml = `
+            <div class="status-col"></div>
+            <div class="date-col ${startHoverClass} opacity-50" ${startOnClick}>Set Start</div>
+            <div class="arrow-col">→</div>
+            <div class="date-col ${endHoverClass} opacity-50" ${endOnClick}>Set End</div>
         `;
+    } 
+    else if (isLocked && (!start || !end)) {
+        innerHtml = `
+            <div class="status-col">${statusIconHtml}</div>
+            <div class="full-span-col" style="grid-column: 2 / -1;">Dates Locked</div>
+        `;
+    }
+    else {
+        innerHtml = `
+            <div class="status-col" title="${isDriven ? 'Start date driven by dependency' : (isLocked ? 'Dates locked' : '')}">${statusIconHtml}</div>
+            <div class="date-col ${startHoverClass} ${!start ? 'opacity-50' : ''}" ${startOnClick}>${startStr}</div>
+            <div class="arrow-col">→</div>
+            <div class="date-col ${endHoverClass} ${!end ? 'opacity-50' : ''}" ${endOnClick}>${endStr}</div>
+        `;
+    }
+
+    const disabledClass = isLocked ? 'disabled' : '';
+
+    return `
+        <div class="date-range-pill ${disabledClass}">
+            <div class="date-content-grid">
+                ${innerHtml}
+            </div>
+            <svg xmlns="http://www.w3.org/2000/svg" class="range-icon ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+        </div>
+    `;
     },
 
     getTickInterval(domain) {

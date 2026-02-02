@@ -1418,7 +1418,7 @@ button:not(:disabled),
     width: 210px; 
     flex-shrink: 0;
     border-radius: 9999px;
-    cursor: pointer;
+    cursor: default; /* Changed from pointer to default */
     transition: all 0.2s;
     background-color: transparent;
     border: 1px solid transparent;
@@ -1466,9 +1466,30 @@ button:not(:disabled),
     justify-content: center;
     color: var(--text-tertiary);
 }
-.date-content-grid .date-col { text-align: center; white-space: nowrap; }
+
+/* Individual Date Columns */
+.date-content-grid .date-col { 
+    text-align: center; 
+    white-space: nowrap;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
 .date-content-grid .arrow-col { color: var(--text-tertiary); font-weight: 700; padding: 0 2px; }
 .date-content-grid .full-span-col { grid-column: 1 / -1; text-align: center; opacity: 0.5; }
+
+/* Visual feedback for interactive dates */
+.date-col.hoverable-date {
+    cursor: pointer;
+}
+.date-col.hoverable-date:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+.date-col.locked-date {
+    cursor: default;
+    opacity: 0.7;
+}
 
 /* Follow Up Styles */
 .task-row.follow-up-active,
