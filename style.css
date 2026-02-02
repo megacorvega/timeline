@@ -1407,13 +1407,26 @@ button:not(:disabled),
 .upcoming-task-item.no-nav:hover { background-color: transparent; }
 .upcoming-task-item.no-nav .group { cursor: pointer; }
 
+.status-pill {
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-size: 0.75rem; /* text-xs */
+    font-weight: 700;
+    color: white;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 20px;
+}
+
 /* Date Range Pill */
 .date-range-pill {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 2px 8px;
-    height: 28px;
+    height: 20px;
     font-size: 0.75rem;
     width: 210px; 
     flex-shrink: 0;
