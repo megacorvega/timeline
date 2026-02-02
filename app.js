@@ -87,8 +87,9 @@ const timelineApp = {
             btnViewGantt: document.getElementById('btn-view-gantt'),
             btnViewLinear: document.getElementById('btn-view-linear'),
             
-            // --- NEW: Toggle Container ---
-            ganttViewOptions: document.getElementById('gantt-view-options'),
+            // --- Options Menu ---
+            optionsMenuBtn: document.getElementById('options-menu-btn'),
+            optionsMenuDropdown: document.getElementById('options-menu-dropdown'),
 
             // --- Move to Project Modal Elements ---
             moveToProjectModal: document.getElementById('move-to-project-modal'),
@@ -142,9 +143,13 @@ const timelineApp = {
 
     toggleHideCompleted() {
         this.hideCompletedTasks = !this.hideCompletedTasks;
-        // --- NEW: Save to LocalStorage ---
         localStorage.setItem('timelineHideCompleted', this.hideCompletedTasks);
-        this.renderLinearView();
+        
+        // Update the checkbox if triggered programmatically
+        const toggle = document.getElementById('hide-completed-tasks-toggle');
+        if (toggle) toggle.checked = this.hideCompletedTasks;
+
+        this.renderProjects(); 
     },
 
     toggleItemComplete(event, projectId, phaseId, taskId, subtaskId) {
@@ -186,9 +191,22 @@ const timelineApp = {
             this.elements.darkModeToggle.addEventListener('click', () => {
                 this.setDarkMode(!document.documentElement.classList.contains('dark'));
             });
+            
+            // --- Options Menu Toggle ---
+            this.elements.optionsMenuBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.elements.optionsMenuDropdown.classList.toggle('hidden');
+            });
+            
+            document.addEventListener('click', (e) => {
+                 if (!this.elements.optionsMenuDropdown.classList.contains('hidden')) {
+                     this.elements.optionsMenuDropdown.classList.add('hidden');
+                 }
+            });
+            this.elements.optionsMenuDropdown.addEventListener('click', (e) => e.stopPropagation());
 
             this.elements.exportBtn.addEventListener('click', () => {
-                // Standard JSON export
+                this.elements.optionsMenuDropdown.classList.add('hidden'); // Close menu
                 const punchListData = JSON.parse(localStorage.getItem(punchListApp.STORAGE_KEY) || '[]');
                 const dataToExport = {
                     projects: this.projects,
@@ -200,12 +218,14 @@ const timelineApp = {
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
-
-                // Monday.com CSV export
                 this.exportToMondayCsv();
             });
 
-            this.elements.importBtn.addEventListener('click', () => this.elements.importFileInput.click());
+            this.elements.importBtn.addEventListener('click', () => {
+                this.elements.optionsMenuDropdown.classList.add('hidden'); // Close menu
+                this.elements.importFileInput.click()
+            });
+            
             this.elements.importFileInput.addEventListener('change', (e) => {
                 const file = e.target.files[0]; if (!file) return;
                 const reader = new FileReader();
@@ -245,10 +265,6 @@ const timelineApp = {
             });
 
             document.addEventListener('click', (e) => {
-                // [Existing logic for datepicker, dependency, etc...]
-                
-                // NEW: Close tag dropdowns when clicking outside
-                // FIX: Exclude the Move Modal inputs so they don't auto-close the dropdown on click
                 if (!e.target.closest('.tag-menu-dropdown') && 
                     !e.target.closest('.add-tag-btn') &&
                     e.target.id !== 'move-tag-input' &&
@@ -277,7 +293,6 @@ const timelineApp = {
                 this.pendingClearDependencies = null;
             });
 
-            // --- NEW: Listeners for Move Modal ---
             this.elements.cancelMoveBtn.addEventListener('click', () => {
                 this.elements.moveToProjectModal.classList.add('hidden');
                 this.pendingMoveTask = null;
@@ -286,10 +301,12 @@ const timelineApp = {
             this.elements.moveProjectSelect.addEventListener('change', () => this.populatePhaseSelectForMove());
             
             this.elements.confirmMoveBtn.addEventListener('click', () => this.executeMoveToProject());
-            // -------------------------------------
 
             // Shortcuts Modal Listeners
-            this.elements.shortcutsBtn.addEventListener('click', this.toggleShortcutsModal.bind(this));
+            this.elements.shortcutsBtn.addEventListener('click', () => {
+                this.elements.optionsMenuDropdown.classList.add('hidden');
+                this.toggleShortcutsModal();
+            });
             this.elements.closeShortcutsBtn.addEventListener('click', this.toggleShortcutsModal.bind(this));
             this.elements.shortcutsModalBackdrop.addEventListener('click', this.toggleShortcutsModal.bind(this));
             
@@ -343,7 +360,7 @@ const timelineApp = {
                 }
             });
             this.addDragAndDropListeners();
-        },
+    },
 
     exportToMondayCsv() {
             const headers = [
@@ -1101,14 +1118,12 @@ const timelineApp = {
     renderLinearView() {
         const container = this.elements.projectsContainer;
         
-        // 1. Initialize Collapsed States from LocalStorage
         if (!this.hubCollapsedStates) {
             this.hubCollapsedStates = JSON.parse(localStorage.getItem('timelineHubCollapsedStates')) || {};
         }
 
         let allItems = [];
         
-        // 2. Collect Standalone Tasks
         if (this.standaloneTasks) {
             this.standaloneTasks.forEach(task => {
                 const displayDate = (task.isFollowUp && task.followUpDate) ? task.followUpDate : (task.endDate || task.followUpDate);
@@ -1129,7 +1144,6 @@ const timelineApp = {
             });
         }
 
-        // 3. Collect Project Tasks
         this.projects.forEach(project => {
             if (project.generalTasks) {
                 project.generalTasks.forEach(task => {
@@ -1217,7 +1231,7 @@ const timelineApp = {
             });
         });
 
-        // 4. Apply Filters
+        // Apply Filters
         if (this.hideCompletedTasks) allItems = allItems.filter(i => !i.completed);
         if (this.tagFilter !== 'all') allItems = allItems.filter(i => i.tags?.includes(this.tagFilter));
 
@@ -1228,14 +1242,11 @@ const timelineApp = {
             return a.rawDate - b.rawDate;
         };
 
-        // --- UPDATED Render Group Helper with Persistence ---
         const renderGroup = (title, items, headerClass, projectId = null, currentPriority = null, uniqueKey = null) => {
             if (items.length === 0) return '';
             
-            // Generate ID
             const groupId = uniqueKey || title.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase() + '-' + Math.floor(Math.random() * 1000);
             
-            // Check Persisted State
             const isCollapsed = this.hubCollapsedStates[groupId] === true;
             const hiddenClass = isCollapsed ? 'hidden' : '';
             const chevronRotation = isCollapsed ? '-rotate-90' : '';
@@ -1355,10 +1366,6 @@ const timelineApp = {
                         <button onclick="timelineApp.setActionHubGroupMode('project')" class="px-3 py-1 text-xs font-bold rounded-md transition-all ${this.actionHubGroupMode === 'project' ? 'bg-white dark:bg-slate-600 shadow-sm text-primary' : 'text-secondary hover:text-primary'}">Project</button>
                     </div>
                 </div>
-                <label class="flex items-center text-xs font-semibold text-secondary cursor-pointer select-none">
-                    <input type="checkbox" class="custom-checkbox mr-2" ${this.hideCompletedTasks ? 'checked' : ''} onchange="timelineApp.toggleHideCompleted()">
-                    Hide Completed Tasks
-                </label>
             </div>`;
 
         let contentHtml = '';
@@ -1399,7 +1406,6 @@ const timelineApp = {
             Object.keys(contextBuckets).sort().forEach(tag => contentHtml += renderGroup(tag, contextBuckets[tag], "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200", null, null, `ctx-${tag}`));
 
         } else {
-            // Month View Grouping
             const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
             const monthBuckets = {};
             const noDateBucket = [];
@@ -1478,213 +1484,6 @@ const timelineApp = {
         }
 
         const sortedProjects = filteredProjects.sort((a, b) => {
-            // 1. Completion Status (Completed items always sink to the absolute bottom)
-            const aComplete = a.overallProgress >= 100;
-            const bComplete = b.overallProgress >= 100;
-            if (aComplete && !bComplete) return 1;
-            if (!aComplete && bComplete) return -1;
-            
-            // 2. [NEW] Exclusion Status (Excluded items sink below Active items)
-            const aExcluded = a.excludeFromStats === true;
-            const bExcluded = b.excludeFromStats === true;
-            if (aExcluded && !bExcluded) return 1;
-            if (!aExcluded && bExcluded) return -1;
-
-            // 3. Priority (Ascending: 1 is top, 10 is bottom)
-            const pA = a.priority !== undefined ? a.priority : 5;
-            const pB = b.priority !== undefined ? b.priority : 5;
-            if (pA !== pB) return pA - pB;
-
-            // 4. End Date (Earliest first)
-            return this.sortByEndDate(a, b, 'endDate');
-        });
-
-        sortedProjects.forEach((project) => {
-            const projectCard = document.createElement('div');
-            projectCard.className = `project-card p-3 rounded-xl mb-4`;
-            
-            // Visual Fade for Excluded Projects (Optional: makes them look "muted")
-            if (project.excludeFromStats && project.overallProgress < 100) {
-                projectCard.style.opacity = '0.85'; 
-            }
-
-            const isComplete = project.overallProgress >= 100;
-            let completionIcon = isComplete ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>` : '';
-
-            // Stats Toggle Icon
-            const statsIcon = project.excludeFromStats 
-                ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>` 
-                : `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>`;
-
-            const durationProgress = this.getDurationProgress(project.startDate, project.endDate);
-            const daysLeftInfo = this.getDaysLeft(project.endDate);
-            const overallProgress = Math.round(project.overallProgress);
-            
-            let progressColor = 'var(--green)';
-            let statusText = '';
-            let statusColorClass = '';
-
-            if (isComplete) {
-                progressColor = 'var(--green)';
-                statusText = 'Complete';
-                statusColorClass = 'status-complete';
-            } else if (daysLeftInfo.isOverdue) {
-                progressColor = 'var(--red)';
-                statusText = 'Late';
-                statusColorClass = 'status-late';
-            } else if (overallProgress < durationProgress) {
-                progressColor = 'var(--amber)';
-                statusText = 'At Risk';
-                statusColorClass = 'status-at-risk';
-            } else {
-                progressColor = 'var(--blue)';
-                statusText = 'On Track';
-                statusColorClass = 'status-on-track';
-            }
-
-            const tooltipText = `
-                <div class="tooltip-grid">
-                    <span>Status:</span><span class="status-pill ${statusColorClass}">${statusText}</span>
-                    <span>Completion:</span><span>${overallProgress}%</span>
-                    <span>Time Elapsed:</span><span>${Math.round(durationProgress)}%</span>
-                    <span>Days Left:</span><span>${daysLeftInfo.days !== null ? daysLeftInfo.days : 'N/A'}</span>
-                </div>
-            `;
-
-            const pacingBarHTML = `
-                <div class="duration-scale-container tooltip">
-                    <span class="tooltip-text">${tooltipText}</span>
-                    <div class="relative h-2 w-full rounded-full" style="background-color: var(--bg-tertiary);">
-                        <div class="absolute h-2 top-0 left-0 rounded-full" style="background-color: var(--bg-tertiary); width: ${durationProgress}%; z-index: 1;"></div>
-                        <div class="absolute h-2 top-0 left-0 rounded-full" style="background-color: ${progressColor}; width: ${overallProgress}%; z-index: 2;"></div>
-                    </div>
-                </div>
-            `;
-
-            const daysLeftPillHTML = (isComplete || !daysLeftInfo.text || daysLeftInfo.text === '-') 
-                ? '' 
-                : `<div class="days-left-pill ${daysLeftInfo.className}" title="${daysLeftInfo.tooltip}">${daysLeftInfo.text}</div>`;
-
-            const lockIcon = project.locked
-                ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>`
-                : `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h5V3a3 3 0 0 1 6 0v4a.5.5 0 0 1-1 0V3a2 2 0 0 0-2-2z"/></svg>`;
-            
-            const commentDot = project.comments && project.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
-
-            let generalBinHtml = '';
-            if (project.generalTasks && project.generalTasks.length > 0) {
-                const taskListHtml = this.renderTaskList(project.id, null, project.generalTasks);
-                generalBinHtml = `
-                    <div class="general-bin-container">
-                        <div class="general-bin-header">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
-                            <span>General / Inbox (${project.generalTasks.length})</span>
-                        </div>
-                        <div class="space-y-1">
-                            ${taskListHtml}
-                        </div>
-                    </div>
-                `;
-            }
-
-            const priorityVal = project.priority || 5;
-            let priorityOptions = '';
-            for(let i=1; i<=10; i++) {
-                priorityOptions += `<option value="${i}" ${i === priorityVal ? 'selected' : ''}>P${i}</option>`;
-            }
-            const prioritySelect = `
-                <select onchange="timelineApp.updateProjectPriority(${project.id}, this.value)" class="priority-select" title="Priority Order">
-                    ${priorityOptions}
-                </select>
-            `;
-
-            projectCard.innerHTML = `
-                <div class="flex justify-between items-center mb-3 project-header">
-                    <div class="flex items-center gap-2 flex-grow min-w-0">
-                        ${completionIcon}
-                        
-                        <button onclick="timelineApp.toggleProjectStats(${project.id})" class="stats-btn ${project.excludeFromStats ? 'excluded' : ''} flex-shrink-0" title="${project.excludeFromStats ? 'Project Excluded from Review' : 'Exclude from Review Stats'}">
-                            ${statsIcon}
-                        </button>
-
-                        <button onclick="timelineApp.toggleProjectCollapse(${project.id})" class="p-1 rounded-full hover-bg-secondary flex-shrink-0">
-                            <svg id="chevron-${project.id}" class="w-5 h-5 text-tertiary chevron ${project.collapsed ? '-rotate-90' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
-                        </button>
-                        ${commentDot}
-                        <h3 class="text-xl font-bold truncate editable-text" onclick="timelineApp.makeEditable(this, 'updateProjectName', ${project.id})">${project.name}</h3>
-                        ${pacingBarHTML}
-                        ${daysLeftPillHTML}
-                    </div>
-                    <div class="flex items-center gap-2 text-sm text-secondary flex-shrink-0">
-                        ${prioritySelect}
-                        
-                        <button onclick="timelineApp.generatePrintView(${project.id})" class="print-btn" title="Print Project">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clip-rule="evenodd" /></svg>
-                        </button>
-                        <button onclick="timelineApp.toggleCommentSection('project', ${project.id})" class="comment-btn" title="Comments">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-                        </button>
-                        <button onclick="timelineApp.toggleProjectLock(${project.id})" class="lock-toggle-btn" title="${project.locked ? 'Unlock Project Dates' : 'Lock Project Dates'}">
-                            ${lockIcon}
-                        </button>
-                        <div class="date-input-container">
-                            <input type="text" value="${project.startDate ? this.formatDate(this.parseDate(project.startDate)) : ''}" placeholder="Start Date" class="date-input" data-project-id="${project.id}" data-type="project-start" data-date="${project.startDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)" ${project.locked ? 'disabled' : ''}>
-                            <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
-                        </div>
-                        <div class="date-input-container">
-                            <input type="text" value="${project.endDate ? this.formatDate(this.parseDate(project.endDate)) : ''}" placeholder="End Date" class="date-input" data-project-id="${project.id}" data-type="project-end" data-date="${project.endDate || ''}" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)" ${project.locked ? 'disabled' : ''}>
-                            <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
-                        </div>
-                    </div>
-                    <button onclick="timelineApp.deleteProject(${project.id})" class="text-gray-400 hover:text-red-500 transition-colors text-xl font-bold ml-4 flex-shrink-0">&times;</button>
-                </div>
-                <div id="project-body-${project.id}" class="${project.collapsed ? 'hidden' : ''}">
-                    <div id="comment-section-project-${project.id}" class="comment-section hidden"></div>
-                    <div class="relative">
-                        <button onclick="timelineApp.resetZoom(${project.id})" class="reset-zoom-btn btn-secondary px-2 py-1 text-xs font-semibold rounded-md ${!project.zoomDomain ? 'hidden' : ''}">Reset Zoom</button>
-                        <div id="chart-${project.id}" class="w-full h-48 mb-3 relative"></div>
-                    </div>
-                    
-                    ${generalBinHtml}
-                    
-                    <div id="phases-${project.id}" class="space-y-1"></div>
-                    <div class="mt-3">
-                        <button onclick="timelineApp.toggleLog(${project.id})" class="text-xs font-semibold text-tertiary hover-text-primary flex items-center gap-1">
-                            <svg id="log-chevron-${project.id}" class="w-4 h-4 chevron -rotate-90" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
-                            Change Log
-                        </button>
-                        <div id="log-container-${project.id}" class="hidden mt-2 p-2 log-container-bg rounded-md">${this.renderLog(project)}</div>
-                    </div>
-                </div>
-            `;
-            this.elements.projectsContainer.appendChild(projectCard);
-            this.renderPhaseList(project);
-            if (!project.collapsed && project.startDate && project.endDate) {
-                this.drawChart(project);
-            } else if (!project.startDate || !project.endDate) {
-                const chartContainer = document.getElementById(`chart-${project.id}`);
-                if (chartContainer) {
-                    chartContainer.innerHTML = `<div class="flex items-center justify-center h-full text-gray-400">Set project start and end dates to see progress chart.</div>`;
-                }
-            }
-        });
-    },
-
-    renderGanttView() {
-        const container = this.elements.projectsContainer;
-        container.innerHTML = '';
-
-        if (this.projects.length === 0) {
-            container.innerHTML = `<div class="text-center text-gray-400 mt-10">No projects found. Click "Add Project" to start.</div>`;
-            return;
-        }
-
-        let filteredProjects = [...this.projects];
-        if (this.hideCompletedProjects) {
-            filteredProjects = filteredProjects.filter(p => p.overallProgress < 100);
-        }
-
-        const sortedProjects = filteredProjects.sort((a, b) => {
             const aComplete = a.overallProgress >= 100;
             const bComplete = b.overallProgress >= 100;
             if (aComplete && !bComplete) return 1;
@@ -1750,7 +1549,6 @@ const timelineApp = {
                 </select>
             `;
 
-            // --- REPLACED: Bar + Days Left with new renderProgressPills ---
             projectCard.innerHTML = `
                 <div class="flex justify-between items-center mb-3 project-header">
                     <div class="flex items-center gap-2 flex-grow min-w-0">
@@ -1881,7 +1679,7 @@ const timelineApp = {
 
     renderTaskList(projectId, phaseId, tasks) {
         let html = '';
-        const sortedTasks = [...tasks].sort((a, b) => {
+        let sortedTasks = [...tasks].sort((a, b) => {
             if (a.isFollowUp && !b.isFollowUp) return -1;
             if (!a.isFollowUp && b.isFollowUp) return 1;
             if (a.isFollowUp && b.isFollowUp) {
@@ -1892,9 +1690,13 @@ const timelineApp = {
             return this.sortByEndDate(a, b, 'effectiveEndDate');
         });
 
+        // --- NEW: Apply global filter ---
+        if (this.hideCompletedTasks) {
+            sortedTasks = sortedTasks.filter(t => !t.completed);
+        }
+
         sortedTasks.forEach(task => {
             const hasSubtasks = task.subtasks && task.subtasks.length > 0;
-            // Removed old % text, now handled by pills. Keep checkbox for leaf tasks.
             let taskControlHtml = hasSubtasks ? '' : `<input type="checkbox" class="custom-checkbox" onchange="timelineApp.toggleTaskComplete(${projectId}, ${phaseId}, ${task.id})" ${task.completed ? 'checked' : ''}>`;
             
             const toggleButton = hasSubtasks ?
@@ -1949,7 +1751,6 @@ const timelineApp = {
                 </div>
             `;
 
-            // --- REPLACED: Bar with renderProgressPills ---
             html += `
                 <div class="task-row rounded-lg px-2 py-1 ${depClass} ${selectedClass} ${followUpClass}" data-id="${task.id}" data-type="task" data-project-id="${projectId}" data-phase-id="${phaseId}">
                     <div class="flex items-center gap-3 item-main-row">
@@ -2026,8 +1827,15 @@ const timelineApp = {
 
     renderSubtaskList(projectId, phaseId, taskId, subtasks) {
         if (!subtasks || subtasks.length === 0) return '';
-        let html = '<div class="ml-12 mt-1 space-y-1 pt-1">';
-        const sortedSubtasks = [...subtasks].sort((a,b) => {
+        
+        // --- NEW: Apply global filter ---
+        let sortedSubtasks = [...subtasks];
+        if (this.hideCompletedTasks) {
+            sortedSubtasks = sortedSubtasks.filter(s => !s.completed);
+        }
+
+        // Sort
+        sortedSubtasks.sort((a,b) => {
             if (a.isFollowUp && !b.isFollowUp) return -1;
             if (!a.isFollowUp && b.isFollowUp) return 1;
             if (a.isFollowUp && b.isFollowUp) {
@@ -2038,6 +1846,10 @@ const timelineApp = {
             return this.sortByEndDate(a, b, 'endDate');
         });
 
+        if (sortedSubtasks.length === 0) return ''; // Don't render empty container if filtered
+
+        let html = '<div class="ml-12 mt-1 space-y-1 pt-1">';
+        
         sortedSubtasks.forEach(subtask => {
             const depClass = this.dependencyMode && this.firstSelectedItem?.id !== subtask.id ? 'dependency-candidate' : '';
             const selectedClass = this.firstSelectedItem?.id === subtask.id ? 'dependency-selected' : '';
@@ -2087,7 +1899,6 @@ const timelineApp = {
                 </div>
             `;
 
-            // --- REPLACED: Bar with renderProgressPills ---
             html += `
                 <div class="subtask-row-wrapper">
                     <div class="flex items-center gap-3 subtask-row ${depClass} ${selectedClass} ${followUpClass}" data-id="${subtask.id}" data-type="subtask" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}">
@@ -4576,13 +4387,20 @@ const timelineApp = {
         const savedHideCompleted = localStorage.getItem('timelineHideCompleted');
         this.hideCompletedTasks = savedHideCompleted === 'true';
 
-        // NEW: Load Project Visibility Preference
+        // Load Project Visibility Preference
         const savedHideProjects = localStorage.getItem('timelineHideCompletedProjects');
         this.hideCompletedProjects = savedHideProjects === 'true';
         
-        // Update the checkbox in the UI if it exists
-        const toggle = document.getElementById('hide-completed-projects-toggle');
-        if (toggle) toggle.checked = this.hideCompletedProjects;
+        // Update UI checkbox inputs if they exist in DOM
+        const taskToggle = document.getElementById('hide-completed-tasks-toggle');
+        if (taskToggle) taskToggle.checked = this.hideCompletedTasks;
+        
+        const projToggle = document.getElementById('hide-completed-projects-toggle');
+        if (projToggle) projToggle.checked = this.hideCompletedProjects;
+        
+        // Load Action Hub Grouping Preference
+        const savedGroupMode = localStorage.getItem('timelineActionHubGroupMode');
+        this.actionHubGroupMode = savedGroupMode || 'time';
     },
 
     handlePillDateClick(element, position, currentDate, projectId, phaseId, taskId, subtaskId) {
