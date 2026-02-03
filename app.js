@@ -1837,7 +1837,7 @@ const timelineApp = {
                         <div class="flex items-center">
                             ${followUpDateHtml}
                             <button onclick="timelineApp.toggleTaskFollowUp(${projectId}, ${phaseId}, ${task.id})" 
-                                    class="p-1 rounded-md ${followUpIconColor} transition-colors" 
+                                    class="p-1 rounded-md ${followUpIconColor} transition-colors follow-up-toggle-btn" 
                                     title="Toggle Follow Up">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="${task.isFollowUp ? 'currentColor' : 'none'}" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -1972,7 +1972,7 @@ const timelineApp = {
                         <div class="flex items-center">
                             ${followUpDateHtml}
                             <button onclick="timelineApp.toggleSubtaskFollowUp(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" 
-                                    class="p-1 rounded-md ${followUpIconColor} transition-colors" 
+                                    class="p-1 rounded-md ${followUpIconColor} transition-colors follow-up-toggle-btn" 
                                     title="Toggle Follow Up">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="${subtask.isFollowUp ? 'currentColor' : 'none'}" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -4230,6 +4230,11 @@ const timelineApp = {
 
         // Open the modal with existing data AND prefill data
         this.promptMoveToProject(item.name, item.isFollowUp, callback, item.tags || [], prefillData);
+        
+        // --- NEW: Attach the original context to pendingMoveTask so executeMoveToProject can detect in-place updates ---
+        if (this.pendingMoveTask) {
+            this.pendingMoveTask.originalContext = { projectId, phaseId, taskId, subtaskId };
+        }
     },
 
     executeMoveToProject() {
@@ -4243,15 +4248,56 @@ const timelineApp = {
         const delegateTo = whoInput || null;
         const customFollowUpDate = document.getElementById('move-followup-input').dataset.date;
         
-        // MODIFICATION 1: Ensure isDelegated requires a name to be present
         const isDelegated = moveType === 'waiting' && delegateTo !== null;
         const isStandalone = moveType === 'standalone' || projectSelectValue === 'none';
         const isGeneralBin = phaseSelectValue === 'general';
 
         const hasFollowUpDate = customFollowUpDate && customFollowUpDate !== '';
         
-        // MODIFICATION 2: Calculate status strictly from current inputs (do not inherit old status)
         const isFollowUp = isDelegated || hasFollowUpDate;
+
+        // --- NEW LOGIC: Check for Subtask In-Place Update ---
+        const original = this.pendingMoveTask.originalContext;
+        
+        // Only trigger "In-Place Update" if we have original context, it IS a subtask, and we aren't trying to make it standalone
+        if (original && original.subtaskId && !isStandalone) {
+            
+            const targetProjectId = parseInt(projectSelectValue);
+            // Handle 'general' vs numeric phase IDs
+            const targetPhaseId = phaseSelectValue === 'general' ? null : parseInt(phaseSelectValue);
+            
+            // Normalize Original IDs (convert 'null' string to null or int)
+            const origPId = (original.projectId === 'null' || original.projectId === null) ? null : parseInt(original.projectId);
+            const origPhId = (original.phaseId === 'null' || original.phaseId === null) ? null : parseInt(original.phaseId);
+
+            // If the Target Location == Original Location
+            if (targetProjectId === origPId && targetPhaseId === origPhId) {
+                // We are just editing the subtask, NOT moving it
+                const subtask = this.getItem('subtask', original.projectId, original.phaseId, original.taskId, original.subtaskId);
+                
+                if (subtask) {
+                    subtask.name = this.pendingMoveTask.text;
+                    subtask.delegatedTo = delegateTo;
+                    subtask.isFollowUp = isFollowUp;
+                    subtask.followUpDate = hasFollowUpDate ? customFollowUpDate : null;
+                    subtask.tags = [...(this.moveModalSelectedTags || [])];
+                    
+                    // If delegated, you might want to sync the End Date to the Follow Up date
+                    if (isDelegated && customFollowUpDate) {
+                        subtask.endDate = customFollowUpDate;
+                    }
+
+                    this.saveState();
+                    this.renderProjects();
+                    
+                    // Close Modal & Reset Pending State WITHOUT calling the delete callback
+                    this.elements.moveToProjectModal.classList.add('hidden');
+                    this.pendingMoveTask = null;
+                    return; 
+                }
+            }
+        }
+        // ----------------------------------------------------
 
         const newTask = {
             id: Date.now(),

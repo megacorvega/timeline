@@ -1568,6 +1568,23 @@ button:not(:disabled),
 .move-to-project-btn { color: var(--text-tertiary) !important; margin-right: 0 !important; }
 .move-to-project-btn:hover { color: var(--accent-primary) !important; }
 
+/* Follow Up Bell Icon Visibility */
+.follow-up-toggle-btn {
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+/* Show on Hover */
+.task-row:hover .follow-up-toggle-btn,
+.subtask-row:hover .follow-up-toggle-btn {
+    opacity: 1;
+}
+
+/* Show if the row is already active/purple */
+.follow-up-active .follow-up-toggle-btn {
+    opacity: 1;
+}
+
 /* Print Styles */
 @media print {
     @page { size: landscape; margin: 0.5in; }
