@@ -1167,6 +1167,7 @@ const timelineApp = {
 
         let allItems = [];
         
+        // 1. Gather Standalone Tasks
         if (this.standaloneTasks) {
             this.standaloneTasks.forEach(task => {
                 const displayDate = (task.isFollowUp && task.followUpDate) ? task.followUpDate : (task.endDate || task.followUpDate);
@@ -1187,6 +1188,7 @@ const timelineApp = {
             });
         }
 
+        // 2. Gather Project Tasks
         this.projects.forEach(project => {
             if (project.generalTasks) {
                 project.generalTasks.forEach(task => {
@@ -1340,11 +1342,11 @@ const timelineApp = {
 
                 let dateControlHtml = '';
                 if (item.isStandalone) {
-                     const iconHtml = `<div class="date-input-icon-wrapper" onclick="event.stopPropagation(); timelineApp.handleDateTrigger(this.previousElementSibling)"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>`;
-                     const dateType = item.isFollowUp ? 'task-followup' : 'task-end';
-                     const dateInputColorClass = item.isFollowUp ? 'text-purple-700 dark:text-purple-300 font-bold' : '';
-                     
-                     dateControlHtml = `
+                        const iconHtml = `<div class="date-input-icon-wrapper" onclick="event.stopPropagation(); timelineApp.handleDateTrigger(this.previousElementSibling)"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>`;
+                        const dateType = item.isFollowUp ? 'task-followup' : 'task-end';
+                        const dateInputColorClass = item.isFollowUp ? 'text-purple-700 dark:text-purple-300 font-bold' : '';
+                        
+                        dateControlHtml = `
                         <div class="date-input-container">
                             <input type="text" value="${item.date ? this.formatDate(this.parseDate(item.date)) : ''}" placeholder="End Date" class="date-input ${dateInputColorClass}" 
                                 data-project-id="null" data-phase-id="null" data-task-id="${item.taskId}" data-subtask-id="null"
@@ -1353,10 +1355,10 @@ const timelineApp = {
                             ${iconHtml}
                         </div>`;
                 } else {
-                     const dateDisplay = item.date ? this.formatDate(this.parseDate(item.date)) : 'No Date';
-                     const dateColorClass = item.isFollowUp ? 'text-purple-700 dark:text-purple-300 font-bold' : 'text-secondary';
-                     
-                     dateControlHtml = `
+                        const dateDisplay = item.date ? this.formatDate(this.parseDate(item.date)) : 'No Date';
+                        const dateColorClass = item.isFollowUp ? 'text-purple-700 dark:text-purple-300 font-bold' : 'text-secondary';
+                        
+                        dateControlHtml = `
                         <div class="px-2 py-1 rounded text-xs font-semibold border border-transparent hover:border-gray-300 bg-gray-50 dark:bg-slate-700/50 ${dateColorClass}" title="Click to view/edit on Timeline" onclick="event.stopPropagation(); ${navCall}">
                             ${dateDisplay}
                         </div>`;
@@ -1419,24 +1421,31 @@ const timelineApp = {
                 contentHtml += renderGroup("Standalone", standaloneItems, "bg-gray-200 dark:bg-slate-700 text-secondary", null, null, 'standalone-items');
             }
             const sortedProjects = [...this.projects].sort((a,b) => {
-                 const pA = a.priority !== undefined ? a.priority : 5;
-                 const pB = b.priority !== undefined ? b.priority : 5;
-                 if (pA !== pB) return pA - pB;
-                 return 0; 
+                    const pA = a.priority !== undefined ? a.priority : 5;
+                    const pB = b.priority !== undefined ? b.priority : 5;
+                    if (pA !== pB) return pA - pB;
+                    return 0; 
             });
 
             sortedProjects.forEach(p => {
-                 const pItems = allItems.filter(i => i.projectId === p.id).sort((a,b) => {
-                     if (a.isGeneral && !b.isGeneral) return -1;
-                     if (!a.isGeneral && b.isGeneral) return 1;
-                     return sortByDate(a,b);
-                 });
-                 if (pItems.length > 0) {
-                     contentHtml += renderGroup(p.name, pItems, "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-900 dark:text-indigo-200 border-indigo-100", p.id, p.priority, `proj-${p.id}`);
-                 }
+                    const pItems = allItems.filter(i => i.projectId === p.id).sort((a,b) => {
+                        if (a.isGeneral && !b.isGeneral) return -1;
+                        if (!a.isGeneral && b.isGeneral) return 1;
+                        return sortByDate(a,b);
+                    });
+                    if (pItems.length > 0) {
+                        contentHtml += renderGroup(p.name, pItems, "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-900 dark:text-indigo-200 border-indigo-100", p.id, p.priority, `proj-${p.id}`);
+                    }
             });
             
         } else if (this.actionHubGroupMode === 'context') {
+            // --- NEW: Follow Up Section ---
+            const followUpItems = allItems.filter(i => i.isFollowUp);
+            if (followUpItems.length > 0) {
+                    contentHtml += renderGroup("Follow Up / Delegated", followUpItems, "bg-purple-100 dark:bg-purple-900/40 text-purple-900 dark:text-purple-100 border-purple-200", null, null, 'ctx-followup');
+            }
+            // ------------------------------
+
             const contextBuckets = {};
             const noContextBucket = [];
             allItems.forEach(item => {
@@ -4151,90 +4160,90 @@ const timelineApp = {
     },
 
     handleProcessItem(projectId, phaseId, taskId, subtaskId) {
-        // Resolve item
-        const item = this.getItem(subtaskId ? 'subtask' : 'task', projectId, phaseId, taskId, subtaskId);
-        if (!item) return;
+    // Resolve item
+    const item = this.getItem(subtaskId ? 'subtask' : 'task', projectId, phaseId, taskId, subtaskId);
+    if (!item) return;
 
-        // Define callback to delete the original item after "moving" (creating the new one)
-        const callback = () => {
-             // Perform silent deletion to avoid the "Reason for Deletion" modal
-             
-             // 1. Remove Dependencies
-             if (subtaskId) {
-                 this.removeAllDependencies(subtaskId);
-             } else {
-                 this.removeAllDependencies(taskId);
-                 if (item.subtasks) item.subtasks.forEach(st => this.removeAllDependencies(st.id));
-             }
+    // Define callback to delete the original item after "moving" (creating the new one)
+    const callback = () => {
+            // Perform silent deletion to avoid the "Reason for Deletion" modal
+            
+            // 1. Remove Dependencies
+            if (subtaskId) {
+                this.removeAllDependencies(subtaskId);
+            } else {
+                this.removeAllDependencies(taskId);
+                if (item.subtasks) item.subtasks.forEach(st => this.removeAllDependencies(st.id));
+            }
 
-             // 2. Remove Item from Data Structure & Prepare Log Context
-             let itemName = '';
-             let logContextProjectId = projectId;
-             const comment = "Moved to new location via Action Hub";
-             
-             if (subtaskId) {
-                 const project = this.projects.find(p => p.id === projectId);
-                 const task = project?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId);
-                 if (task) {
-                     task.subtasks = task.subtasks.filter(st => st.id !== subtaskId);
-                     itemName = `Subtask '${item.name}' from task '${task.name}'`;
-                 }
-             } else {
-                 if (projectId === null || projectId === 'null') {
-                     // Standalone Task
-                     this.standaloneTasks = this.standaloneTasks.filter(t => t.id !== taskId);
-                     itemName = `Standalone Task '${item.name}'`;
-                     logContextProjectId = null; 
-                 } else {
-                     // Project Task
-                     const project = this.projects.find(p => p.id === projectId);
-                     const phase = project?.phases.find(ph => ph.id === phaseId);
-                     if (phase) {
-                         phase.tasks = phase.tasks.filter(t => t.id !== taskId);
-                         itemName = `Task '${item.name}' from phase '${phase.name}'`;
-                     }
-                 }
-             }
+            // 2. Remove Item from Data Structure & Prepare Log Context
+            let itemName = '';
+            let logContextProjectId = projectId;
+            const comment = "Moved to new location via Action Hub";
+            
+            if (subtaskId) {
+                const project = this.projects.find(p => p.id === projectId);
+                const task = project?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId);
+                if (task) {
+                    task.subtasks = task.subtasks.filter(st => st.id !== subtaskId);
+                    itemName = `Subtask '${item.name}' from task '${task.name}'`;
+                }
+            } else {
+                if (projectId === null || projectId === 'null') {
+                    // Standalone Task
+                    this.standaloneTasks = this.standaloneTasks.filter(t => t.id !== taskId);
+                    itemName = `Standalone Task '${item.name}'`;
+                    logContextProjectId = null; 
+                } else {
+                    // Project Task
+                    const project = this.projects.find(p => p.id === projectId);
+                    const phase = project?.phases.find(ph => ph.id === phaseId);
+                    if (phase) {
+                        phase.tasks = phase.tasks.filter(t => t.id !== taskId);
+                        itemName = `Task '${item.name}' from phase '${phase.name}'`;
+                    }
+                }
+            }
 
-             // 3. Log the "Move" (as a deletion entry)
-             const logEntry = { 
-                 timestamp: new Date().toISOString(), 
-                 item: itemName, 
-                 type: 'deletion', 
-                 comment: comment 
-             };
+            // 3. Log the "Move" (as a deletion entry)
+            const logEntry = { 
+                timestamp: new Date().toISOString(), 
+                item: itemName, 
+                type: 'deletion', 
+                comment: comment 
+            };
 
-             if (logContextProjectId) {
-                 const project = this.projects.find(p => p.id === logContextProjectId);
-                 if (project) {
-                     if (!project.logs) project.logs = [];
-                     project.logs.push(logEntry);
-                 }
-             } else {
-                 // Fallback to global log for standalone items
-                 this.deletedProjectLogs.push(logEntry);
-             }
+            if (logContextProjectId) {
+                const project = this.projects.find(p => p.id === logContextProjectId);
+                if (project) {
+                    if (!project.logs) project.logs = [];
+                    project.logs.push(logEntry);
+                }
+            } else {
+                // Fallback to global log for standalone items
+                this.deletedProjectLogs.push(logEntry);
+            }
 
-             // 4. Update State
-             this.saveState();
-             this.renderProjects();
-        };
+            // 4. Update State
+            this.saveState();
+            this.renderProjects();
+    };
 
-        // --- UPDATED: Collect prefill data ---
-        const prefillData = {
-            projectId: (projectId && projectId !== 'null') ? parseInt(projectId) : null,
-            phaseId: (phaseId && phaseId !== 'null') ? parseInt(phaseId) : null,
-            delegatedTo: item.delegatedTo,
-            date: (item.isFollowUp && item.followUpDate) ? item.followUpDate : (item.endDate || item.followUpDate)
-        };
+    // --- UPDATED: Collect prefill data ---
+    const prefillData = {
+        projectId: (projectId && projectId !== 'null') ? parseInt(projectId) : null,
+        phaseId: (phaseId && phaseId !== 'null') ? parseInt(phaseId) : null,
+        delegatedTo: item.delegatedTo,
+        date: (item.isFollowUp && item.followUpDate) ? item.followUpDate : (item.endDate || item.followUpDate)
+    };
 
-        // Open the modal with existing data AND prefill data
-        this.promptMoveToProject(item.name, item.isFollowUp, callback, item.tags || [], prefillData);
-        
-        // --- NEW: Attach the original context to pendingMoveTask so executeMoveToProject can detect in-place updates ---
-        if (this.pendingMoveTask) {
-            this.pendingMoveTask.originalContext = { projectId, phaseId, taskId, subtaskId };
-        }
+    // Open the modal with existing data AND prefill data
+    this.promptMoveToProject(item.name, item.isFollowUp, callback, item.tags || [], prefillData);
+
+    // --- NEW: Attach Original Context ---
+    if (this.pendingMoveTask) {
+        this.pendingMoveTask.originalContext = { projectId, phaseId, taskId, subtaskId };
+    }
     },
 
     executeMoveToProject() {
@@ -4242,47 +4251,43 @@ const timelineApp = {
         
         const moveType = document.getElementById('move-type-select').value;
         const projectSelectValue = this.elements.moveProjectSelect.value;
-        const phaseSelectValue = this.elements.movePhaseSelect.value; // Get raw value
+        const phaseSelectValue = this.elements.movePhaseSelect.value; 
         
         const whoInput = document.getElementById('move-who-input').value.trim();
+        // --- UPDATED: Presence of name always implies delegation ---
         const delegateTo = whoInput || null;
+        const isDelegated = delegateTo !== null && delegateTo !== '';
+
         const customFollowUpDate = document.getElementById('move-followup-input').dataset.date;
-        
-        const isDelegated = moveType === 'waiting' && delegateTo !== null;
+        const hasFollowUpDate = customFollowUpDate && customFollowUpDate !== '';
+
+        // Purple status triggers if delegated OR has follow-up date
+        const isFollowUp = isDelegated || hasFollowUpDate;
+
         const isStandalone = moveType === 'standalone' || projectSelectValue === 'none';
         const isGeneralBin = phaseSelectValue === 'general';
 
-        const hasFollowUpDate = customFollowUpDate && customFollowUpDate !== '';
-        
-        const isFollowUp = isDelegated || hasFollowUpDate;
-
-        // --- NEW LOGIC: Check for Subtask In-Place Update ---
+        // --- NEW: Check for Subtask In-Place Update ---
         const original = this.pendingMoveTask.originalContext;
-        
-        // Only trigger "In-Place Update" if we have original context, it IS a subtask, and we aren't trying to make it standalone
         if (original && original.subtaskId && !isStandalone) {
-            
             const targetProjectId = parseInt(projectSelectValue);
-            // Handle 'general' vs numeric phase IDs
             const targetPhaseId = phaseSelectValue === 'general' ? null : parseInt(phaseSelectValue);
             
-            // Normalize Original IDs (convert 'null' string to null or int)
             const origPId = (original.projectId === 'null' || original.projectId === null) ? null : parseInt(original.projectId);
             const origPhId = (original.phaseId === 'null' || original.phaseId === null) ? null : parseInt(original.phaseId);
 
-            // If the Target Location == Original Location
+            // If target matches source, UPDATE in place instead of moving
             if (targetProjectId === origPId && targetPhaseId === origPhId) {
-                // We are just editing the subtask, NOT moving it
                 const subtask = this.getItem('subtask', original.projectId, original.phaseId, original.taskId, original.subtaskId);
                 
                 if (subtask) {
                     subtask.name = this.pendingMoveTask.text;
                     subtask.delegatedTo = delegateTo;
-                    subtask.isFollowUp = isFollowUp;
+                    subtask.isFollowUp = isFollowUp; // Apply purple status
                     subtask.followUpDate = hasFollowUpDate ? customFollowUpDate : null;
                     subtask.tags = [...(this.moveModalSelectedTags || [])];
                     
-                    // If delegated, you might want to sync the End Date to the Follow Up date
+                    // Optional: Sync End Date if delegated
                     if (isDelegated && customFollowUpDate) {
                         subtask.endDate = customFollowUpDate;
                     }
@@ -4290,14 +4295,13 @@ const timelineApp = {
                     this.saveState();
                     this.renderProjects();
                     
-                    // Close Modal & Reset Pending State WITHOUT calling the delete callback
+                    // Close modal without triggering the delete callback
                     this.elements.moveToProjectModal.classList.add('hidden');
                     this.pendingMoveTask = null;
                     return; 
                 }
             }
         }
-        // ----------------------------------------------------
 
         const newTask = {
             id: Date.now(),
