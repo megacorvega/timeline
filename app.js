@@ -2987,7 +2987,7 @@ const timelineApp = {
             const startDate = startDateInput.dataset.date || null, endDate = endDateInput.dataset.date || null;
             
             // --- MODIFIED SECTION START ---
-            const defaultPhaseNames = ["Initiation", "Evaluation", "Disposition", "Implementation", "Release"];
+            const defaultPhaseNames = ["Initiate", "Evaluate", "Disposition", "Implement", "Release"];
             const baseId = Date.now();
 
             const phases = defaultPhaseNames.map((phaseName, index) => ({
