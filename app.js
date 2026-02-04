@@ -4736,8 +4736,7 @@ const timelineApp = {
         if (!container) return;
         container.innerHTML = '';
 
-        // 1. Prepare Data
-        // FIX: Allow projects with Effective Dates if Manual Dates are missing
+        // 1. Prepare Data: Filter for active, non-excluded projects with valid dates
         const activeProjects = this.projects.filter(p => 
             !p.excludeFromStats && 
             (p.startDate || p.effectiveStartDate) && 
@@ -4751,36 +4750,50 @@ const timelineApp = {
         }
 
         const data = activeProjects.map(p => {
-            // FIX: Prefer Manual Date, Fallback to Effective
-            const targetStart = p.startDate || p.effectiveStartDate;
-            const targetEnd = p.endDate || p.effectiveEndDate;
-
-            const daysLeftInfo = this.getDaysLeft(targetEnd);
-            // Cap days left at 60 for the chart so outliers don't squash the view
+            // STRATEGY: Use EFFECTIVE dates (Projected Reality) for the chart axis.
+            // This ensures the dot appears where the work is actually scheduled to finish.
+            const projectedStart = p.effectiveStartDate || p.startDate;
+            const projectedEnd = p.effectiveEndDate || p.endDate;
+            
+            // The Manual Deadline (if set) is used for Risk Status comparison only
+            const deadline = p.endDate; 
+            
+            // Calculate Days Remaining based on PROJECTED finish (Reality)
+            const daysLeftInfo = this.getDaysLeft(projectedEnd);
             let days = daysLeftInfo.days !== null ? daysLeftInfo.days : 0;
             
-            // Calculate "Burn Rate Required" (Simple Linear)
-            const totalDuration = (this.parseDate(targetEnd) - this.parseDate(targetStart)) / (1000 * 60 * 60 * 24);
-            const timeElapsed = (new Date() - this.parseDate(targetStart)) / (1000 * 60 * 60 * 24);
+            // Calculate Burn Rate based on Projected Timeline
+            const totalDuration = (this.parseDate(projectedEnd) - this.parseDate(projectedStart)) / (1000 * 60 * 60 * 24);
+            const timeElapsed = (new Date() - this.parseDate(projectedStart)) / (1000 * 60 * 60 * 24);
             
-            // Guard against division by zero or future starts
             let timeProgress = 0;
             if (totalDuration > 0) {
                  timeProgress = Math.min(100, Math.max(0, (timeElapsed / totalDuration) * 100));
             }
             
-            // Risk Logic:
+            // Status Logic:
             let status = 'green';
-            if (days < 0) status = 'red'; // Overdue
-            else if (p.overallProgress < (timeProgress - 20)) status = 'red';
-            else if (p.overallProgress < timeProgress) status = 'yellow';
+            
+            // Check 1: Is the Projected Date strictly later than the Deadline? (Slippage)
+            const isProjectedLate = deadline && (this.parseDate(projectedEnd) > this.parseDate(deadline));
+            
+            // Check 2: Is the Projected Date in the past?
+            const isOverdue = days < 0;
+
+            if (isOverdue) status = 'red';
+            else if (isProjectedLate) status = 'red'; // Mark Red if projected to miss deadline
+            else if (p.overallProgress < (timeProgress - 20)) status = 'red'; // Drag > 20%
+            else if (p.overallProgress < timeProgress) status = 'yellow'; // Any Drag
 
             return {
                 name: p.name,
                 daysLeft: days,
                 progress: p.overallProgress,
                 status: status,
-                realDays: daysLeftInfo.days // For tooltip
+                realDays: daysLeftInfo.days,
+                isProjectedLate: isProjectedLate,
+                deadline: deadline ? this.formatDate(this.parseDate(deadline)) : 'None',
+                projected: this.formatDate(this.parseDate(projectedEnd))
             };
         });
 
@@ -4796,24 +4809,21 @@ const timelineApp = {
             .attr("transform", `translate(${margin.left},${margin.top})`);
 
         // 3. Scales
-        // X Axis: Days Remaining (0 to 60+)
         const x = d3.scaleLinear()
             .domain([0, Math.max(60, d3.max(data, d => d.daysLeft))]) 
             .range([0, width]);
 
-        // Y Axis: % Complete (0 to 100)
         const y = d3.scaleLinear()
             .domain([0, 100])
             .range([height, 0]);
 
         // 4. Draw Danger Zone (Background Rect)
-        // Bottom-Left (Low Time, Low Progress) = Critical Area
         svg.append("rect")
             .attr("x", 0)
-            .attr("y", y(50)) // Bottom half (0-50% progress)
-            .attr("width", x(14)) // First 2 weeks
+            .attr("y", y(50)) 
+            .attr("width", x(14)) 
             .attr("height", height - y(50))
-            .attr("fill", "rgba(239, 68, 68, 0.1)") // Light Red
+            .attr("fill", "rgba(239, 68, 68, 0.1)") 
             .attr("rx", 4);
 
         // 5. Axes
@@ -4825,7 +4835,7 @@ const timelineApp = {
             .attr("y", 35)
             .attr("fill", "var(--text-secondary)")
             .attr("text-anchor", "end")
-            .text("Days Remaining →");
+            .text("Projected Days Remaining →");
 
         svg.append("g")
             .call(d3.axisLeft(y).ticks(5))
@@ -4841,7 +4851,7 @@ const timelineApp = {
             .data(data)
             .enter()
             .append("circle")
-            .attr("cx", d => x(Math.max(0, d.daysLeft))) // Clamp negatives to 0 line
+            .attr("cx", d => x(Math.max(0, d.daysLeft))) // Clamp negatives to 0
             .attr("cy", d => y(d.progress))
             .attr("r", 8)
             .attr("fill", d => {
@@ -4862,10 +4872,18 @@ const timelineApp = {
 
         circles.on("mouseover", function(event, d) {
             d3.select(this).attr("r", 10).style("opacity", 1);
+            
+            let lateLabel = '';
+            // Explicitly show why it is late if there is a mismatch
+            if (d.isProjectedLate) {
+                lateLabel = `<br/><span style="color:var(--red); font-weight:bold;">Late (Deadline: ${d.deadline})</span>`;
+            }
+
             tooltip.style("visibility", "visible")
                 .html(`
                     <strong>${d.name}</strong><br/>
-                    Due in: ${d.realDays} days<br/>
+                    Projected: ${d.projected}${lateLabel}<br/>
+                    Days Left: ${d.realDays}<br/>
                     Progress: ${Math.round(d.progress)}%
                 `);
         })
