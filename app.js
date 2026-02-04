@@ -168,15 +168,25 @@ const timelineApp = {
     },
 
     toggleSubtaskFollowUp(projectId, phaseId, taskId, subtaskId) {
-        const subtask = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId)?.subtasks.find(s => s.id === subtaskId);
+        // Using getItem helper for consistency
+        const subtask = this.getItem('subtask', projectId, phaseId, taskId, subtaskId);
         if (subtask) {
             subtask.isFollowUp = !subtask.isFollowUp;
-            // Default to tomorrow if turning on and no date exists
-            if (subtask.isFollowUp && !subtask.followUpDate) {
-                const tomorrow = new Date();
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                subtask.followUpDate = tomorrow.toISOString().split('T')[0];
+            
+            if (subtask.isFollowUp) {
+                // Turning ON: Default to tomorrow if no date exists
+                if (!subtask.followUpDate) {
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    subtask.followUpDate = tomorrow.toISOString().split('T')[0];
+                }
+            } else {
+                // Turning OFF: Ensure the date persists as the standard End Date
+                if (subtask.followUpDate) {
+                    subtask.endDate = subtask.followUpDate;
+                }
             }
+            
             this.saveState();
             this.renderProjects();
         }
@@ -3156,15 +3166,25 @@ const timelineApp = {
         const task = this.getItem('task', projectId, phaseId, taskId);
         if (task) {
             task.isFollowUp = !task.isFollowUp;
-            if (task.isFollowUp && !task.followUpDate) {
-                const tomorrow = new Date();
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                task.followUpDate = tomorrow.toISOString().split('T')[0];
+            
+            if (task.isFollowUp) {
+                // Turning ON: Default to tomorrow if no date exists
+                if (!task.followUpDate) {
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    task.followUpDate = tomorrow.toISOString().split('T')[0];
+                }
+            } else {
+                // Turning OFF: Ensure the date persists as the standard End Date
+                if (task.followUpDate) {
+                    task.endDate = task.followUpDate;
+                }
             }
+            
             this.saveState();
             this.renderProjects();
         }
-        },
+    },
 
     removeAllDependencies(itemId) {
             const allItems = new Map();
@@ -4260,13 +4280,14 @@ const timelineApp = {
         const customFollowUpDate = document.getElementById('move-followup-input').dataset.date;
         const hasFollowUpDate = customFollowUpDate && customFollowUpDate !== '';
 
-        // Purple status triggers if delegated OR has follow-up date
-        const isFollowUp = isDelegated || hasFollowUpDate;
+        // CHANGED: Only trigger "Follow Up" (purple status) if delegated.
+        // If "Who" is empty, it remains a standard item even if it has a date.
+        const isFollowUp = isDelegated;
 
         const isStandalone = moveType === 'standalone' || projectSelectValue === 'none';
         const isGeneralBin = phaseSelectValue === 'general';
 
-        // --- NEW: Check for Subtask In-Place Update ---
+        // --- Check for Subtask In-Place Update ---
         const original = this.pendingMoveTask.originalContext;
         if (original && original.subtaskId && !isStandalone) {
             const targetProjectId = parseInt(projectSelectValue);
@@ -4282,12 +4303,12 @@ const timelineApp = {
                 if (subtask) {
                     subtask.name = this.pendingMoveTask.text;
                     subtask.delegatedTo = delegateTo;
-                    subtask.isFollowUp = isFollowUp; // Apply purple status
+                    subtask.isFollowUp = isFollowUp; 
                     subtask.followUpDate = hasFollowUpDate ? customFollowUpDate : null;
                     subtask.tags = [...(this.moveModalSelectedTags || [])];
                     
-                    // Optional: Sync End Date if delegated
-                    if (isDelegated && customFollowUpDate) {
+                    // CHANGED: Always set End Date if a date is picked, regardless of delegation
+                    if (customFollowUpDate) {
                         subtask.endDate = customFollowUpDate;
                     }
 
@@ -4306,7 +4327,8 @@ const timelineApp = {
             id: Date.now(),
             name: this.pendingMoveTask.text,
             startDate: null,
-            endDate: isDelegated ? customFollowUpDate : null,
+            // CHANGED: Always set End Date if a date is picked, regardless of delegation
+            endDate: hasFollowUpDate ? customFollowUpDate : null,
             completed: false,
             subtasks: [],
             dependencies: [],
