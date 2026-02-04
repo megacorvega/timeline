@@ -1440,7 +1440,8 @@ const timelineApp = {
             
         } else if (this.actionHubGroupMode === 'context') {
             // --- NEW: Follow Up Section ---
-            const followUpItems = allItems.filter(i => i.isFollowUp);
+            // CHANGED: Added .sort(sortByDate) to ensure soonest dates appear first
+            const followUpItems = allItems.filter(i => i.isFollowUp).sort(sortByDate);
             if (followUpItems.length > 0) {
                     contentHtml += renderGroup("Follow Up / Delegated", followUpItems, "bg-purple-100 dark:bg-purple-900/40 text-purple-900 dark:text-purple-100 border-purple-200", null, null, 'ctx-followup');
             }
@@ -4104,9 +4105,9 @@ const timelineApp = {
         if (quickContextContainer) {
             const suggestedTags = this.defaultTags || [
                 { name: '@Computer', color: 'bg-blue-100 text-blue-800' },
-                { name: '@Phone', color: 'bg-blue-100 text-blue-800' },
+                { name: '@Phone', color: 'bg-green-100 text-green-800' },
                 { name: '@Errands', color: 'bg-orange-100 text-orange-800' },
-                { name: '@Home', color: 'bg-green-100 text-green-800' },
+                { name: '@Home', color: 'bg-teal-100 text-teal-800' },
                 { name: '@Office', color: 'bg-gray-100 text-gray-800' },
                 { name: '#15min', color: 'bg-purple-100 text-purple-800' },
                 { name: '#DeepWork', color: 'bg-red-100 text-red-800' },
@@ -4140,10 +4141,8 @@ const timelineApp = {
         if (prefillData.projectId) {
             projSelect.value = prefillData.projectId;
             typeSelect.value = 'project';
-        } else if (prefillData.delegatedTo) {
-            projSelect.value = 'none';
-            typeSelect.value = 'waiting';
         } else {
+            // CHANGED: Removed auto-selecting 'waiting' if delegatedTo exists
             projSelect.value = 'none';
             typeSelect.value = 'standalone';
         }
@@ -4352,7 +4351,8 @@ const timelineApp = {
         
         followupGroup.classList.remove('hidden');
 
-        if (type === 'project' || type === 'waiting') {
+        // CHANGED: Removed check for 'waiting' type
+        if (type === 'project') {
             projectGroup.classList.remove('hidden');
             
             const isStandalone = projectSelect.value === 'none';
