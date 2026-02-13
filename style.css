@@ -1504,6 +1504,15 @@ button:not(:disabled),
     opacity: 0.7;
 }
 
+/* Overdue Highlight Styles (Timeline View) */
+.task-row.overdue-highlight,
+.subtask-row.overdue-highlight {
+    background-color: var(--hl-red-bg) !important;
+    border-left: 4px solid var(--hl-red-text) !important;
+}
+
+/* Ensure overrides for dark mode are handled by the theme variables defined in :root */
+
 /* Follow Up Styles */
 .task-row.follow-up-active,
 .subtask-row.follow-up-active {

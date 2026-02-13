@@ -1350,6 +1350,13 @@ const timelineApp = {
                 const itemBgClass = item.isGeneral ? 'border-l-4 border-l-gray-300 dark:border-l-gray-600 pl-2' : '';
                 const navCall = item.isStandalone ? '' : `timelineApp.navigateToTask(${item.projectId}, ${item.phaseId || 'null'}, ${item.taskId}, ${item.subtaskId || 'null'})`;
 
+                // --- OVERDUE LOGIC (Action Hub) ---
+                const daysLeftInfo = this.getDaysLeft(item.date);
+                const overdueClass = (!item.completed && daysLeftInfo.isOverdue) 
+                    ? 'bg-red-50 dark:bg-red-900/30 border-l-4 border-l-red-500' // Action Hub Overdue Style
+                    : '';
+                // ----------------------------------
+
                 let dateControlHtml = '';
                 if (item.isStandalone) {
                         const iconHtml = `<div class="date-input-icon-wrapper" onclick="event.stopPropagation(); timelineApp.handleDateTrigger(this.previousElementSibling)"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>`;
@@ -1375,7 +1382,7 @@ const timelineApp = {
                 }
 
                 groupHtml += `
-                <div class="upcoming-task-item flex items-center p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${item.completed ? 'line-through opacity-60' : ''} ${item.isStandalone ? 'no-nav' : 'cursor-pointer'} ${itemBgClass}" 
+                <div class="upcoming-task-item flex items-center p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${item.completed ? 'line-through opacity-60' : ''} ${item.isStandalone ? 'no-nav' : 'cursor-pointer'} ${itemBgClass} ${overdueClass}" 
                     onclick="${navCall}">
                     <div class="flex-shrink-0 mr-3 cursor-pointer group" onclick="event.stopPropagation(); timelineApp.toggleItemComplete(event, ${item.projectId}, ${item.phaseId || 'null'}, ${item.taskId}, ${item.subtaskId || 'null'})">
                         ${item.completed 
@@ -1785,6 +1792,16 @@ const timelineApp = {
             const followUpClass = task.isFollowUp ? 'follow-up-active' : '';
             const followUpIconColor = task.isFollowUp ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400 hover:text-purple-500';
             
+            const displayStart = hasSubtasks ? task.effectiveStartDate : task.startDate;
+            const displayEnd = hasSubtasks ? task.effectiveEndDate : task.endDate;
+
+            // --- OVERDUE LOGIC (Timeline View) ---
+            // Use getDaysLeft on the effective end date
+            const daysInfo = this.getDaysLeft(displayEnd);
+            // Apply override class if overdue and not complete
+            const overdueClass = (!task.completed && daysInfo.isOverdue) ? 'overdue-highlight' : '';
+            // -------------------------------------
+            
             const followUpDateHtml = task.isFollowUp ? `
                 <div class="date-input-container mr-2">
                     <input type="text" 
@@ -1825,11 +1842,8 @@ const timelineApp = {
                 </div>
             `;
             
-            const displayStart = hasSubtasks ? task.effectiveStartDate : task.startDate;
-            const displayEnd = hasSubtasks ? task.effectiveEndDate : task.endDate;
-
             html += `
-                <div class="task-row rounded-lg px-2 py-1 ${depClass} ${selectedClass} ${followUpClass}" data-id="${task.id}" data-type="task" data-project-id="${projectId}" data-phase-id="${phaseId}">
+                <div class="task-row rounded-lg px-2 py-1 ${depClass} ${selectedClass} ${followUpClass} ${overdueClass}" data-id="${task.id}" data-type="task" data-project-id="${projectId}" data-phase-id="${phaseId}">
                     <div class="flex items-center gap-3 item-main-row">
                         ${toggleButton}
                         ${commentDot}
@@ -1933,6 +1947,11 @@ const timelineApp = {
             
             const followUpClass = subtask.isFollowUp ? 'follow-up-active' : '';
             const followUpIconColor = subtask.isFollowUp ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400 hover:text-purple-500';
+
+            // --- OVERDUE LOGIC (Timeline View - Subtask) ---
+            const daysInfo = this.getDaysLeft(subtask.endDate);
+            const overdueClass = (!subtask.completed && daysInfo.isOverdue) ? 'overdue-highlight' : '';
+            // -----------------------------------------------
             
             const followUpDateHtml = subtask.isFollowUp ? `
                 <div class="date-input-container mr-2">
@@ -1977,7 +1996,7 @@ const timelineApp = {
 
             html += `
                 <div class="subtask-row-wrapper">
-                    <div class="flex items-center gap-3 subtask-row ${depClass} ${selectedClass} ${followUpClass}" data-id="${subtask.id}" data-type="subtask" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}">
+                    <div class="flex items-center gap-3 subtask-row ${depClass} ${selectedClass} ${followUpClass} ${overdueClass}" data-id="${subtask.id}" data-type="subtask" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}">
                         ${commentDot}
                         <input type="checkbox" class="custom-checkbox" onchange="timelineApp.toggleSubtaskComplete(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" ${subtask.completed ? 'checked' : ''}>
                         
