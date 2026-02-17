@@ -3071,40 +3071,80 @@ const timelineApp = {
             const task = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId)?.tasks.find(t => t.id === taskId);
             if (task) { if (!task.subtasks) task.subtasks = []; task.subtasks.push({ id: Date.now(), name, startDate: null, endDate: null, completed: false, dependencies: [], dependents: [] }); nameInput.value = ''; this.saveState(); this.renderProjects(); }
         },
+
     moveTask(projectId, fromPhaseId, toPhaseId, taskId) {
-            const project = this.projects.find(p => p.id === projectId);
-            if (!project) return;
-            const fromPhase = project.phases.find(p => p.id === fromPhaseId), toPhase = project.phases.find(p => p.id === toPhaseId);
-            if (!fromPhase || !toPhase) return;
-            const taskIndex = fromPhase.tasks.findIndex(t => t.id === taskId);
-            if (taskIndex === -1) return;
-            const [taskToMove] = fromPhase.tasks.splice(taskIndex, 1);
-            toPhase.tasks.push(taskToMove);
-            this.saveState();
-            this.renderProjects();
-        },
+        const project = this.projects.find(p => p.id === projectId);
+        if (!project) return;
+
+        let sourceList, targetList;
+
+        // 1. Determine Source List (Phase vs General)
+        if (fromPhaseId === null || fromPhaseId === 'null') {
+            sourceList = project.generalTasks;
+        } else {
+            const fromPhase = project.phases.find(p => p.id === fromPhaseId);
+            if (!fromPhase) return;
+            sourceList = fromPhase.tasks;
+        }
+
+        // 2. Determine Target List (Phase vs General)
+        if (toPhaseId === 'general' || toPhaseId === null || toPhaseId === 'null') {
+            if (!project.generalTasks) project.generalTasks = [];
+            targetList = project.generalTasks;
+        } else {
+            const toPhase = project.phases.find(p => p.id === toPhaseId);
+            if (!toPhase) return;
+            targetList = toPhase.tasks;
+        }
+
+        // 3. Find and Move the Task
+        const taskIndex = sourceList.findIndex(t => t.id === taskId);
+        if (taskIndex === -1) return;
+
+        const [taskToMove] = sourceList.splice(taskIndex, 1);
+        targetList.push(taskToMove);
+
+        this.saveState();
+        this.renderProjects();
+    },
 
     toggleMoveTaskDropdown(event, projectId, phaseId, taskId) {
-            event.stopPropagation();
-            const dropdown = document.getElementById(`move-task-dropdown-${taskId}`);
-            const isVisible = dropdown.classList.contains('show');
-            document.querySelectorAll('.move-task-dropdown').forEach(d => d.classList.remove('show'));
+        event.stopPropagation();
+        const dropdown = document.getElementById(`move-task-dropdown-${taskId}`);
+        const isVisible = dropdown.classList.contains('show');
+        document.querySelectorAll('.move-task-dropdown').forEach(d => d.classList.remove('show'));
 
-            if (!isVisible) {
-                const project = this.projects.find(p => p.id === projectId);
-                if (!project) return;
-                let optionsHtml = '';
-                project.phases.forEach(phase => {
-                    if (phase.id === phaseId) {
-                        optionsHtml += `<div class="move-task-dropdown-item disabled">${phase.name} (current)</div>`;
-                    } else {
-                        optionsHtml += `<div class="move-task-dropdown-item" onclick="timelineApp.moveTask(${projectId}, ${phaseId}, ${phase.id}, ${taskId})">${phase.name}</div>`;
-                    }
-                });
-                dropdown.innerHTML = optionsHtml;
-                dropdown.classList.add('show');
+        if (!isVisible) {
+            const project = this.projects.find(p => p.id === projectId);
+            if (!project) return;
+            
+            let optionsHtml = '';
+            
+            // Handle General/Inbox Option
+            const isGeneral = (phaseId === null || phaseId === 'null');
+            
+            if (isGeneral) {
+                optionsHtml += `<div class="move-task-dropdown-item disabled">General / Inbox (current)</div>`;
+            } else {
+                // Pass 'general' as string to moveTask
+                optionsHtml += `<div class="move-task-dropdown-item" onclick="timelineApp.moveTask(${projectId}, ${phaseId}, 'general', ${taskId})">General / Inbox</div>`;
             }
-        },
+
+            // Handle Phase Options
+            project.phases.forEach(phase => {
+                if (phase.id === phaseId) {
+                    optionsHtml += `<div class="move-task-dropdown-item disabled">${phase.name} (current)</div>`;
+                } else {
+                    // Handle the phaseId being null for the 'from' argument if currently in general
+                    const fromId = isGeneral ? 'null' : phaseId;
+                    optionsHtml += `<div class="move-task-dropdown-item" onclick="timelineApp.moveTask(${projectId}, ${fromId}, ${phase.id}, ${taskId})">${phase.name}</div>`;
+                }
+            });
+
+            dropdown.innerHTML = optionsHtml;
+            dropdown.classList.add('show');
+        }
+    },
 
     updateProjectName(projectId, newName) { const p = this.projects.find(p => p.id === projectId); if (p) { p.name = newName; this.saveState(); } },
     updatePhaseName(projectId, phaseId, newName) { const p = this.projects.find(p => p.id === projectId)?.phases.find(ph => ph.id === phaseId); if (p) { p.name = newName; this.saveState(); } },
