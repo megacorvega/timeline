@@ -2434,20 +2434,34 @@ const timelineApp = {
             const targetDate = (item.isFollowUp && item.followUpDate) ? item.followUpDate : item.endDate;
             if (!targetDate) return;
 
-            // D. Construct Label
-            let displayName = item.name;
-            if (parentTask) displayName = `${parentTask.name}: ${item.name}`;
-            if (!project) displayName = `[Inbox] ${displayName}`; // Mark standalone items
+            // D. Construct Tooltip Context
+            let projectLabel = project ? project.name : 'Inbox';
+            let hierarchyLabel = '';
+
+            if (project) {
+                const phaseLabel = phase ? phase.name : 'General';
+                if (parentTask) {
+                    // Subtask: Phase > Task > Subtask
+                    hierarchyLabel = `${phaseLabel} > ${parentTask.name} > ${item.name}`;
+                } else {
+                    // Task: Phase > Task
+                    hierarchyLabel = `${phaseLabel} > ${item.name}`;
+                }
+            } else {
+                // Standalone
+                hierarchyLabel = item.name;
+            }
 
             // E. Add to Bucket
             placeInBucket(targetDate, {
                 id: item.id,
-                name: displayName,
                 projectId: project ? project.id : null,
                 phaseId: phase ? phase.id : null,
                 taskId: parentTask ? parentTask.id : item.id,
                 subtaskId: parentTask ? item.id : null,
-                completed: false
+                completed: false,
+                tooltipProject: projectLabel,
+                tooltipHierarchy: hierarchyLabel
             });
         };
 
@@ -2540,7 +2554,7 @@ const timelineApp = {
                 .on("mouseover", function(event, d) {
                     d3.select(this).style("opacity", 0.8);
                     tooltip.style("visibility", "visible")
-                        .html(`<strong>${d.name}</strong><br>Click to go to task`);
+                        .html(`<strong>${d.tooltipProject}</strong><br><span style="font-size:0.9em">${d.tooltipHierarchy}</span>`);
                 })
                 .on("mousemove", (event) => {
                     tooltip.style("top", (event.pageY - 10) + "px")
