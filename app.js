@@ -26,8 +26,9 @@ const timelineApp = {
     hideCompletedProjects: false,
     tagFilter: 'all',
 
-    // --- NEW: Centralized Default Tags ---
+// --- NEW: Centralized Default Tags ---
     defaultTags: [
+        { name: '#Next', color: 'bg-green-100 text-green-800 border-green-300 font-bold' }, // Added #Next tag
         { name: '@Computer', color: 'bg-blue-100 text-blue-800' },
         { name: '@Phone', color: 'bg-green-100 text-green-800' },
         { name: '@Errands', color: 'bg-orange-100 text-orange-800' },
@@ -1423,6 +1424,7 @@ const timelineApp = {
                         </select>
                     </div>
                     <div class="flex bg-gray-100 dark:bg-slate-700/50 p-1 rounded-lg border border-gray-200 dark:border-gray-600">
+                        <button onclick="timelineApp.setActionHubGroupMode('next')" class="px-3 py-1 text-xs font-bold rounded-md transition-all ${this.actionHubGroupMode === 'next' ? 'bg-white dark:bg-slate-600 shadow-sm text-primary' : 'text-secondary hover:text-primary'}">Next</button>
                         <button onclick="timelineApp.setActionHubGroupMode('time')" class="px-3 py-1 text-xs font-bold rounded-md transition-all ${this.actionHubGroupMode === 'time' ? 'bg-white dark:bg-slate-600 shadow-sm text-primary' : 'text-secondary hover:text-primary'}">Time</button>
                         <button onclick="timelineApp.setActionHubGroupMode('context')" class="px-3 py-1 text-xs font-bold rounded-md transition-all ${this.actionHubGroupMode === 'context' ? 'bg-white dark:bg-slate-600 shadow-sm text-primary' : 'text-secondary hover:text-primary'}">Context</button>
                         <button onclick="timelineApp.setActionHubGroupMode('project')" class="px-3 py-1 text-xs font-bold rounded-md transition-all ${this.actionHubGroupMode === 'project' ? 'bg-white dark:bg-slate-600 shadow-sm text-primary' : 'text-secondary hover:text-primary'}">Project</button>
@@ -1432,7 +1434,39 @@ const timelineApp = {
 
         let contentHtml = '';
 
-        if (this.actionHubGroupMode === 'project') {
+        if (this.actionHubGroupMode === 'next') {
+            // Group 1: Items explicitly tagged with #Next
+            const nextItems = allItems.filter(i => i.tags && i.tags.includes('#Next')).sort(sortByDate);
+            
+            // Group 2: Overdue items (that aren't already in Next)
+            const overdueItems = allItems.filter(i => !i.completed && this.getDaysLeft(i.date).isOverdue && !(i.tags && i.tags.includes('#Next'))).sort(sortByDate);
+            
+            // Group 3: Items due today (that aren't in Next or Overdue)
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const dueTodayItems = allItems.filter(i => {
+                if (i.completed || (i.tags && i.tags.includes('#Next')) || this.getDaysLeft(i.date).isOverdue) return false;
+                if (!i.rawDate) return false;
+                const d = new Date(i.rawDate);
+                d.setHours(0, 0, 0, 0);
+                return d.getTime() === today.getTime();
+            }).sort(sortByDate);
+
+            if (nextItems.length > 0) {
+                contentHtml += renderGroup("🚀 Next Actions", nextItems, "bg-green-100 dark:bg-green-900/40 text-green-900 dark:text-green-100 border-green-200", null, null, 'next-actions');
+            }
+            if (overdueItems.length > 0) {
+                contentHtml += renderGroup("⚠️ Overdue", overdueItems, "bg-red-50 dark:bg-red-900/30 text-red-900 dark:text-red-200 border-red-200", null, null, 'next-overdue');
+            }
+            if (dueTodayItems.length > 0) {
+                contentHtml += renderGroup("📅 Due Today", dueTodayItems, "bg-blue-50 dark:bg-blue-900/30 text-blue-900 dark:text-blue-200 border-blue-200", null, null, 'next-today');
+            }
+            
+            if (nextItems.length === 0 && overdueItems.length === 0 && dueTodayItems.length === 0) {
+                contentHtml = `<div class="upcoming-card p-8 rounded-xl shadow-md text-center text-secondary border border-gray-200 dark:border-gray-700">No #Next actions, overdue tasks, or tasks due today. You're all caught up!</div>`;
+            }
+
+        } else if (this.actionHubGroupMode === 'project') {
             const standaloneItems = allItems.filter(i => i.projectId === null || i.projectId === undefined).sort(sortByDate);
             if (standaloneItems.length > 0) {
                 contentHtml += renderGroup("Standalone", standaloneItems, "bg-gray-200 dark:bg-slate-700 text-secondary", null, null, 'standalone-items');
@@ -3892,7 +3926,7 @@ const timelineApp = {
         
         // NEW: Load Action Hub Grouping Preference
         const savedGroupMode = localStorage.getItem('timelineActionHubGroupMode');
-        this.actionHubGroupMode = savedGroupMode || 'time';
+        this.actionHubGroupMode = savedGroupMode || 'next'; // Changed default to 'next'
     },
 
     setActionHubGroupMode(mode) {
