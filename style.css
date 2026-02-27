@@ -1594,6 +1594,99 @@ button:not(:disabled),
     opacity: 1;
 }
 
+/* --- FOCUS VIEW CUSTOM COMPONENTS --- */
+.focus-project-card {
+    background-color: var(--bg-primary);
+    border-radius: 1rem;
+    /* Soft, diffuse shadow instead of a hard border */
+    box-shadow: 0 10px 25px -5px var(--shadow-color), 0 8px 10px -6px var(--shadow-color);
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 2rem;
+}
+
+.focus-project-header {
+    background-color: color-mix(in srgb, var(--bg-secondary) 40%, transparent);
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-primary) 30%, transparent);
+}
+
+.focus-project-body {
+    /* Subtle background bleed to separate phases visually */
+    background-color: color-mix(in srgb, var(--bg-page) 60%, transparent);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.focus-phase-card {
+    background-color: var(--bg-primary);
+    border-radius: 0.75rem;
+    /* Very subtle inner ring + soft shadow to lift it off the project body */
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-primary) 30%, transparent), 0 4px 6px -1px var(--shadow-color);
+    overflow: hidden;
+}
+
+.focus-phase-header {
+    background-color: color-mix(in srgb, var(--bg-secondary) 50%, transparent);
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-primary) 30%, transparent);
+}
+
+.focus-task-row {
+    border-bottom: 1px solid color-mix(in srgb, var(--border-primary) 30%, transparent);
+    transition: background-color 0.2s ease;
+}
+.focus-task-row:last-child {
+    border-bottom: none;
+}
+
+.focus-task-unfocused {
+    padding: 0.75rem 1rem;
+}
+.focus-task-unfocused:hover {
+    background-color: color-mix(in srgb, var(--bg-secondary) 60%, transparent);
+}
+
+.focus-task-focused {
+    background-color: var(--bg-primary);
+    border-left: 4px solid var(--accent-primary);
+    box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.02);
+}
+
+.focus-task-focused-header {
+    padding: 0.75rem 1rem;
+    background-color: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--border-primary) 30%, transparent);
+}
+
+.focus-task-focused-body {
+    padding: 1.25rem 1.5rem;
+    background-color: color-mix(in srgb, var(--bg-secondary) 15%, transparent);
+}
+
+.focus-detail-panel {
+    background-color: var(--bg-primary);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    box-shadow: 0 1px 3px var(--shadow-color);
+    border: 1px solid color-mix(in srgb, var(--border-primary) 30%, transparent);
+    height: 100%;
+}
+
+.focus-pill {
+    background-color: var(--bg-primary);
+    border: 1px solid color-mix(in srgb, var(--border-primary) 50%, transparent);
+    color: var(--text-secondary);
+    border-radius: 9999px;
+    padding: 2px 10px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    box-shadow: 0 1px 2px var(--shadow-color);
+    white-space: nowrap;
+}
+
 /* Print Styles */
 @media print {
     @page { size: landscape; margin: 0.5in; }

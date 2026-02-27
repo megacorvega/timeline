@@ -2072,37 +2072,35 @@ const timelineApp = {
         const container = this.elements.projectsContainer;
         container.innerHTML = '';
 
-        // FIX: Increased max-width to 5xl for better screen usage and added space-y-8 for vertical rhythm
-        let html = '<div class="max-w-5xl mx-auto pb-10 mt-6 space-y-8">';
+        let html = '<div class="max-w-5xl mx-auto pb-10 mt-6">';
 
         this.projects.forEach(project => {
             if (this.hideCompletedProjects && project.overallProgress >= 100) return;
 
-            // NEW STYLING: Elevated Project Card with a decorative top border and distinct header section
             html += `
-                <div class="bg-primary border border-primary rounded-2xl shadow-lg relative overflow-hidden">
-                    <div class="absolute top-0 left-0 w-full h-1 bg-indigo-500"></div>
-                    <div class="px-6 py-4 border-b border-primary bg-secondary/30 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-                        <h2 class="text-2xl font-black flex items-center gap-3 text-primary tracking-tight">
-                            <svg class="w-6 h-6 text-indigo-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg> 
+                <div class="focus-project-card">
+                    <div class="absolute top-0 left-0 w-full h-1" style="background-color: var(--accent-primary);"></div>
+                    <div class="focus-project-header flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                        <h2 class="text-2xl font-black flex items-center gap-3" style="color: var(--text-primary); letter-spacing: -0.025em;">
+                            <svg class="w-6 h-6 flex-shrink-0" style="color: var(--accent-primary);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg> 
                             ${project.name}
                         </h2>
-                        <div class="text-xs font-bold uppercase tracking-wider text-secondary px-3 py-1 bg-primary rounded-full border border-primary shadow-sm w-max">
+                        <div class="focus-pill">
                             ${Math.round(project.overallProgress || 0)}% Complete
                         </div>
                     </div>
-                    <div class="p-4 sm:p-6 space-y-6 bg-page/20">
+                    <div class="focus-project-body">
             `;
 
             const renderTasks = (tasks, phaseName, phaseId, phaseStartDate, phaseEndDate) => {
                 let phaseHtml = `
-                <div class="bg-primary border border-primary rounded-xl shadow-sm overflow-hidden">
-                    <div class="bg-secondary/40 px-4 py-3 border-b border-primary flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 text-sm font-bold text-primary">
-                        <div class="flex items-center gap-2">
-                            <span class="w-2 h-2 rounded-full bg-indigo-400"></span>
+                <div class="focus-phase-card">
+                    <div class="focus-phase-header flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                        <div class="flex items-center gap-2 font-bold" style="color: var(--text-primary); font-size: 0.875rem;">
+                            <span class="w-2 h-2 rounded-full" style="background-color: var(--accent-primary);"></span>
                             ${phaseName}
                         </div>
-                        <span class="text-[11px] font-semibold text-secondary bg-primary px-2 py-1 rounded-md border border-primary shadow-sm w-max">
+                        <span class="focus-pill text-[11px]">
                             ${phaseStartDate ? this.formatDate(this.parseDate(phaseStartDate)) : 'No Start'} → ${phaseEndDate ? this.formatDate(this.parseDate(phaseEndDate)) : 'No End'}
                         </span>
                     </div>
@@ -2115,53 +2113,53 @@ const timelineApp = {
 
                     if (isFocused) {
                         const taskTags = task.tags || [];
-                        const tagsHtml = taskTags.map(tag => `<span class="px-2 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-md text-xs font-semibold flex items-center gap-1">${tag} <button onclick="timelineApp.removeTag(${project.id}, ${phaseId || 'null'}, ${task.id}, null, '${tag}')"><svg class="w-3 h-3 opacity-50 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button></span>`).join('');
+                        const tagsHtml = taskTags.map(tag => `<span class="tag-badge" style="padding: 2px 6px;">${tag} <button onclick="timelineApp.removeTag(${project.id}, ${phaseId || 'null'}, ${task.id}, null, '${tag}')" class="tag-remove">&times;</button></span>`).join('');
                         
                         let subtasksHtml = '';
                         if (task.subtasks) {
                             task.subtasks.forEach(st => {
                                 subtasksHtml += `
-                                <div class="flex items-center gap-2 bg-primary border border-primary p-1.5 rounded-md text-xs ${st.completed ? 'text-secondary line-through' : 'font-medium text-primary'}">
+                                <div class="flex items-center gap-2 p-1.5 rounded-md text-xs" style="background-color: var(--bg-secondary); border: 1px solid color-mix(in srgb, var(--border-primary) 30%, transparent);">
                                     <input type="checkbox" class="custom-checkbox w-3.5 h-3.5" onchange="timelineApp.toggleSubtaskComplete(${project.id}, ${phaseId || 'null'}, ${task.id}, ${st.id})" ${st.completed ? 'checked' : ''}>
-                                    <span class="editable-text flex-grow" onclick="timelineApp.makeEditable(this, 'updateSubtaskName', ${project.id}, ${phaseId || 'null'}, ${task.id}, ${st.id})">${st.name}</span>
-                                    <button class="ml-auto text-red-400 hover:text-red-600 font-bold px-1" onclick="timelineApp.deleteSubtask(${project.id}, ${phaseId || 'null'}, ${task.id}, ${st.id})">&times;</button>
+                                    <span class="editable-text flex-grow ${st.completed ? 'line-through opacity-60' : ''}" style="color: var(--text-primary);" onclick="timelineApp.makeEditable(this, 'updateSubtaskName', ${project.id}, ${phaseId || 'null'}, ${task.id}, ${st.id})">${st.name}</span>
+                                    <button class="ml-auto hover:text-red-500 font-bold px-1" style="color: var(--text-tertiary);" onclick="timelineApp.deleteSubtask(${project.id}, ${phaseId || 'null'}, ${task.id}, ${st.id})">&times;</button>
                                 </div>`;
                             });
                         }
 
                         phaseHtml += `
-                        <div class="border-b border-primary border-l-4 border-l-indigo-500 bg-primary shadow-inner">
-                            <div class="flex items-center px-4 py-3 bg-indigo-50/50 dark:bg-indigo-900/20">
+                        <div class="focus-task-row focus-task-focused">
+                            <div class="focus-task-focused-header flex items-center">
                                 <input type="checkbox" class="custom-checkbox w-5 h-5 mr-3" onchange="timelineApp.toggleTaskComplete(${project.id}, ${phaseId || 'null'}, ${task.id})" ${task.completed ? 'checked' : ''}>
-                                <input type="text" value="${task.name}" class="flex-grow text-sm font-bold text-indigo-900 dark:text-indigo-300 bg-transparent border-none focus:ring-0 p-0 outline-none" onblur="timelineApp.updateTaskName(${project.id}, ${phaseId || 'null'}, ${task.id}, this.value)">
-                                <button class="text-secondary hover:text-primary p-1 ml-2 bg-primary rounded-md border border-primary shadow-sm" onclick="timelineApp.toggleFocusTask(${task.id})" title="Collapse Task">
+                                <input type="text" value="${task.name}" class="flex-grow text-sm font-bold bg-transparent border-none focus:ring-0 p-0 outline-none" style="color: var(--text-primary);" onblur="timelineApp.updateTaskName(${project.id}, ${phaseId || 'null'}, ${task.id}, this.value)">
+                                <button class="btn-secondary ml-2 p-1 rounded-md" onclick="timelineApp.toggleFocusTask(${task.id})" title="Collapse Task">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
                                 </button>
                             </div>
                             
-                            <div class="px-6 sm:px-12 py-5 bg-secondary/20">
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    <div class="space-y-5">
-                                        <div class="bg-primary p-3 rounded-xl border border-primary shadow-sm">
-                                            <label class="block text-[10px] uppercase tracking-wider font-bold text-secondary mb-2">Schedule</label>
+                            <div class="focus-task-focused-body">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div class="space-y-4">
+                                        <div class="focus-detail-panel">
+                                            <label class="block text-[10px] uppercase tracking-wider font-bold mb-2" style="color: var(--text-secondary);">Schedule</label>
                                             <div class="flex items-center gap-2">
-                                                <div class="flex items-center border border-primary rounded-md bg-secondary/50 px-2 py-1.5 flex-1 cursor-pointer hover:border-indigo-300 transition-colors" onclick="timelineApp.handlePillDateClick(this, 'start', '${task.startDate || ''}', ${project.id}, ${phaseId || 'null'}, ${task.id}, null)">
-                                                    <svg class="w-3.5 h-3.5 text-secondary mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                                                    <span class="text-xs font-medium">${task.startDate ? this.formatDate(this.parseDate(task.startDate)) : 'Set Start'}</span>
+                                                <div class="flex items-center rounded-md px-2 py-1.5 flex-1 cursor-pointer transition-colors" style="background-color: var(--bg-secondary); border: 1px solid color-mix(in srgb, var(--border-primary) 30%, transparent);" onclick="timelineApp.handlePillDateClick(this, 'start', '${task.startDate || ''}', ${project.id}, ${phaseId || 'null'}, ${task.id}, null)">
+                                                    <svg class="w-3.5 h-3.5 mr-2" style="color: var(--text-tertiary);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                                    <span class="text-xs font-medium" style="color: var(--text-primary);">${task.startDate ? this.formatDate(this.parseDate(task.startDate)) : 'Set Start'}</span>
                                                 </div>
-                                                <span class="text-tertiary">→</span>
-                                                <div class="flex items-center border border-primary rounded-md bg-secondary/50 px-2 py-1.5 flex-1 cursor-pointer hover:border-indigo-300 transition-colors" onclick="timelineApp.handlePillDateClick(this, 'end', '${task.endDate || ''}', ${project.id}, ${phaseId || 'null'}, ${task.id}, null)">
-                                                    <span class="text-xs font-medium ${this.getDaysLeft(task.endDate).isOverdue ? 'text-red-500 font-bold' : ''}">${task.endDate ? this.formatDate(this.parseDate(task.endDate)) : 'Set End'}</span>
+                                                <span style="color: var(--text-tertiary);">→</span>
+                                                <div class="flex items-center rounded-md px-2 py-1.5 flex-1 cursor-pointer transition-colors" style="background-color: var(--bg-secondary); border: 1px solid color-mix(in srgb, var(--border-primary) 30%, transparent);" onclick="timelineApp.handlePillDateClick(this, 'end', '${task.endDate || ''}', ${project.id}, ${phaseId || 'null'}, ${task.id}, null)">
+                                                    <span class="text-xs font-medium ${this.getDaysLeft(task.endDate).isOverdue ? 'font-bold' : ''}" style="${this.getDaysLeft(task.endDate).isOverdue ? 'color: var(--red);' : 'color: var(--text-primary);'}">${task.endDate ? this.formatDate(this.parseDate(task.endDate)) : 'Set End'}</span>
                                                 </div>
                                             </div>
                                         </div>
                                         
-                                        <div class="bg-primary p-3 rounded-xl border border-primary shadow-sm">
-                                            <label class="block text-[10px] uppercase tracking-wider font-bold text-secondary mb-2">Tags & Context</label>
+                                        <div class="focus-detail-panel">
+                                            <label class="block text-[10px] uppercase tracking-wider font-bold mb-2" style="color: var(--text-secondary);">Tags & Context</label>
                                             <div class="flex items-center gap-1.5 flex-wrap">
                                                 ${tagsHtml}
                                                 <div class="relative inline-block">
-                                                    <button onclick="timelineApp.toggleTagMenu(event, ${project.id}, ${phaseId || 'null'}, ${task.id}, null)" class="h-6 px-2 rounded-md border border-dashed border-primary flex items-center justify-center text-xs font-semibold text-secondary hover:text-primary hover:border-secondary bg-secondary/30 transition-colors">
+                                                    <button onclick="timelineApp.toggleTagMenu(event, ${project.id}, ${phaseId || 'null'}, ${task.id}, null)" class="h-6 px-2 rounded-md border border-dashed flex items-center justify-center text-xs font-semibold transition-colors" style="border-color: var(--border-primary); color: var(--text-secondary); background-color: color-mix(in srgb, var(--bg-secondary) 50%, transparent);">
                                                         + Tag
                                                     </button>
                                                     <div id="tag-menu-${task.id}" class="tag-menu-dropdown hidden" onclick="event.stopPropagation()">
@@ -2174,58 +2172,58 @@ const timelineApp = {
                                     </div>
 
                                     <div class="space-y-4">
-                                        <div class="bg-primary p-3 rounded-xl border border-primary shadow-sm h-full">
-                                            <label class="flex justify-between items-center mb-2 pb-2 border-b border-secondary/50">
-                                                <span class="text-[10px] uppercase tracking-wider font-bold text-secondary">Subtasks (${task.subtasks ? task.subtasks.filter(st=>st.completed).length : 0}/${task.subtasks ? task.subtasks.length : 0})</span>
-                                                <button class="text-[10px] font-semibold text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded-full hover:bg-indigo-100 transition-colors" onclick="timelineApp.showAddSubtaskInput(${task.id})">+ Add</button>
+                                        <div class="focus-detail-panel flex flex-col">
+                                            <label class="flex justify-between items-center mb-2 pb-2" style="border-bottom: 1px solid color-mix(in srgb, var(--border-primary) 30%, transparent);">
+                                                <span class="text-[10px] uppercase tracking-wider font-bold" style="color: var(--text-secondary);">Subtasks (${task.subtasks ? task.subtasks.filter(st=>st.completed).length : 0}/${task.subtasks ? task.subtasks.length : 0})</span>
+                                                <button class="text-[10px] font-semibold px-2 py-0.5 rounded-full transition-colors" style="background-color: color-mix(in srgb, var(--accent-primary) 15%, transparent); color: var(--accent-primary);" onclick="timelineApp.showAddSubtaskInput(${task.id})">+ Add</button>
                                             </label>
-                                            <div class="space-y-1.5">
+                                            <div class="space-y-1.5 flex-grow">
                                                 ${subtasksHtml}
                                                 <div id="add-subtask-form-${task.id}" class="hidden flex items-center gap-2 mt-2">
-                                                    <input type="text" id="new-subtask-name-${task.id}" placeholder="New subtask..." class="flex-grow w-full px-2 py-1.5 input-primary rounded-md text-xs border-indigo-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" onkeydown="if(event.key==='Enter') timelineApp.addSubtask(${project.id}, ${phaseId || 'null'}, ${task.id})">
+                                                    <input type="text" id="new-subtask-name-${task.id}" placeholder="New subtask..." class="flex-grow w-full px-2 py-1.5 input-primary rounded-md text-xs outline-none" onkeydown="if(event.key==='Enter') timelineApp.addSubtask(${project.id}, ${phaseId || 'null'}, ${task.id})">
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="mt-5 pt-3 border-t border-primary flex justify-between items-center">
+                                <div class="mt-5 pt-3 flex justify-between items-center" style="border-top: 1px solid color-mix(in srgb, var(--border-primary) 30%, transparent);">
                                     <div class="flex gap-3">
-                                        <button class="text-xs font-semibold text-secondary hover:text-primary bg-primary border border-primary px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5 transition-colors" onclick="timelineApp.toggleCommentSection('task', ${project.id}, ${phaseId || 'null'}, ${task.id})">
+                                        <button class="btn-secondary text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors" onclick="timelineApp.toggleCommentSection('task', ${project.id}, ${phaseId || 'null'}, ${task.id})">
                                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
                                             Comments
                                         </button>
-                                        <button class="text-xs font-semibold text-secondary hover:text-primary bg-primary border border-primary px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5 transition-colors" onclick="timelineApp.handleProcessItem(${project.id}, ${phaseId || 'null'}, ${task.id}, null)">
+                                        <button class="btn-secondary text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors" onclick="timelineApp.handleProcessItem(${project.id}, ${phaseId || 'null'}, ${task.id}, null)">
                                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
                                             Move/Delegate
                                         </button>
                                     </div>
-                                    <button class="text-xs font-semibold text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5" onclick="timelineApp.deleteTask(${project.id}, ${phaseId || 'null'}, ${task.id})">
+                                    <button class="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5" style="color: var(--red); background-color: color-mix(in srgb, var(--red) 10%, transparent);" onclick="timelineApp.deleteTask(${project.id}, ${phaseId || 'null'}, ${task.id})">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                                         Delete
                                     </button>
                                 </div>
-                                <div id="comment-section-task-${task.id}" class="comment-section hidden mt-3 border border-primary shadow-inner rounded-xl"></div>
+                                <div id="comment-section-task-${task.id}" class="comment-section hidden mt-3"></div>
                             </div>
                         </div>`;
                     } else {
                         // Unfocused Row
                         phaseHtml += `
-                        <div class="flex items-center px-4 py-3 border-b border-primary hover:bg-secondary cursor-pointer group transition-colors" onclick="timelineApp.toggleFocusTask(${task.id})">
+                        <div class="focus-task-row focus-task-unfocused flex items-center cursor-pointer group" onclick="timelineApp.toggleFocusTask(${task.id})">
                             <input type="checkbox" class="custom-checkbox w-5 h-5 mr-3" onclick="event.stopPropagation()" onchange="timelineApp.toggleTaskComplete(${project.id}, ${phaseId || 'null'}, ${task.id})" ${task.completed ? 'checked' : ''}>
-                            <div class="flex-grow text-sm font-medium text-primary ${task.completed ? 'line-through opacity-60' : ''}">${task.name}</div>
+                            <div class="flex-grow text-sm font-medium ${task.completed ? 'line-through opacity-60' : ''}" style="color: var(--text-primary);">${task.name}</div>
                             <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <span class="text-[10px] uppercase font-bold text-tertiary bg-secondary px-2 py-1 rounded border border-primary shadow-sm">Expand</span>
+                                <span class="text-[10px] uppercase font-bold px-2 py-1 rounded shadow-sm" style="color: var(--text-tertiary); background-color: var(--bg-primary); border: 1px solid color-mix(in srgb, var(--border-primary) 50%, transparent);">Expand</span>
                             </div>
                         </div>`;
                     }
                 });
 
                 phaseHtml += `
-                    <div class="px-4 py-2.5 bg-secondary/30 border-t border-primary">
+                    <div class="px-4 py-2.5" style="background-color: color-mix(in srgb, var(--bg-secondary) 30%, transparent); border-top: 1px solid color-mix(in srgb, var(--border-primary) 30%, transparent);">
                         <div class="flex items-center gap-2">
-                            <input type="text" id="new-task-name-${phaseId || 'gen'}-${project.id}" placeholder="Add a new task..." class="flex-grow w-full px-3 py-1.5 input-primary rounded-md text-xs border-transparent focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 outline-none transition-all" onkeydown="if(event.key==='Enter') timelineApp.addTask(${project.id}, ${phaseId || 'null'}, this.id)">
-                            <button onclick="timelineApp.addTask(${project.id}, ${phaseId || 'null'}, 'new-task-name-${phaseId || 'gen'}-${project.id}')" class="btn-secondary font-semibold rounded-md text-xs px-3 py-1.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600 transition-colors">Add</button>
+                            <input type="text" id="new-task-name-${phaseId || 'gen'}-${project.id}" placeholder="Add a new task..." class="flex-grow w-full px-3 py-1.5 input-primary rounded-md text-xs outline-none transition-all" onkeydown="if(event.key==='Enter') timelineApp.addTask(${project.id}, ${phaseId || 'null'}, this.id)">
+                            <button onclick="timelineApp.addTask(${project.id}, ${phaseId || 'null'}, 'new-task-name-${phaseId || 'gen'}-${project.id}')" class="btn-secondary font-semibold rounded-md text-xs px-3 py-1.5 transition-colors">Add</button>
                         </div>
                     </div>
                 </div>`;
@@ -2240,7 +2238,6 @@ const timelineApp = {
                 html += renderTasks(phase.tasks, phase.name, phase.id, phase.effectiveStartDate || phase.startDate, phase.effectiveEndDate || phase.endDate);
             });
 
-            // FIX: Ensure the project wrapper closes correctly 
             html += `
                     </div> </div> `;
         });
