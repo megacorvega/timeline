@@ -4892,7 +4892,8 @@ const timelineApp = {
                 timeProgress: Math.max(0, timeProgress), // Clamp bottom to 0 for chart
                 progress: p.overallProgress,
                 status: status,
-                projectedEnd: this.formatDate(this.parseDate(projectedEnd))
+                projectedEnd: this.formatDate(this.parseDate(projectedEnd)),
+                priority: p.priority !== undefined ? p.priority : 5 // Capture priority (default to 5)
             };
         });
 
@@ -4980,14 +4981,18 @@ const timelineApp = {
             .attr("text-anchor", "end")
             .text("% Done");
 
-        // 6. Plot Points
-        const circles = chartArea.selectAll("circle")
+        // 6. Plot Points (Grouped nodes for shape + text)
+        const nodes = chartArea.selectAll(".project-node")
             .data(data)
             .enter()
-            .append("circle")
-            .attr("cx", d => x(d.timeProgress))
-            .attr("cy", d => y(d.progress))
-            .attr("r", 8)
+            .append("g")
+            .attr("class", "project-node")
+            .attr("transform", d => `translate(${x(d.timeProgress)}, ${y(d.progress)})`)
+            .style("cursor", "pointer");
+
+        // The circle shape
+        nodes.append("circle")
+            .attr("r", 12) // Increased radius to fit text
             .attr("fill", d => {
                 if(d.status === 'red') return "var(--red)";
                 if(d.status === 'yellow') return "var(--amber)";
@@ -4995,8 +5000,17 @@ const timelineApp = {
             })
             .attr("stroke", "var(--bg-primary)")
             .attr("stroke-width", 2)
-            .style("cursor", "pointer")
             .style("opacity", 0.9);
+
+        // The priority label
+        nodes.append("text")
+            .text(d => `P${d.priority}`)
+            .attr("text-anchor", "middle")
+            .attr("dy", "0.3em") // Vertically center text
+            .style("font-size", "9px")
+            .style("font-weight", "bold")
+            .style("fill", "#ffffff")
+            .style("pointer-events", "none"); // Ensures hover events pass to the parent group
 
         // 7. Tooltips
         let tooltip = d3.select("body").select(".chart-tooltip");
@@ -5004,12 +5018,13 @@ const timelineApp = {
             tooltip = d3.select("body").append("div").attr("class", "chart-tooltip");
         }
 
-        circles.on("mouseover", function(event, d) {
-            d3.select(this).attr("r", 10).style("opacity", 1);
+        nodes.on("mouseover", function(event, d) {
+            d3.select(this).select("circle").attr("r", 14).style("opacity", 1);
             
             tooltip.style("visibility", "visible")
                 .html(`
                     <strong>${d.name}</strong><br/>
+                    Priority: P${d.priority}<br/>
                     Time Elapsed: ${Math.round(d.timeProgress)}%<br/>
                     Progress: ${Math.round(d.progress)}%<br/>
                     Status: <span style="color:var(--${d.status}); font-weight:bold; text-transform:uppercase;">${d.status}</span>
@@ -5020,7 +5035,7 @@ const timelineApp = {
                    .style("left", (event.pageX + 10) + "px");
         })
         .on("mouseout", function() {
-            d3.select(this).attr("r", 8).style("opacity", 0.9);
+            d3.select(this).select("circle").attr("r", 12).style("opacity", 0.9);
             tooltip.style("visibility", "hidden");
         });
     },
