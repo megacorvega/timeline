@@ -1598,44 +1598,43 @@ button:not(:disabled),
 .focus-project-card {
     background-color: var(--bg-primary);
     border-radius: 1rem;
-    /* Soft, diffuse shadow instead of a hard border */
+    border: 1px solid var(--border-primary); /* Added border to define the container */
     box-shadow: 0 10px 25px -5px var(--shadow-color), 0 8px 10px -6px var(--shadow-color);
     position: relative;
     overflow: hidden;
-    margin-bottom: 2rem;
+    margin-bottom: 2.5rem; /* Increased margin between projects */
 }
 
 .focus-project-header {
-    background-color: color-mix(in srgb, var(--bg-secondary) 40%, transparent);
+    background-color: var(--bg-primary); /* Ensures solid fill */
     padding: 1.25rem 1.5rem;
-    border-bottom: 1px solid color-mix(in srgb, var(--border-primary) 30%, transparent);
+    border-bottom: 1px solid var(--border-primary); /* Clean line separating it from the body */
 }
 
 .focus-project-body {
-    /* Subtle background bleed to separate phases visually */
-    background-color: color-mix(in srgb, var(--bg-page) 60%, transparent);
-    padding: 1.5rem;
+    background-color: var(--bg-secondary); /* Give the body a slightly different tint for contrast */
+    padding: 2rem 1.5rem; /* Increased vertical padding to make it breathe */
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 2.5rem; /* Increased from 1.5rem to spread out phases significantly */
 }
 
 .focus-phase-card {
     background-color: var(--bg-primary);
     border-radius: 0.75rem;
-    /* Very subtle inner ring + soft shadow to lift it off the project body */
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-primary) 30%, transparent), 0 4px 6px -1px var(--shadow-color);
+    border: 1px solid var(--border-primary); /* Stronger hard border instead of inset box-shadow */
+    box-shadow: 0 4px 10px -2px var(--shadow-color); /* Stronger drop shadow to make them pop */
     overflow: hidden;
 }
 
 .focus-phase-header {
-    background-color: color-mix(in srgb, var(--bg-secondary) 50%, transparent);
+    background-color: var(--bg-tertiary); /* Make headers definitively stand out against the phase body */
     padding: 0.75rem 1rem;
-    border-bottom: 1px solid color-mix(in srgb, var(--border-primary) 30%, transparent);
+    border-bottom: 1px solid var(--border-primary);
 }
 
 .focus-task-row {
-    border-bottom: 1px solid color-mix(in srgb, var(--border-primary) 30%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--border-primary) 50%, transparent); /* slightly darker separator */
     transition: background-color 0.2s ease;
 }
 .focus-task-row:last-child {

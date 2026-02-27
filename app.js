@@ -2076,11 +2076,14 @@ const timelineApp = {
         this.projects.forEach(project => {
             if (this.hideCompletedProjects && project.overallProgress >= 100) return;
 
+            const isCollapsed = project.focusCollapsed || false;
+
             html += `
                 <div class="focus-project-card">
                     <div class="absolute top-0 left-0 w-full h-1" style="background-color: var(--accent-primary);"></div>
-                    <div class="focus-project-header flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                    <div class="focus-project-header flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors select-none" onclick="timelineApp.toggleFocusProjectCollapse(${project.id})">
                         <h2 class="text-2xl font-black flex items-center gap-3" style="color: var(--text-primary); letter-spacing: -0.025em;">
+                            <svg class="w-6 h-6 flex-shrink-0 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : 'rotate-0'}" style="color: var(--text-tertiary);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
                             <svg class="w-6 h-6 flex-shrink-0" style="color: var(--accent-primary);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg> 
                             ${project.name}
                         </h2>
@@ -2088,7 +2091,7 @@ const timelineApp = {
                             ${Math.round(project.overallProgress || 0)}% Complete
                         </div>
                     </div>
-                    <div class="focus-project-body">
+                    <div class="focus-project-body ${isCollapsed ? 'hidden' : ''}">
             `;
 
             const renderTasks = (tasks, phaseName, phaseId, phaseStartDate, phaseEndDate) => {
@@ -2243,6 +2246,15 @@ const timelineApp = {
 
         html += '</div>'; // End Main Wrapper
         container.innerHTML = html;
+    },
+
+    toggleFocusProjectCollapse(projectId) {
+        const project = this.projects.find(p => p.id === projectId);
+        if (project) {
+            project.focusCollapsed = !project.focusCollapsed;
+            this.saveState();
+            this.renderFocusView();
+        }
     },
 
     getDependencyIcon(item) {
