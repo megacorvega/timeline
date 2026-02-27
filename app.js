@@ -2140,8 +2140,8 @@ const timelineApp = {
                             </div>
                             
                             <div class="focus-task-focused-body">
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div class="space-y-4">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="space-y-3">
                                         <div class="focus-detail-panel">
                                             <label class="block text-[10px] uppercase tracking-wider font-bold mb-2" style="color: var(--text-secondary);">Schedule</label>
                                             <div class="flex items-center gap-2">
@@ -2173,8 +2173,8 @@ const timelineApp = {
                                         </div>
                                     </div>
 
-                                    <div class="space-y-4">
-                                        <div class="focus-detail-panel flex flex-col">
+                                    <div class="h-full">
+                                        <div class="focus-detail-panel flex flex-col h-full">
                                             <label class="flex justify-between items-center mb-2 pb-2" style="border-bottom: 1px solid color-mix(in srgb, var(--border-primary) 30%, transparent);">
                                                 <span class="text-[10px] uppercase tracking-wider font-bold" style="color: var(--text-secondary);">Subtasks (${task.subtasks ? task.subtasks.filter(st=>st.completed).length : 0}/${task.subtasks ? task.subtasks.length : 0})</span>
                                                 <button class="text-[10px] font-semibold px-2 py-0.5 rounded-full transition-colors" style="background-color: color-mix(in srgb, var(--accent-primary) 15%, transparent); color: var(--accent-primary);" onclick="timelineApp.showAddSubtaskInput(${task.id})">+ Add</button>
@@ -2189,7 +2189,7 @@ const timelineApp = {
                                     </div>
                                 </div>
 
-                                <div class="mt-5 pt-3 flex justify-between items-center" style="border-top: 1px solid color-mix(in srgb, var(--border-primary) 30%, transparent);">
+                                <div class="mt-4 pt-3 flex justify-between items-center" style="border-top: 1px solid color-mix(in srgb, var(--border-primary) 30%, transparent);">
                                     <div class="flex gap-3">
                                         <button class="btn-secondary text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors" onclick="timelineApp.toggleCommentSection('task', ${project.id}, ${phaseId || 'null'}, ${task.id})">
                                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
