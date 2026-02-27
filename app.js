@@ -939,7 +939,6 @@ const timelineApp = {
             }
         },
 
-
     getScopedPlannedProgress(date, scopePathData, project) {
             if (!scopePathData || scopePathData.length < 2) {
                 // Fallback to linear project dates if no valid scope phases exist
@@ -1796,7 +1795,7 @@ const timelineApp = {
             const selectedClass = this.firstSelectedItem?.id === task.id ? 'dependency-selected' : '';
             const commentDot = task.comments && task.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
             
-            const isTaskLocked = hasSubtasks; 
+            const isTaskLocked = false; 
             const followUpClass = task.isFollowUp ? 'follow-up-active' : '';
             const followUpIconColor = task.isFollowUp ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400 hover:text-purple-500';
             
