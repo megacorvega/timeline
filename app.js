@@ -1183,7 +1183,7 @@ const timelineApp = {
             this.standaloneTasks.forEach(task => {
                 const displayDate = (task.isFollowUp && task.followUpDate) ? task.followUpDate : (task.endDate || task.followUpDate);
                 allItems.push({
-                    path: 'Inbox',
+                    path: 'List',
                     projectId: null, 
                     phaseId: null, 
                     taskId: task.id,
@@ -1633,7 +1633,7 @@ const timelineApp = {
                     <div class="general-bin-container">
                         <div class="general-bin-header">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
-                            <span>General / Inbox (${project.generalTasks.length})</span>
+                            <span>General / List (${project.generalTasks.length})</span>
                         </div>
                         <div class="space-y-1">
                             ${taskListHtml}
@@ -2469,7 +2469,7 @@ const timelineApp = {
             if (!targetDate) return;
 
             // D. Construct Tooltip Context
-            let projectLabel = project ? project.name : 'Inbox';
+            let projectLabel = project ? project.name : 'List';
             let hierarchyLabel = '';
 
             if (project) {
@@ -3172,10 +3172,10 @@ const timelineApp = {
             const isGeneral = (phaseId === null || phaseId === 'null');
             
             if (isGeneral) {
-                optionsHtml += `<div class="move-task-dropdown-item disabled">General / Inbox (current)</div>`;
+                optionsHtml += `<div class="move-task-dropdown-item disabled">General / List (current)</div>`;
             } else {
                 // Pass 'general' as string to moveTask
-                optionsHtml += `<div class="move-task-dropdown-item" onclick="timelineApp.moveTask(${projectId}, ${phaseId}, 'general', ${taskId})">General / Inbox</div>`;
+                optionsHtml += `<div class="move-task-dropdown-item" onclick="timelineApp.moveTask(${projectId}, ${phaseId}, 'general', ${taskId})">General / List</div>`;
             }
 
             // Handle Phase Options
@@ -3943,9 +3943,9 @@ const timelineApp = {
 
             // --- GTD NAMES ---
             const tabNames = {
-                list: 'Inbox',           // 1. Capture
-                projects: 'Projects',    // 2. Organize & Engage
-                'overall-load': 'Review' // 3. Reflect
+                list: 'List',          
+                projects: 'Projects',    
+                'overall-load': 'Review' 
             };
 
             // Render buttons in the strict order of this.tabOrder
