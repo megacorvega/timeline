@@ -4857,50 +4857,42 @@ const timelineApp = {
         }
 
         const data = activeProjects.map(p => {
-            // STRATEGY: Use EFFECTIVE dates (Projected Reality) for the chart axis.
-            // This ensures the dot appears where the work is actually scheduled to finish.
             const projectedStart = p.effectiveStartDate || p.startDate;
             const projectedEnd = p.effectiveEndDate || p.endDate;
             
-            // The Manual Deadline (if set) is used for Risk Status comparison only
-            const deadline = p.endDate; 
+            const startMs = this.parseDate(projectedStart).getTime();
+            const endMs = this.parseDate(projectedEnd).getTime();
             
-            // Calculate Days Remaining based on PROJECTED finish (Reality)
-            const daysLeftInfo = this.getDaysLeft(projectedEnd);
-            let days = daysLeftInfo.days !== null ? daysLeftInfo.days : 0;
+            // Normalize current time to start of today
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+            const nowMs = now.getTime();
             
-            // Calculate Burn Rate based on Projected Timeline
-            const totalDuration = (this.parseDate(projectedEnd) - this.parseDate(projectedStart)) / (1000 * 60 * 60 * 24);
-            const timeElapsed = (new Date() - this.parseDate(projectedStart)) / (1000 * 60 * 60 * 24);
+            const totalDuration = endMs - startMs;
+            const timeElapsed = nowMs - startMs;
             
+            // Calculate % of time elapsed
             let timeProgress = 0;
             if (totalDuration > 0) {
-                 timeProgress = Math.min(100, Math.max(0, (timeElapsed / totalDuration) * 100));
+                 timeProgress = (timeElapsed / totalDuration) * 100;
+            } else {
+                 // Instantaneous/Same-day task
+                 timeProgress = (nowMs >= startMs) ? 100 : 0;
             }
             
-            // Status Logic:
+            // Status Logic (Progress vs. Time)
+            const diff = p.overallProgress - timeProgress;
             let status = 'green';
             
-            // Check 1: Is the Projected Date strictly later than the Deadline? (Slippage)
-            const isProjectedLate = deadline && (this.parseDate(projectedEnd) > this.parseDate(deadline));
-            
-            // Check 2: Is the Projected Date in the past?
-            const isOverdue = days < 0;
-
-            if (isOverdue) status = 'red';
-            else if (isProjectedLate) status = 'red'; // Mark Red if projected to miss deadline
-            else if (p.overallProgress < (timeProgress - 20)) status = 'red'; // Drag > 20%
-            else if (p.overallProgress < timeProgress) status = 'yellow'; // Any Drag
+            if (diff < -10) status = 'red';          // Progress is 10%+ behind Time
+            else if (diff <= 10) status = 'yellow';  // Progress is tracking evenly with Time (± 10%)
 
             return {
                 name: p.name,
-                daysLeft: days,
+                timeProgress: Math.max(0, timeProgress), // Clamp bottom to 0 for chart
                 progress: p.overallProgress,
                 status: status,
-                realDays: daysLeftInfo.days,
-                isProjectedLate: isProjectedLate,
-                deadline: deadline ? this.formatDate(this.parseDate(deadline)) : 'None',
-                projected: this.formatDate(this.parseDate(projectedEnd))
+                projectedEnd: this.formatDate(this.parseDate(projectedEnd))
             };
         });
 
@@ -4916,36 +4908,71 @@ const timelineApp = {
             .attr("transform", `translate(${margin.left},${margin.top})`);
 
         // 3. Scales
+        // Extend X-axis to at least 120% to clearly show overdue projects
+        const xMax = Math.max(120, d3.max(data, d => d.timeProgress) || 120);
         const x = d3.scaleLinear()
-            .domain([0, Math.max(60, d3.max(data, d => d.daysLeft))]) 
+            .domain([0, xMax]) 
             .range([0, width]);
 
         const y = d3.scaleLinear()
             .domain([0, 100])
             .range([height, 0]);
 
-        // 4. Draw Danger Zone (Background Rect)
-        svg.append("rect")
-            .attr("x", 0)
-            .attr("y", y(50)) 
-            .attr("width", x(14)) 
-            .attr("height", height - y(50))
-            .attr("fill", "rgba(239, 68, 68, 0.1)") 
-            .attr("rx", 4);
+        // 4. Draw Zones using a Clip Path to keep shapes contained inside the chart
+        svg.append("clipPath")
+           .attr("id", "matrix-clip")
+           .append("rect")
+           .attr("width", width)
+           .attr("height", height);
+
+        const chartArea = svg.append("g").attr("clip-path", "url(#matrix-clip)");
+
+        // Background (Yellow "About Even" Zone)
+        chartArea.append("rect")
+            .attr("width", width)
+            .attr("height", height)
+            .attr("fill", "rgba(245, 158, 11, 0.08)");
+
+        // Green Zone Polygon (Completion > Time + 10)
+        chartArea.append("polygon")
+            .attr("points", `${x(0)},${y(100)} ${x(0)},${y(10)} ${x(90)},${y(100)}`)
+            .attr("fill", "rgba(34, 197, 94, 0.12)");
+
+        // Red Zone Polygon (Completion < Time - 10)
+        chartArea.append("polygon")
+            .attr("points", `${x(10)},${y(0)} ${x(xMax)},${y(0)} ${x(xMax)},${y(xMax - 10)}`)
+            .attr("fill", "rgba(239, 68, 68, 0.12)");
+
+        // Draw dotted dividing lines for zones
+        chartArea.append("line")
+            .attr("x1", x(0)).attr("y1", y(10))
+            .attr("x2", x(xMax)).attr("y2", y(xMax + 10))
+            .attr("stroke", "var(--green)")
+            .attr("stroke-width", 1)
+            .attr("stroke-dasharray", "4,4")
+            .attr("opacity", 0.5);
+
+        chartArea.append("line")
+            .attr("x1", x(10)).attr("y1", y(0))
+            .attr("x2", x(xMax)).attr("y2", y(xMax - 10))
+            .attr("stroke", "var(--red)")
+            .attr("stroke-width", 1)
+            .attr("stroke-dasharray", "4,4")
+            .attr("opacity", 0.5);
 
         // 5. Axes
         svg.append("g")
             .attr("transform", `translate(0,${height})`)
-            .call(d3.axisBottom(x).ticks(5))
+            .call(d3.axisBottom(x).ticks(6).tickFormat(d => d + '%'))
             .append("text")
             .attr("x", width)
             .attr("y", 35)
             .attr("fill", "var(--text-secondary)")
             .attr("text-anchor", "end")
-            .text("Projected Days Remaining →");
+            .text("% of Time Elapsed →");
 
         svg.append("g")
-            .call(d3.axisLeft(y).ticks(5))
+            .call(d3.axisLeft(y).ticks(5).tickFormat(d => d + '%'))
             .append("text")
             .attr("x", -10)
             .attr("y", -10)
@@ -4954,11 +4981,11 @@ const timelineApp = {
             .text("% Done");
 
         // 6. Plot Points
-        const circles = svg.selectAll("circle")
+        const circles = chartArea.selectAll("circle")
             .data(data)
             .enter()
             .append("circle")
-            .attr("cx", d => x(Math.max(0, d.daysLeft))) // Clamp negatives to 0
+            .attr("cx", d => x(d.timeProgress))
             .attr("cy", d => y(d.progress))
             .attr("r", 8)
             .attr("fill", d => {
@@ -4980,18 +5007,12 @@ const timelineApp = {
         circles.on("mouseover", function(event, d) {
             d3.select(this).attr("r", 10).style("opacity", 1);
             
-            let lateLabel = '';
-            // Explicitly show why it is late if there is a mismatch
-            if (d.isProjectedLate) {
-                lateLabel = `<br/><span style="color:var(--red); font-weight:bold;">Late (Deadline: ${d.deadline})</span>`;
-            }
-
             tooltip.style("visibility", "visible")
                 .html(`
                     <strong>${d.name}</strong><br/>
-                    Projected: ${d.projected}${lateLabel}<br/>
-                    Days Left: ${d.realDays}<br/>
-                    Progress: ${Math.round(d.progress)}%
+                    Time Elapsed: ${Math.round(d.timeProgress)}%<br/>
+                    Progress: ${Math.round(d.progress)}%<br/>
+                    Status: <span style="color:var(--${d.status}); font-weight:bold; text-transform:uppercase;">${d.status}</span>
                 `);
         })
         .on("mousemove", (event) => {
