@@ -5,6 +5,7 @@ const timelineApp = {
     history: [],
     redoStack: [],
     standaloneTasks: [],
+    focusedTaskId: null,
     moveModalSelectedTags: [], // New state to track tags picked in the modal
     MAX_HISTORY: 10,
     sharedPicker: null,
@@ -1026,15 +1027,14 @@ const timelineApp = {
             // 1. Process General Tasks
             p.generalTasks.forEach(task => {
                 const hasSubtasks = task.subtasks && task.subtasks.length > 0;
+                task.effectiveStartDate = task.startDate;
+                task.effectiveEndDate = task.endDate;
+                
                 if (hasSubtasks) {
-                    task.effectiveStartDate = this.getBoundaryDate(task.subtasks, 'earliest');
-                    task.effectiveEndDate = this.getBoundaryDate(task.subtasks, 'latest');
                     const completedSubtasks = task.subtasks.filter(st => st.completed).length;
                     task.progress = task.subtasks.length > 0 ? (completedSubtasks / task.subtasks.length) * 100 : 0;
                     task.completed = task.progress === 100;
                 } else {
-                    task.effectiveStartDate = task.startDate;
-                    task.effectiveEndDate = task.endDate;
                     task.progress = task.completed ? 100 : 0;
                 }
             });
@@ -1043,15 +1043,14 @@ const timelineApp = {
             p.phases.forEach(phase => {
                 phase.tasks.forEach(task => {
                     const hasSubtasks = task.subtasks && task.subtasks.length > 0;
+                    task.effectiveStartDate = task.startDate;
+                    task.effectiveEndDate = task.endDate;
+                    
                     if (hasSubtasks) {
-                        task.effectiveStartDate = this.getBoundaryDate(task.subtasks, 'earliest');
-                        task.effectiveEndDate = this.getBoundaryDate(task.subtasks, 'latest');
                         const completedSubtasks = task.subtasks.filter(st => st.completed).length;
                         task.progress = task.subtasks.length > 0 ? (completedSubtasks / task.subtasks.length) * 100 : 0;
                         task.completed = task.progress === 100;
                     } else {
-                        task.effectiveStartDate = task.startDate;
-                        task.effectiveEndDate = task.endDate;
                         task.progress = task.completed ? 100 : 0;
                     }
                 });
@@ -1078,7 +1077,7 @@ const timelineApp = {
             p.totalPhaseProgress = p.phases.reduce((sum, ph) => sum + (ph.progress || 0), 0);
             p.overallProgress = p.phases.length > 0 ? p.totalPhaseProgress / p.phases.length : 0;
 
-            // 3. Process Project Dates (Collect dates from Phases AND General Tasks)
+            // 3. Process Project Dates
             const phaseStarts = p.phases.map(ph => ph.effectiveStartDate).filter(Boolean);
             const phaseEnds = p.phases.map(ph => ph.effectiveEndDate).filter(Boolean);
             const genStarts = p.generalTasks.map(t => t.effectiveStartDate).filter(Boolean);
@@ -1087,7 +1086,6 @@ const timelineApp = {
             const allProjStarts = [...phaseStarts, ...genStarts, p.startDate].filter(Boolean).map(d => this.parseDate(d));
             const allProjEnds = [...phaseEnds, ...genEnds, p.endDate].filter(Boolean).map(d => this.parseDate(d));
 
-            // Set effective dates for the project so the header knows what dates to use for color logic
             p.effectiveStartDate = allProjStarts.length > 0 
                 ? new Date(Math.min.apply(null, allProjStarts)).toISOString().split('T')[0] 
                 : (p.startDate || null);
@@ -1152,7 +1150,6 @@ const timelineApp = {
         },
 
     renderProjects(recalculate = true) {
-        // Only run the heavy math if data has actually changed
         if (recalculate) {
             this.calculateRollups();
             this.resolveDependencies();
@@ -1162,6 +1159,8 @@ const timelineApp = {
 
         if (this.projectViewMode === 'gantt') {
             this.renderGanttView();
+        } else if (this.projectViewMode === 'focus') {
+            this.renderFocusView();
         } else {
             this.renderLinearView();
         }
@@ -1187,6 +1186,7 @@ const timelineApp = {
                     projectId: null, 
                     phaseId: null, 
                     taskId: task.id,
+                    subtaskId: null,
                     name: task.name,
                     date: displayDate,
                     rawDate: displayDate ? this.parseDate(displayDate) : null,
@@ -1194,95 +1194,54 @@ const timelineApp = {
                     isFollowUp: task.isFollowUp,
                     delegatedTo: task.delegatedTo,
                     tags: task.tags || [],
-                    isStandalone: true
+                    isStandalone: true,
+                    subtasks: []
                 });
             });
         }
 
-        // 2. Gather Project Tasks
+        // 2. Gather Project Tasks (Do not split out Subtasks)
         this.projects.forEach(project => {
             if (project.generalTasks) {
                 project.generalTasks.forEach(task => {
-                    const currentProjectId = project.id;
-                    const itemBase = {
+                    const displayDate = (task.isFollowUp && task.followUpDate) ? task.followUpDate : (task.effectiveEndDate || task.endDate);
+                    allItems.push({
                         path: `${project.name} > General`,
-                        projectId: currentProjectId,
+                        projectId: project.id,
                         phaseId: null, 
-                        taskId: task.id
-                    };
-                    
-                    if (task.subtasks?.length > 0) {
-                        task.subtasks.forEach(st => {
-                            const displayDate = (st.isFollowUp && st.followUpDate) ? st.followUpDate : st.endDate;
-                            allItems.push({
-                                ...itemBase,
-                                name: `${task.name}: ${st.name}`,
-                                subtaskId: st.id,
-                                date: displayDate,
-                                rawDate: displayDate ? this.parseDate(displayDate) : null,
-                                completed: st.completed,
-                                tags: st.tags || [],
-                                isFollowUp: st.isFollowUp,
-                                delegatedTo: st.delegatedTo,
-                                isGeneral: true
-                            });
-                        });
-                    } else {
-                        const displayDate = (task.isFollowUp && task.followUpDate) ? task.followUpDate : (task.effectiveEndDate || task.endDate);
-                        allItems.push({
-                            ...itemBase,
-                            subtaskId: null,
-                            name: task.name,
-                            date: displayDate,
-                            rawDate: displayDate ? this.parseDate(displayDate) : null,
-                            completed: task.completed,
-                            tags: task.tags || [],
-                            isFollowUp: task.isFollowUp,
-                            delegatedTo: task.delegatedTo,
-                            isGeneral: true
-                        });
-                    }
+                        taskId: task.id,
+                        subtaskId: null,
+                        name: task.name,
+                        date: displayDate,
+                        rawDate: displayDate ? this.parseDate(displayDate) : null,
+                        completed: task.completed,
+                        tags: task.tags || [],
+                        isFollowUp: task.isFollowUp,
+                        delegatedTo: task.delegatedTo,
+                        isGeneral: true,
+                        subtasks: task.subtasks || []
+                    });
                 });
             }
 
             project.phases.forEach(phase => {
                 phase.tasks.forEach(task => {
-                    const itemBase = {
+                    const displayDate = (task.isFollowUp && task.followUpDate) ? task.followUpDate : (task.effectiveEndDate || task.endDate);
+                    allItems.push({
                         path: `${project.name} > ${phase.name}`,
                         projectId: project.id, 
                         phaseId: phase.id, 
-                        taskId: task.id
-                    };
-                    
-                    if (task.subtasks?.length > 0) {
-                        task.subtasks.forEach(st => {
-                            const displayDate = (st.isFollowUp && st.followUpDate) ? st.followUpDate : st.endDate;
-                            allItems.push({
-                                ...itemBase,
-                                name: `${task.name}: ${st.name}`,
-                                subtaskId: st.id,
-                                date: displayDate,
-                                rawDate: displayDate ? this.parseDate(displayDate) : null,
-                                completed: st.completed,
-                                tags: st.tags || [],
-                                isFollowUp: st.isFollowUp,
-                                delegatedTo: st.delegatedTo
-                            });
-                        });
-                    } else {
-                        const displayDate = (task.isFollowUp && task.followUpDate) ? task.followUpDate : (task.effectiveEndDate || task.endDate);
-                        allItems.push({
-                            ...itemBase,
-                            subtaskId: null,
-                            name: task.name,
-                            date: displayDate,
-                            rawDate: displayDate ? this.parseDate(displayDate) : null,
-                            completed: task.completed,
-                            tags: task.tags || [],
-                            isFollowUp: task.isFollowUp,
-                            delegatedTo: task.delegatedTo
-                        });
-                    }
+                        taskId: task.id,
+                        subtaskId: null,
+                        name: task.name,
+                        date: displayDate,
+                        rawDate: displayDate ? this.parseDate(displayDate) : null,
+                        completed: task.completed,
+                        tags: task.tags || [],
+                        isFollowUp: task.isFollowUp,
+                        delegatedTo: task.delegatedTo,
+                        subtasks: task.subtasks || []
+                    });
                 });
             });
         });
@@ -1332,7 +1291,7 @@ const timelineApp = {
             items.forEach(item => {
                 const tagsHtml = (item.tags || []).map(tag => {
                     const colorClass = this.getTagColor(tag);
-                    return `<span class="tag-badge ${colorClass} border-transparent">${tag}<span onclick="event.stopPropagation(); timelineApp.removeTag(${item.projectId}, ${item.phaseId || 'null'}, ${item.taskId}, ${item.subtaskId || 'null'}, '${tag}')" class="tag-remove opacity-50 hover:opacity-100 ml-1">&times;</span></span>`;
+                    return `<span class="tag-badge ${colorClass} border-transparent">${tag}<span onclick="event.stopPropagation(); timelineApp.removeTag(${item.projectId}, ${item.phaseId || 'null'}, ${item.taskId}, null, '${tag}')" class="tag-remove opacity-50 hover:opacity-100 ml-1">&times;</span></span>`;
                 }).join('');
                 
                 const delegationHtml = item.delegatedTo ? `<span class="tag-badge bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border-indigo-200"><svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>${item.delegatedTo}</span>` : '';
@@ -1340,23 +1299,19 @@ const timelineApp = {
                 const pId = item.projectId === null ? 'null' : item.projectId;
                 const phId = item.phaseId === null ? 'null' : item.phaseId;
                 const tId = item.taskId;
-                const sId = item.subtaskId || 'null';
                 
-                const deleteCall = item.subtaskId ? `timelineApp.deleteSubtask(${pId}, ${phId}, ${tId}, ${sId})` : `timelineApp.deleteTask(${pId}, ${phId}, ${tId})`;
-                const processCall = `timelineApp.handleProcessItem(${pId}, ${phId}, ${tId}, ${sId})`;
-                const uniqueId = item.subtaskId || item.taskId;
+                const deleteCall = `timelineApp.deleteTask(${pId}, ${phId}, ${tId})`;
+                const processCall = `timelineApp.handleProcessItem(${pId}, ${phId}, ${tId}, null)`;
                 
-                const tagMenuHtml = `<div class="relative inline-block ml-1"><button onclick="event.stopPropagation(); timelineApp.toggleTagMenu(event, ${pId}, ${phId}, ${tId}, ${sId})" class="add-tag-btn" title="Add Tag"><svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg><span class="ml-0.5 text-[10px]">+</span></button><div id="tag-menu-${uniqueId}" class="tag-menu-dropdown hidden" onclick="event.stopPropagation()"><div class="tag-menu-header"><span class="text-xs font-bold text-secondary">Tags</span><button onclick="timelineApp.toggleTagMenu(event, ${pId}, ${phId}, ${tId}, ${sId})" class="text-gray-400 hover:text-red-500 font-bold">&times;</button></div><input type="text" id="tag-input-${uniqueId}" class="tag-menu-input" placeholder="Search or create..." onkeyup="timelineApp.handleTagInput(event, ${pId}, ${phId}, ${tId}, ${sId})"><div id="tag-options-${uniqueId}" class="tag-menu-options"></div></div></div>`;
+                const tagMenuHtml = `<div class="relative inline-block ml-1"><button onclick="event.stopPropagation(); timelineApp.toggleTagMenu(event, ${pId}, ${phId}, ${tId}, null)" class="add-tag-btn" title="Add Tag"><svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg><span class="ml-0.5 text-[10px]">+</span></button><div id="tag-menu-${tId}" class="tag-menu-dropdown hidden" onclick="event.stopPropagation()"><div class="tag-menu-header"><span class="text-xs font-bold text-secondary">Tags</span><button onclick="timelineApp.toggleTagMenu(event, ${pId}, ${phId}, ${tId}, null)" class="text-gray-400 hover:text-red-500 font-bold">&times;</button></div><input type="text" id="tag-input-${tId}" class="tag-menu-input" placeholder="Search or create..." onkeyup="timelineApp.handleTagInput(event, ${pId}, ${phId}, ${tId}, null)"><div id="tag-options-${tId}" class="tag-menu-options"></div></div></div>`;
 
                 const itemBgClass = item.isGeneral ? 'border-l-4 border-l-gray-300 dark:border-l-gray-600 pl-2' : '';
-                const navCall = item.isStandalone ? '' : `timelineApp.navigateToTask(${item.projectId}, ${item.phaseId || 'null'}, ${item.taskId}, ${item.subtaskId || 'null'})`;
+                const navCall = item.isStandalone ? '' : `timelineApp.navigateToTask(${item.projectId}, ${item.phaseId || 'null'}, ${item.taskId}, null)`;
 
-                // --- OVERDUE LOGIC (Action Hub) ---
                 const daysLeftInfo = this.getDaysLeft(item.date);
                 const overdueClass = (!item.completed && daysLeftInfo.isOverdue) 
-                    ? 'bg-red-50 dark:bg-red-900/30 border-l-4 border-l-red-500' // Action Hub Overdue Style
+                    ? 'bg-red-50 dark:bg-red-900/30 border-l-4 border-l-red-500' 
                     : '';
-                // ----------------------------------
 
                 let dateControlHtml = '';
                 if (item.isStandalone) {
@@ -1382,29 +1337,48 @@ const timelineApp = {
                         </div>`;
                 }
 
+                // SUBTASK RENDER FOR ACTION HUB
+                let subtasksHtml = '';
+                if (item.subtasks && item.subtasks.length > 0) {
+                    subtasksHtml = '<div class="pl-8 py-1 space-y-1 w-full">';
+                    item.subtasks.forEach(st => {
+                        subtasksHtml += `
+                            <div class="flex items-center text-xs ${st.completed ? 'opacity-50' : ''}">
+                                <input type="checkbox" class="custom-checkbox w-3.5 h-3.5 mr-2" onclick="event.stopPropagation()" onchange="timelineApp.toggleSubtaskComplete(${item.projectId}, ${item.phaseId || 'null'}, ${item.taskId}, ${st.id})" ${st.completed ? 'checked' : ''}>
+                                <span class="editable-text ${st.completed ? 'line-through' : ''}" onclick="event.stopPropagation(); timelineApp.makeEditable(this, 'updateSubtaskName', ${item.projectId}, ${item.phaseId || 'null'}, ${item.taskId}, ${st.id})">${st.name}</span>
+                            </div>`;
+                    });
+                    subtasksHtml += '</div>';
+                }
+
                 groupHtml += `
-                <div class="upcoming-task-item flex items-center p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${item.completed ? 'line-through opacity-60' : ''} ${item.isStandalone ? 'no-nav' : 'cursor-pointer'} ${itemBgClass} ${overdueClass}" 
+                <div class="upcoming-task-item flex flex-col p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${item.completed ? 'opacity-60' : ''} ${item.isStandalone ? 'no-nav' : 'cursor-pointer'} ${itemBgClass} ${overdueClass}" 
                     onclick="${navCall}">
-                    <div class="flex-shrink-0 mr-3 cursor-pointer group" onclick="event.stopPropagation(); timelineApp.toggleItemComplete(event, ${item.projectId}, ${item.phaseId || 'null'}, ${item.taskId}, ${item.subtaskId || 'null'})">
-                        ${item.completed 
-                            ? `<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>` 
-                            : `<div class="w-5 h-5 rounded-full border-2 border-gray-300 group-hover:border-green-500"></div>`
-                        }
-                    </div>
-                    <div class="flex-grow min-w-0">
-                        <div class="text-[10px] text-secondary truncate w-2/3">${item.path}</div>
-                        <div class="flex items-center gap-1 flex-wrap pt-0.5">
-                            <span class="font-medium truncate text-sm editable-text mr-1" onclick="event.stopPropagation(); timelineApp.makeEditable(this, '${item.subtaskId ? 'updateSubtaskName' : 'updateTaskName'}', ${item.projectId}, ${item.phaseId || 'null'}, ${item.taskId}, ${item.subtaskId || ''})">${item.name}</span>
-                            <div class="flex-shrink-0 flex items-center flex-wrap">${delegationHtml} ${tagsHtml} ${tagMenuHtml}</div>
+                    
+                    <div class="flex items-center w-full">
+                        <div class="flex-shrink-0 mr-3 cursor-pointer group" onclick="event.stopPropagation(); timelineApp.toggleItemComplete(event, ${item.projectId}, ${item.phaseId || 'null'}, ${item.taskId}, null)">
+                            ${item.completed 
+                                ? `<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>` 
+                                : `<div class="w-5 h-5 rounded-full border-2 border-gray-300 group-hover:border-green-500"></div>`
+                            }
                         </div>
+                        <div class="flex-grow min-w-0 ${item.completed ? 'line-through' : ''}">
+                            <div class="text-[10px] text-secondary truncate w-2/3">${item.path}</div>
+                            <div class="flex items-center gap-1 flex-wrap pt-0.5">
+                                <span class="font-medium truncate text-sm editable-text mr-1" onclick="event.stopPropagation(); timelineApp.makeEditable(this, 'updateTaskName', ${item.projectId}, ${item.phaseId || 'null'}, ${item.taskId})">${item.name}</span>
+                                <div class="flex-shrink-0 flex items-center flex-wrap">${delegationHtml} ${tagsHtml} ${tagMenuHtml}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex-shrink-0 ml-2" onclick="event.stopPropagation()">
+                            ${dateControlHtml}
+                        </div>
+
+                        <button onclick="event.stopPropagation(); ${processCall}" class="text-gray-400 hover:text-blue-500 transition-colors ml-2 flex-shrink-0" title="Process"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg></button>
+                        <button onclick="event.stopPropagation(); ${deleteCall}" class="text-gray-400 hover:text-red-500 transition-colors text-lg font-bold ml-2 flex-shrink-0" title="Delete">&times;</button>
                     </div>
                     
-                    <div class="flex-shrink-0 ml-2" onclick="event.stopPropagation()">
-                        ${dateControlHtml}
-                    </div>
-
-                    <button onclick="event.stopPropagation(); ${processCall}" class="text-gray-400 hover:text-blue-500 transition-colors ml-2 flex-shrink-0" title="Process"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg></button>
-                    <button onclick="event.stopPropagation(); ${deleteCall}" class="text-gray-400 hover:text-red-500 transition-colors text-lg font-bold ml-2 flex-shrink-0" title="Delete">&times;</button>
+                    ${subtasksHtml}
                 </div>`;
             });
             return groupHtml + `</div></div>`;
@@ -1958,53 +1932,12 @@ const timelineApp = {
             sortedSubtasks = sortedSubtasks.filter(s => !s.completed);
         }
 
-        // Sort
-        sortedSubtasks.sort((a,b) => {
-            if (a.isFollowUp && !b.isFollowUp) return -1;
-            if (!a.isFollowUp && b.isFollowUp) return 1;
-            if (a.isFollowUp && b.isFollowUp) {
-                const dateA = a.followUpDate ? new Date(a.followUpDate) : new Date(9999, 11, 31);
-                const dateB = b.followUpDate ? new Date(b.followUpDate) : new Date(9999, 11, 31);
-                return dateA - dateB;
-            }
-            return this.sortByEndDate(a, b, 'endDate');
-        });
-
         if (sortedSubtasks.length === 0) return ''; 
 
         let html = '<div class="ml-12 mt-1 space-y-1 pt-1">';
         
         sortedSubtasks.forEach(subtask => {
-            const depClass = this.dependencyMode && this.firstSelectedItem?.id !== subtask.id ? 'dependency-candidate' : '';
-            const selectedClass = this.firstSelectedItem?.id === subtask.id ? 'dependency-selected' : '';
             const commentDot = subtask.comments && subtask.comments.length > 0 ? `<div class="comment-dot" title="This item has comments"></div>` : '<div class="w-2"></div>';
-            
-            const followUpClass = subtask.isFollowUp ? 'follow-up-active' : '';
-            const followUpIconColor = subtask.isFollowUp ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400 hover:text-purple-500';
-
-            // --- OVERDUE LOGIC (Timeline View - Subtask) ---
-            const daysInfo = this.getDaysLeft(subtask.endDate);
-            const overdueClass = (!subtask.completed && daysInfo.isOverdue) ? 'overdue-highlight' : '';
-            // -----------------------------------------------
-            
-            const followUpDateHtml = subtask.isFollowUp ? `
-                <div class="date-input-container mr-2">
-                    <input type="text" 
-                        value="${subtask.followUpDate ? this.formatDate(this.parseDate(subtask.followUpDate)) : ''}" 
-                        class="date-input border-purple-300 dark:border-purple-700 font-bold text-purple-700 dark:text-purple-300" 
-                        placeholder="Follow Up"
-                        data-project-id="${projectId}" 
-                        data-phase-id="${phaseId}" 
-                        data-task-id="${taskId}" 
-                        data-subtask-id="${subtask.id}"
-                        data-type="subtask-followup" 
-                        data-date="${subtask.followUpDate || ''}" 
-                        oninput="timelineApp.formatDateInput(event)" 
-                        onblur="timelineApp.handleManualDateInput(event)" 
-                        onkeydown="timelineApp.handleDateInputKeydown(event)">
-                    <div class="date-input-icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
-                </div>
-            ` : '';
 
             const tags = subtask.tags || [];
             const tagHtml = tags.map(tag => `
@@ -2014,58 +1947,24 @@ const timelineApp = {
                 </span>
             `).join('');
 
-            const tagMenuHtml = `
-                <div class="relative inline-block ml-2">
-                    <button onclick="timelineApp.toggleTagMenu(event, ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" class="add-tag-btn" title="Add Tag">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
-                        <span class="ml-0.5 text-[10px]">+</span>
-                    </button>
-                    <div id="tag-menu-${subtask.id}" class="tag-menu-dropdown hidden" onclick="event.stopPropagation()">
-                        <input type="text" id="tag-input-${subtask.id}" class="tag-menu-input" placeholder="Search or create..." 
-                            onkeyup="timelineApp.handleTagInput(event, ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})">
-                        <div id="tag-options-${subtask.id}" class="tag-menu-options"></div>
-                    </div>
-                </div>
-            `;
-
             html += `
                 <div class="subtask-row-wrapper">
-                    <div class="flex items-center gap-3 subtask-row ${depClass} ${selectedClass} ${followUpClass} ${overdueClass}" data-id="${subtask.id}" data-type="subtask" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}">
+                    <div class="flex items-center gap-3 subtask-row" data-id="${subtask.id}" data-type="subtask" data-project-id="${projectId}" data-phase-id="${phaseId}" data-task-id="${taskId}">
                         ${commentDot}
                         <input type="checkbox" class="custom-checkbox" onchange="timelineApp.toggleSubtaskComplete(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" ${subtask.completed ? 'checked' : ''}>
                         
-                        ${this.renderProgressPills(subtask.completed ? 100 : 0, subtask.startDate, subtask.endDate, subtask.completed, false)}
-
                         <div class="flex-grow flex items-center flex-wrap gap-2">
                             <span class="text-sm ${subtask.completed ? 'line-through opacity-60' : ''} editable-text" onclick="timelineApp.makeEditable(this, 'updateSubtaskName', ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})">${subtask.name}</span>
-                            <div class="flex items-center">${tagHtml}${tagMenuHtml}</div>
+                            <div class="flex items-center">${tagHtml}</div>
                         </div>
-                        ${this.getDependencyIcon(subtask)}
-                        
-                        <div class="flex items-center">
-                            ${followUpDateHtml}
-                            <button onclick="timelineApp.toggleSubtaskFollowUp(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" 
-                                    class="p-1 rounded-md ${followUpIconColor} transition-colors follow-up-toggle-btn" 
-                                    title="Toggle Follow Up">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="${subtask.isFollowUp ? 'currentColor' : 'none'}" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                                </svg>
-                            </button>
-                        </div>
-                        
+
                         <button onclick="timelineApp.toggleCommentSection('subtask', ${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" class="comment-btn" title="Comments">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-                        </button>
-                        
-                        ${this.renderDateRangePill(subtask.startDate, subtask.endDate, projectId, phaseId, taskId, subtask.id, false, subtask.isDriven)}
-
-                        <button onclick="timelineApp.handleProcessItem(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" class="text-gray-400 hover:text-blue-500 transition-colors ml-2" title="Process / Move">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                         </button>
 
                         <button onclick="timelineApp.deleteSubtask(${projectId}, ${phaseId}, ${taskId}, ${subtask.id})" class="text-gray-400 hover:text-red-500 text-xl font-bold w-5 text-center flex-shrink-0 ml-2">&times;</button>
                     </div>
-                    <div id="comment-section-subtask-${subtask.id}" class="comment-section hidden"></div>
+                    <div id="comment-section-subtask-${subtask.id}" class="comment-section hidden mt-1"></div>
                 </div>
                 `;
         });
@@ -2133,6 +2032,209 @@ const timelineApp = {
             this.hubCollapsedStates[id] = isCollapsed;
             localStorage.setItem('timelineHubCollapsedStates', JSON.stringify(this.hubCollapsedStates));
         }
+    },
+
+    toggleFocusTask(taskId) {
+        if (this.focusedTaskId === taskId) {
+            this.focusedTaskId = null;
+        } else {
+            this.focusedTaskId = taskId;
+        }
+        this.renderFocusView();
+    },
+
+    addTask(projectId, phaseId, inputId) {
+        // Updated to accept inputId to support the Focus View inputs
+        const id = inputId || `new-task-name-${phaseId}`;
+        const nameInput = document.getElementById(id);
+        const name = nameInput.value.trim(); 
+        if (!name) return;
+        
+        const project = this.projects.find(p => p.id === projectId);
+        if (!project) return;
+
+        let targetList;
+        if (phaseId === null || phaseId === 'null') {
+            if (!project.generalTasks) project.generalTasks = [];
+            targetList = project.generalTasks;
+        } else {
+            const phase = project.phases.find(ph => ph.id === phaseId);
+            if (!phase) return;
+            targetList = phase.tasks;
+        }
+
+        targetList.push({ id: Date.now(), name, startDate: null, endDate: null, completed: false, subtasks: [], dependencies: [], dependents: [] }); 
+        this.saveState(); 
+        this.renderProjects(); 
+    },
+
+    renderFocusView() {
+        const container = this.elements.projectsContainer;
+        container.innerHTML = '';
+
+        let html = '<div class="max-w-3xl mx-auto pb-10">';
+
+        this.projects.forEach(project => {
+            if (this.hideCompletedProjects && project.overallProgress >= 100) return;
+
+            html += `
+                <div class="mb-4 mt-8">
+                    <h2 class="text-xl font-bold flex items-center gap-2 text-primary">
+                        <svg class="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg> 
+                        ${project.name}
+                    </h2>
+                </div>
+            `;
+
+            const renderTasks = (tasks, phaseName, phaseId, phaseStartDate, phaseEndDate) => {
+                let phaseHtml = `
+                <div class="bg-primary border border-primary rounded-xl shadow-sm overflow-hidden mb-4">
+                    <div class="bg-secondary px-4 py-2 border-b border-primary flex justify-between items-center text-sm font-bold text-primary">
+                        <div class="flex items-center gap-2">
+                            ${phaseName}
+                        </div>
+                        <span class="text-xs font-normal text-secondary">${phaseStartDate ? this.formatDate(this.parseDate(phaseStartDate)) : ''} ${phaseEndDate ? '- ' + this.formatDate(this.parseDate(phaseEndDate)) : ''}</span>
+                    </div>
+                `;
+
+                tasks.forEach(task => {
+                    if (this.hideCompletedTasks && task.completed) return;
+
+                    const isFocused = this.focusedTaskId === task.id;
+
+                    if (isFocused) {
+                        // Focused Expanded Row
+                        const taskTags = task.tags || [];
+                        const tagsHtml = taskTags.map(tag => `<span class="px-2 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-md text-xs font-semibold flex items-center gap-1">${tag} <button onclick="timelineApp.removeTag(${project.id}, ${phaseId || 'null'}, ${task.id}, null, '${tag}')"><svg class="w-3 h-3 opacity-50 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button></span>`).join('');
+                        
+                        let subtasksHtml = '';
+                        if (task.subtasks) {
+                            task.subtasks.forEach(st => {
+                                subtasksHtml += `
+                                <div class="flex items-center gap-2 bg-primary border border-primary p-1.5 rounded-md text-xs ${st.completed ? 'text-secondary line-through' : 'font-medium text-primary'}">
+                                    <input type="checkbox" class="custom-checkbox w-3.5 h-3.5" onchange="timelineApp.toggleSubtaskComplete(${project.id}, ${phaseId || 'null'}, ${task.id}, ${st.id})" ${st.completed ? 'checked' : ''}>
+                                    <span class="editable-text" onclick="timelineApp.makeEditable(this, 'updateSubtaskName', ${project.id}, ${phaseId || 'null'}, ${task.id}, ${st.id})">${st.name}</span>
+                                    <button class="ml-auto text-red-400 hover:text-red-600" onclick="timelineApp.deleteSubtask(${project.id}, ${phaseId || 'null'}, ${task.id}, ${st.id})">&times;</button>
+                                </div>`;
+                            });
+                        }
+
+                        phaseHtml += `
+                        <div class="border-b border-primary border-l-4 border-l-indigo-500 bg-primary">
+                            <div class="flex items-center px-4 py-3 bg-indigo-50/30 dark:bg-indigo-900/10">
+                                <input type="checkbox" class="custom-checkbox w-5 h-5 mr-3" onchange="timelineApp.toggleTaskComplete(${project.id}, ${phaseId || 'null'}, ${task.id})" ${task.completed ? 'checked' : ''}>
+                                <input type="text" value="${task.name}" class="flex-grow text-sm font-bold text-indigo-900 dark:text-indigo-300 bg-transparent border-none focus:ring-0 p-0 outline-none" onblur="timelineApp.updateTaskName(${project.id}, ${phaseId || 'null'}, ${task.id}, this.value)">
+                                <button class="text-secondary hover:text-primary p-1" onclick="timelineApp.toggleFocusTask(${task.id})">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                </button>
+                            </div>
+                            
+                            <div class="px-6 sm:px-12 py-4 bg-secondary">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div class="space-y-4">
+                                        <div>
+                                            <label class="block text-[10px] uppercase tracking-wider font-bold text-secondary mb-1">Schedule</label>
+                                            <div class="flex items-center gap-2">
+                                                <div class="flex items-center border border-primary rounded-md bg-primary px-2 py-1 flex-1 cursor-pointer hover:border-indigo-300" onclick="timelineApp.handlePillDateClick(this, 'start', '${task.startDate || ''}', ${project.id}, ${phaseId || 'null'}, ${task.id}, null)">
+                                                    <svg class="w-3 h-3 text-secondary mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                                    <span class="text-xs font-medium">${task.startDate ? this.formatDate(this.parseDate(task.startDate)) : 'Set Start'}</span>
+                                                </div>
+                                                <span class="text-tertiary">→</span>
+                                                <div class="flex items-center border border-primary rounded-md bg-primary px-2 py-1 flex-1 cursor-pointer hover:border-indigo-300" onclick="timelineApp.handlePillDateClick(this, 'end', '${task.endDate || ''}', ${project.id}, ${phaseId || 'null'}, ${task.id}, null)">
+                                                    <span class="text-xs font-medium ${this.getDaysLeft(task.endDate).isOverdue ? 'text-red-500 font-bold' : ''}">${task.endDate ? this.formatDate(this.parseDate(task.endDate)) : 'Set End'}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div>
+                                            <label class="block text-[10px] uppercase tracking-wider font-bold text-secondary mb-1">Tags & Context</label>
+                                            <div class="flex items-center gap-1 flex-wrap">
+                                                ${tagsHtml}
+                                                <div class="relative inline-block">
+                                                    <button onclick="timelineApp.toggleTagMenu(event, ${project.id}, ${phaseId || 'null'}, ${task.id}, null)" class="w-6 h-6 rounded-md border border-dashed border-primary flex items-center justify-center text-secondary hover:text-primary hover:border-secondary">
+                                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                                    </button>
+                                                    <div id="tag-menu-${task.id}" class="tag-menu-dropdown hidden" onclick="event.stopPropagation()">
+                                                        <input type="text" id="tag-input-${task.id}" class="tag-menu-input" placeholder="Add tag..." onkeyup="timelineApp.handleTagInput(event, ${project.id}, ${phaseId || 'null'}, ${task.id}, null)">
+                                                        <div id="tag-options-${task.id}" class="tag-menu-options"></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="space-y-4">
+                                        <div>
+                                            <label class="flex justify-between items-end mb-1">
+                                                <span class="text-[10px] uppercase tracking-wider font-bold text-secondary">Subtasks (${task.subtasks ? task.subtasks.filter(st=>st.completed).length : 0}/${task.subtasks ? task.subtasks.length : 0})</span>
+                                                <button class="text-[10px] font-semibold text-indigo-600 hover:underline" onclick="timelineApp.showAddSubtaskInput(${task.id})">+ Add</button>
+                                            </label>
+                                            <div class="space-y-1">
+                                                ${subtasksHtml}
+                                                <div id="add-subtask-form-${task.id}" class="hidden flex items-center gap-2 mt-2">
+                                                    <input type="text" id="new-subtask-name-${task.id}" placeholder="New subtask..." class="flex-grow px-2 py-1 input-primary rounded-md text-xs" onkeydown="if(event.key==='Enter') timelineApp.addSubtask(${project.id}, ${phaseId || 'null'}, ${task.id})">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mt-4 pt-3 border-t border-primary flex justify-between items-center">
+                                    <div class="flex gap-4">
+                                        <button class="text-xs font-semibold text-secondary hover:text-primary flex items-center gap-1" onclick="timelineApp.toggleCommentSection('task', ${project.id}, ${phaseId || 'null'}, ${task.id})">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
+                                            Comments
+                                        </button>
+                                        <button class="text-xs font-semibold text-secondary hover:text-primary flex items-center gap-1" onclick="timelineApp.handleProcessItem(${project.id}, ${phaseId || 'null'}, ${task.id}, null)">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                            Move/Delegate
+                                        </button>
+                                    </div>
+                                    <button class="text-xs font-semibold text-red-500 hover:text-red-700 flex items-center gap-1" onclick="timelineApp.deleteTask(${project.id}, ${phaseId || 'null'}, ${task.id})">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                        Delete
+                                    </button>
+                                </div>
+                                <div id="comment-section-task-${task.id}" class="comment-section hidden mt-2"></div>
+                            </div>
+                        </div>`;
+                    } else {
+                        // Unfocused Row
+                        phaseHtml += `
+                        <div class="flex items-center px-4 py-3 border-b border-primary hover:bg-secondary cursor-pointer group" onclick="timelineApp.toggleFocusTask(${task.id})">
+                            <input type="checkbox" class="custom-checkbox w-5 h-5 mr-3" onclick="event.stopPropagation()" onchange="timelineApp.toggleTaskComplete(${project.id}, ${phaseId || 'null'}, ${task.id})" ${task.completed ? 'checked' : ''}>
+                            <div class="flex-grow text-sm font-medium text-primary ${task.completed ? 'line-through opacity-60' : ''}">${task.name}</div>
+                            <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <span class="text-xs text-tertiary">Click to expand</span>
+                            </div>
+                        </div>`;
+                    }
+                });
+
+                phaseHtml += `
+                    <div class="px-4 py-2 bg-primary border-t border-primary">
+                        <div class="flex items-center gap-2">
+                            <input type="text" id="new-task-name-${phaseId || 'gen'}-${project.id}" placeholder="Add a new task..." class="flex-grow w-full px-2 py-1 input-primary rounded-md text-xs h-[28px]" onkeydown="if(event.key==='Enter') timelineApp.addTask(${project.id}, ${phaseId || 'null'}, this.id)">
+                            <button onclick="timelineApp.addTask(${project.id}, ${phaseId || 'null'}, 'new-task-name-${phaseId || 'gen'}-${project.id}')" class="btn-secondary font-semibold rounded-md text-xs btn-sm">Add</button>
+                        </div>
+                    </div>
+                </div>`;
+                return phaseHtml;
+            };
+
+            if (project.generalTasks && project.generalTasks.length > 0) {
+                html += renderTasks(project.generalTasks, "General Tasks", null, null, null);
+            }
+
+            project.phases.forEach(phase => {
+                html += renderTasks(phase.tasks, phase.name, phase.id, phase.effectiveStartDate || phase.startDate, phase.effectiveEndDate || phase.endDate);
+            });
+
+            html += `</div>`;
+        });
+
+        html += '</div>';
+        container.innerHTML = html;
     },
 
     getDependencyIcon(item) {
@@ -2630,35 +2732,20 @@ const timelineApp = {
             
             let allItems = [];
             
-            // Collect ALL tasks, regardless of date
+            // Collect ALL tasks, regardless of date (skip Subtasks since they don't have separate dates)
             this.projects.forEach(project => {
                 if (this.upcomingProjectFilter !== 'all' && project.id.toString() !== this.upcomingProjectFilter) return;
 
                 project.phases.forEach(phase => {
                     phase.tasks.forEach(task => {
-                        // Check Subtasks
-                        if (task.subtasks && task.subtasks.length > 0) {
-                            task.subtasks.forEach(subtask => {
-                                allItems.push({
-                                    date: subtask.endDate || 'No Date',
-                                    rawDate: subtask.endDate ? this.parseDate(subtask.endDate) : null,
-                                    path: `${project.name} > ${phase.name} > ${task.name}`,
-                                    name: subtask.name,
-                                    completed: subtask.completed,
-                                    projectId: project.id, phaseId: phase.id, taskId: task.id, subtaskId: subtask.id
-                                });
-                            });
-                        } else {
-                            // Check Tasks
-                            allItems.push({
-                                date: task.effectiveEndDate || 'No Date',
-                                rawDate: task.effectiveEndDate ? this.parseDate(task.effectiveEndDate) : null,
-                                path: `${project.name} > ${phase.name}`,
-                                name: task.name,
-                                completed: task.completed,
-                                projectId: project.id, phaseId: phase.id, taskId: task.id, subtaskId: null
-                            });
-                        }
+                        allItems.push({
+                            date: task.effectiveEndDate || 'No Date',
+                            rawDate: task.effectiveEndDate ? this.parseDate(task.effectiveEndDate) : null,
+                            path: `${project.name} > ${phase.name}`,
+                            name: task.name,
+                            completed: task.completed,
+                            projectId: project.id, phaseId: phase.id, taskId: task.id, subtaskId: null
+                        });
                     });
                 });
             });
@@ -3478,6 +3565,8 @@ const timelineApp = {
         
         this.elements.btnViewGantt.classList.toggle('active', mode === 'gantt');
         this.elements.btnViewLinear.classList.toggle('active', mode === 'linear');
+        const focusBtn = document.getElementById('btn-view-focus');
+        if (focusBtn) focusBtn.classList.toggle('active', mode === 'focus');
 
         this.updateProjectViewIndicator();
         
@@ -3490,11 +3579,10 @@ const timelineApp = {
             }
         }
 
-        // OPTIMIZATION: Pass false to skip heavy dependency recalculations
         this.renderProjects(false); 
 
-        // Reset scroll to top when switching to Action Hub
-        if (mode === 'linear') {
+        // Reset scroll to top when switching views
+        if (mode === 'linear' || mode === 'focus') {
             window.scrollTo(0, 0);
         }
     },
