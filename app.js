@@ -1383,8 +1383,8 @@ const timelineApp = {
         const tagOptions = sortedTags.map(tag => `<option value="${tag}" ${this.tagFilter === tag ? 'selected' : ''}>${tag}</option>`).join('');
 
         const toolbarHtml = `
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-3 bg-white dark:bg-slate-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-                <div class="flex flex-wrap items-center gap-4 w-full md:w-auto">
+            <div class="flex flex-col md:flex-row items-start md:items-center mb-4 gap-3 bg-white dark:bg-slate-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+                <div class="flex flex-wrap items-center gap-4">
                     <div class="flex items-center gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
                         <select onchange="timelineApp.setTagFilter(this.value)" class="tag-filter-dropdown bg-transparent text-xs font-semibold focus:outline-none">
@@ -1399,8 +1399,9 @@ const timelineApp = {
                         <button onclick="timelineApp.setActionHubGroupMode('project')" class="whitespace-nowrap px-3 py-1 text-xs font-bold rounded-md transition-all ${this.actionHubGroupMode === 'project' ? 'bg-white dark:bg-slate-600 shadow-sm text-primary' : 'text-secondary hover:text-primary'}">Project</button>
                     </div>
                 </div>
-                <div class="flex items-center gap-2 w-full md:w-auto mt-2 md:mt-0">
-                    <input type="text" id="new-standalone-task-name" placeholder="Add standalone task..." class="flex-grow md:w-48 px-2 py-1 input-primary rounded-md text-xs h-[28px]" onkeydown="if(event.key==='Enter') timelineApp.addStandaloneTask('new-standalone-task-name')">
+                
+                <div class="flex items-center gap-2 w-full md:flex-1 mt-2 md:mt-0">
+                    <input type="text" id="new-standalone-task-name" placeholder="Add standalone task..." class="flex-grow w-full px-2 py-1 input-primary rounded-md text-xs h-[28px]" onkeydown="if(event.key==='Enter') timelineApp.addStandaloneTask('new-standalone-task-name')">
                     <button onclick="timelineApp.addStandaloneTask('new-standalone-task-name')" class="btn-secondary font-semibold rounded-md text-xs btn-sm flex-shrink-0">Add Task</button>
                 </div>
             </div>`;
