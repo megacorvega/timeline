@@ -1383,8 +1383,8 @@ const timelineApp = {
         const tagOptions = sortedTags.map(tag => `<option value="${tag}" ${this.tagFilter === tag ? 'selected' : ''}>${tag}</option>`).join('');
 
         const toolbarHtml = `
-            <div class="flex justify-between items-center mb-4 px-1 bg-white dark:bg-slate-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-                <div class="flex items-center gap-4">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-3 bg-white dark:bg-slate-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+                <div class="flex flex-wrap items-center gap-4 w-full md:w-auto">
                     <div class="flex items-center gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
                         <select onchange="timelineApp.setTagFilter(this.value)" class="tag-filter-dropdown bg-transparent text-xs font-semibold focus:outline-none">
@@ -1392,12 +1392,16 @@ const timelineApp = {
                             ${tagOptions}
                         </select>
                     </div>
-                    <div class="flex bg-gray-100 dark:bg-slate-700/50 p-1 rounded-lg border border-gray-200 dark:border-gray-600">
-                        <button onclick="timelineApp.setActionHubGroupMode('next')" class="px-3 py-1 text-xs font-bold rounded-md transition-all ${this.actionHubGroupMode === 'next' ? 'bg-white dark:bg-slate-600 shadow-sm text-primary' : 'text-secondary hover:text-primary'}">Next</button>
-                        <button onclick="timelineApp.setActionHubGroupMode('time')" class="px-3 py-1 text-xs font-bold rounded-md transition-all ${this.actionHubGroupMode === 'time' ? 'bg-white dark:bg-slate-600 shadow-sm text-primary' : 'text-secondary hover:text-primary'}">Time</button>
-                        <button onclick="timelineApp.setActionHubGroupMode('context')" class="px-3 py-1 text-xs font-bold rounded-md transition-all ${this.actionHubGroupMode === 'context' ? 'bg-white dark:bg-slate-600 shadow-sm text-primary' : 'text-secondary hover:text-primary'}">Context</button>
-                        <button onclick="timelineApp.setActionHubGroupMode('project')" class="px-3 py-1 text-xs font-bold rounded-md transition-all ${this.actionHubGroupMode === 'project' ? 'bg-white dark:bg-slate-600 shadow-sm text-primary' : 'text-secondary hover:text-primary'}">Project</button>
+                    <div class="flex bg-gray-100 dark:bg-slate-700/50 p-1 rounded-lg border border-gray-200 dark:border-gray-600 overflow-x-auto w-full sm:w-auto">
+                        <button onclick="timelineApp.setActionHubGroupMode('next')" class="whitespace-nowrap px-3 py-1 text-xs font-bold rounded-md transition-all ${this.actionHubGroupMode === 'next' ? 'bg-white dark:bg-slate-600 shadow-sm text-primary' : 'text-secondary hover:text-primary'}">Next</button>
+                        <button onclick="timelineApp.setActionHubGroupMode('time')" class="whitespace-nowrap px-3 py-1 text-xs font-bold rounded-md transition-all ${this.actionHubGroupMode === 'time' ? 'bg-white dark:bg-slate-600 shadow-sm text-primary' : 'text-secondary hover:text-primary'}">Time</button>
+                        <button onclick="timelineApp.setActionHubGroupMode('context')" class="whitespace-nowrap px-3 py-1 text-xs font-bold rounded-md transition-all ${this.actionHubGroupMode === 'context' ? 'bg-white dark:bg-slate-600 shadow-sm text-primary' : 'text-secondary hover:text-primary'}">Context</button>
+                        <button onclick="timelineApp.setActionHubGroupMode('project')" class="whitespace-nowrap px-3 py-1 text-xs font-bold rounded-md transition-all ${this.actionHubGroupMode === 'project' ? 'bg-white dark:bg-slate-600 shadow-sm text-primary' : 'text-secondary hover:text-primary'}">Project</button>
                     </div>
+                </div>
+                <div class="flex items-center gap-2 w-full md:w-auto mt-2 md:mt-0">
+                    <input type="text" id="new-standalone-task-name" placeholder="Add standalone task..." class="flex-grow md:w-48 px-2 py-1 input-primary rounded-md text-xs h-[28px]" onkeydown="if(event.key==='Enter') timelineApp.addStandaloneTask('new-standalone-task-name')">
+                    <button onclick="timelineApp.addStandaloneTask('new-standalone-task-name')" class="btn-secondary font-semibold rounded-md text-xs btn-sm flex-shrink-0">Add Task</button>
                 </div>
             </div>`;
 
