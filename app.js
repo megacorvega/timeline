@@ -121,27 +121,23 @@ const timelineApp = {
 
         this.cacheDOMElements();
         
-        // Load data (Active tab, View Mode, Filters)
-        this.loadTabData();
-        
-        // --- FORCE TAB ORDER (Inbox -> Projects -> Review) ---
+        // --- FIXED: Set default order BEFORE loading the saved preferences ---
         this.tabOrder = ['list', 'projects', 'overall-load']; 
         
-        // REMOVED: this.projectViewMode = 'gantt'; (Now handled in loadTabData)
+        // Load data (Active tab, View Mode, Filters, Tab Order)
+        this.loadTabData();
         
         this.renderTabs();
         this.addEventListeners();
         this.applyTheme();
         this.loadProjects();
         
-        // CHANGED: Use setProjectView instead of renderProjects
-        // This ensures the buttons (Timeline/Action Hub) match the loaded state visually
         this.setProjectView(this.projectViewMode);
         
         this.showMainTab(this.activeTab, false);
         this.updateUndoRedoButtons();
         this.initializeSharedDatePicker();
-    },
+    },  
 
     toggleHideCompleted() {
         this.hideCompletedTasks = !this.hideCompletedTasks;
@@ -5223,6 +5219,32 @@ const timelineApp = {
             .text(d => d.data.tag)
             .attr("fill", "white")
             .attr("font-size", "10px");
+    },
+
+    addStandaloneTask(inputId) {
+        const nameInput = document.getElementById(inputId);
+        const name = nameInput.value.trim(); 
+        if (!name) return;
+
+        if (!this.standaloneTasks) this.standaloneTasks = [];
+        
+        this.standaloneTasks.push({
+            id: Date.now(),
+            name: name,
+            startDate: null,
+            endDate: null,
+            completed: false,
+            subtasks: [],
+            dependencies: [],
+            dependents: [],
+            tags: [],
+            isFollowUp: false,
+            delegatedTo: null
+        });
+        
+        nameInput.value = '';
+        this.saveState();
+        this.renderProjects();
     },
 
     generateStrategyInsights() {
