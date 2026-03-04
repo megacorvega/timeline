@@ -1686,6 +1686,21 @@ button:not(:disabled),
     white-space: nowrap;
 }
 
+/* --- DROPDOWN STACKING FIX --- */
+/* Elevates the z-index of any card or row that currently has an open tag menu */
+.upcoming-card:has(.tag-menu-dropdown:not(.hidden)),
+.upcoming-task-item:has(.tag-menu-dropdown:not(.hidden)),
+.task-row:has(.tag-menu-dropdown:not(.hidden)),
+.subtask-row:has(.tag-menu-dropdown:not(.hidden)) {
+    position: relative;
+    z-index: 60;
+}
+
+/* Optional: Ensure the DatePicker icon in the Action Hub toolbar aligns perfectly */
+#new-standalone-task-date {
+    height: 28px;
+}
+
 /* Print Styles */
 @media print {
     @page { size: landscape; margin: 0.5in; }

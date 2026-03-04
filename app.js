@@ -1195,7 +1195,7 @@ const timelineApp = {
             });
         }
 
-        // 2. Gather Project Tasks (Do not split out Subtasks)
+        // 2. Gather Project Tasks
         this.projects.forEach(project => {
             if (project.generalTasks) {
                 project.generalTasks.forEach(task => {
@@ -1271,8 +1271,9 @@ const timelineApp = {
                 prioritySelectHtml = `<select onchange="timelineApp.updateProjectPriority(${projectId}, this.value)" onclick="event.stopPropagation()" class="priority-select ml-auto" title="Priority">${options}</select>`;
             }
 
-            let groupHtml = `<div class="upcoming-card rounded-xl shadow-sm mb-6 border border-gray-200 dark:border-gray-700 overflow-hidden">
-                <div class="px-4 py-2 border-b border-primary ${headerClass} flex items-center justify-between cursor-pointer select-none hover:brightness-95 transition-all" onclick="timelineApp.toggleActionHubGroup('${groupId}')">
+            // MODIFIED: Changed overflow-hidden to overflow-visible so tag menus can overflow. Added rounded-t-xl to header and rounded-b-xl to body.
+            let groupHtml = `<div class="upcoming-card rounded-xl shadow-sm mb-6 border border-gray-200 dark:border-gray-700 overflow-visible">
+                <div class="px-4 py-2 rounded-t-xl border-b border-primary ${headerClass} flex items-center justify-between cursor-pointer select-none hover:brightness-95 transition-all" onclick="timelineApp.toggleActionHubGroup('${groupId}')">
                     <div class="flex items-center gap-3">
                         <svg id="hub-chevron-${groupId}" class="w-5 h-5 transition-transform duration-200 ${chevronRotation}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
                         <h3 class="font-bold flex items-center gap-2 text-sm uppercase tracking-wide">${title} 
@@ -1281,7 +1282,7 @@ const timelineApp = {
                     </div>
                     ${prioritySelectHtml}
                 </div>
-                <div id="hub-group-${groupId}" class="p-1 space-y-1 bg-white dark:bg-slate-900/50 transition-all ${hiddenClass}">`;
+                <div id="hub-group-${groupId}" class="p-1 space-y-1 rounded-b-xl bg-white dark:bg-slate-900/50 transition-all ${hiddenClass}">`;
             
             items.forEach(item => {
                 const tagsHtml = (item.tags || []).map(tag => {
@@ -1332,7 +1333,6 @@ const timelineApp = {
                         </div>`;
                 }
 
-                // SUBTASK RENDER FOR ACTION HUB
                 let subtasksHtml = '';
                 if (item.subtasks && item.subtasks.length > 0) {
                     subtasksHtml = '<div class="pl-8 py-1 space-y-1 w-full">';
@@ -1382,6 +1382,7 @@ const timelineApp = {
         const sortedTags = Array.from(new Set(this.getAllTags())).sort();
         const tagOptions = sortedTags.map(tag => `<option value="${tag}" ${this.tagFilter === tag ? 'selected' : ''}>${tag}</option>`).join('');
 
+        // MODIFIED: Inject new Date Pick HTML element into the add standalone task toolbar area
         const toolbarHtml = `
             <div class="flex flex-col md:flex-row items-start md:items-center mb-4 gap-3 bg-white dark:bg-slate-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
                 <div class="flex flex-wrap items-center gap-4">
@@ -1401,21 +1402,27 @@ const timelineApp = {
                 </div>
                 
                 <div class="flex items-center gap-2 w-full md:flex-1 mt-2 md:mt-0">
-                    <input type="text" id="new-standalone-task-name" placeholder="Add standalone task..." class="flex-grow w-full px-2 py-1 input-primary rounded-md text-xs h-[28px]" onkeydown="if(event.key==='Enter') timelineApp.addStandaloneTask('new-standalone-task-name')">
-                    <button onclick="timelineApp.addStandaloneTask('new-standalone-task-name')" class="btn-secondary font-semibold rounded-md text-xs btn-sm flex-shrink-0">Add Task</button>
+                    <input type="text" id="new-standalone-task-name" placeholder="Add standalone task..." class="flex-grow w-full px-2 py-1 input-primary rounded-md text-xs h-[28px]" onkeydown="if(event.key==='Enter') timelineApp.addStandaloneTask('new-standalone-task-name', 'new-standalone-task-date')">
+                    
+                    <div class="date-input-container">
+                        <input type="text" id="new-standalone-task-date" placeholder="Due Date" class="date-input" data-type="new-standalone-date" oninput="timelineApp.formatDateInput(event)" onblur="timelineApp.handleManualDateInput(event)" onkeydown="timelineApp.handleDateInputKeydown(event)">
+                        <div class="date-input-icon-wrapper" onclick="timelineApp.handleDateTrigger(document.getElementById('new-standalone-task-date'))">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                    </div>
+
+                    <button onclick="timelineApp.addStandaloneTask('new-standalone-task-name', 'new-standalone-task-date')" class="btn-secondary font-semibold rounded-md text-xs btn-sm flex-shrink-0">Add Task</button>
                 </div>
             </div>`;
 
         let contentHtml = '';
 
         if (this.actionHubGroupMode === 'next') {
-            // Group 1: Items explicitly tagged with #Next
             const nextItems = allItems.filter(i => i.tags && i.tags.includes('#Next')).sort(sortByDate);
-            
-            // Group 2: Overdue items (that aren't already in Next)
             const overdueItems = allItems.filter(i => !i.completed && this.getDaysLeft(i.date).isOverdue && !(i.tags && i.tags.includes('#Next'))).sort(sortByDate);
             
-            // Group 3: Items due today (that aren't in Next or Overdue)
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             const dueTodayItems = allItems.filter(i => {
@@ -1464,13 +1471,10 @@ const timelineApp = {
             });
             
         } else if (this.actionHubGroupMode === 'context') {
-            // --- NEW: Follow Up Section ---
-            // CHANGED: Added .sort(sortByDate) to ensure soonest dates appear first
             const followUpItems = allItems.filter(i => i.isFollowUp).sort(sortByDate);
             if (followUpItems.length > 0) {
                     contentHtml += renderGroup("Follow Up / Delegated", followUpItems, "bg-purple-100 dark:bg-purple-900/40 text-purple-900 dark:text-purple-100 border-purple-200", null, null, 'ctx-followup');
             }
-            // ------------------------------
 
             const contextBuckets = {};
             const noContextBucket = [];
@@ -2784,13 +2788,14 @@ const timelineApp = {
             datedItems.sort((a, b) => a.rawDate - b.rawDate);
 
             // Helper to render a group of tasks
+            // MODIFIED: Changed overflow-hidden to overflow-visible and added rounded-t-xl / rounded-b-xl
             const renderGroup = (title, items, headerClass) => {
                 if (items.length === 0) return '';
-                let html = `<div class="upcoming-card rounded-xl shadow-md mb-4 overflow-hidden">
-                    <div class="p-3 border-b border-primary ${headerClass}">
+                let html = `<div class="upcoming-card rounded-xl shadow-md mb-4 overflow-visible">
+                    <div class="p-3 rounded-t-xl border-b border-primary ${headerClass}">
                         <h3 class="font-bold">${title} <span class="text-sm font-normal opacity-75">(${items.length})</span></h3>
                     </div>
-                    <div class="p-3 space-y-2">`;
+                    <div class="p-3 space-y-2 rounded-b-xl">`;
                     
                 items.forEach(item => {
                     const completedClass = item.completed ? 'line-through opacity-60' : '';
@@ -2811,7 +2816,6 @@ const timelineApp = {
             const groupedByDate = d3.group(datedItems, d => d.date);
             const today = new Date(); today.setHours(0,0,0,0);
 
-            // Sort the dates
             const sortedDates = Array.from(groupedByDate.keys()).sort((a,b) => this.parseDate(a) - this.parseDate(b));
 
             sortedDates.forEach(dateStr => {
@@ -3107,7 +3111,7 @@ const timelineApp = {
         if (dateStr && !/^\d{2}\/\d{2}\/\d{2}$/.test(dateStr)) { revert(); return; }
         
         if (!dateStr) {
-            if (!input.dataset.type.startsWith('new-project') && !input.dataset.type.startsWith('move')) {
+            if (!input.dataset.type.startsWith('new-project') && !input.dataset.type.startsWith('move') && input.dataset.type !== 'new-standalone-date') {
                 this.updateDate({ type: input.dataset.type, projectId: input.dataset.projectId === 'null' ? null : parseInt(input.dataset.projectId), phaseId: parseInt(input.dataset.phaseId), taskId: parseInt(input.dataset.taskId), subtaskId: parseInt(input.dataset.subtaskId), element: input }, null);
             }
             return;
@@ -3117,7 +3121,7 @@ const timelineApp = {
         const dateObj = new Date(year + 2000, month - 1, day);
         const newDate = dateObj.toISOString().split('T')[0], oldDate = input.dataset.date || null;
         
-        if (input.dataset.type === 'new-project-start' || input.dataset.type === 'new-project-end' || input.dataset.type === 'move-followup') {
+        if (input.dataset.type === 'new-project-start' || input.dataset.type === 'new-project-end' || input.dataset.type === 'move-followup' || input.dataset.type === 'new-standalone-date') {
             input.dataset.date = newDate;
             return;
         }
@@ -3665,8 +3669,6 @@ const timelineApp = {
 
     initializeSharedDatePicker() {
         const dummy = document.createElement('input'); 
-        // Fix: Do not remove dummy input, but hide it. 
-        // This ensures the flatpickr instance maintains a valid reference in the DOM.
         dummy.style.position = 'absolute';
         dummy.style.visibility = 'hidden';
         dummy.style.pointerEvents = 'none';
@@ -3684,7 +3686,7 @@ const timelineApp = {
                 const newDate = instance.formatDate(selectedDates[0], "Y-m-d");
                 const { type, oldDate, element } = this.currentPickerContext;
 
-                if (type.startsWith('new-project') || type === 'move-followup') { 
+                if (type.startsWith('new-project') || type === 'move-followup' || type === 'new-standalone-date') { 
                     element.value = this.formatDate(this.parseDate(newDate)); 
                     element.dataset.date = newDate; 
                     instance.close(); 
@@ -3717,7 +3719,6 @@ const timelineApp = {
                 this.calendarContainer.appendChild(button); 
             }]
         });
-        // Removed: document.body.removeChild(dummy);
     },
 
     handleDateTrigger(trigger) {
@@ -5226,10 +5227,20 @@ const timelineApp = {
             .attr("font-size", "10px");
     },
 
-    addStandaloneTask(inputId) {
+    addStandaloneTask(inputId, dateInputId = null) {
         const nameInput = document.getElementById(inputId);
         const name = nameInput.value.trim(); 
         if (!name) return;
+
+        let endDate = null;
+        if (dateInputId) {
+            const dateInput = document.getElementById(dateInputId);
+            if (dateInput && dateInput.dataset.date) {
+                endDate = dateInput.dataset.date;
+                dateInput.value = '';
+                delete dateInput.dataset.date;
+            }
+        }
 
         if (!this.standaloneTasks) this.standaloneTasks = [];
         
@@ -5237,7 +5248,7 @@ const timelineApp = {
             id: Date.now(),
             name: name,
             startDate: null,
-            endDate: null,
+            endDate: endDate,
             completed: false,
             subtasks: [],
             dependencies: [],
