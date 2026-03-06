@@ -1023,7 +1023,9 @@ const timelineApp = {
             p.generalTasks.forEach(task => {
                 const hasSubtasks = task.subtasks && task.subtasks.length > 0;
                 task.effectiveStartDate = task.startDate;
-                task.effectiveEndDate = task.endDate;
+                
+                // UPDATE: Factor in follow-up dates for general tasks
+                task.effectiveEndDate = (task.isFollowUp && task.followUpDate) ? task.followUpDate : task.endDate;
                 
                 if (hasSubtasks) {
                     const completedSubtasks = task.subtasks.filter(st => st.completed).length;
@@ -1039,7 +1041,9 @@ const timelineApp = {
                 phase.tasks.forEach(task => {
                     const hasSubtasks = task.subtasks && task.subtasks.length > 0;
                     task.effectiveStartDate = task.startDate;
-                    task.effectiveEndDate = task.endDate;
+                    
+                    // UPDATE: Factor in follow-up dates for phase tasks
+                    task.effectiveEndDate = (task.isFollowUp && task.followUpDate) ? task.followUpDate : task.endDate;
                     
                     if (hasSubtasks) {
                         const completedSubtasks = task.subtasks.filter(st => st.completed).length;
@@ -1199,7 +1203,8 @@ const timelineApp = {
         this.projects.forEach(project => {
             if (project.generalTasks) {
                 project.generalTasks.forEach(task => {
-                    const displayDate = (task.isFollowUp && task.followUpDate) ? task.followUpDate : (task.effectiveEndDate || task.endDate);
+                    // UPDATE: Use effectiveEndDate since calculateRollups handles the fallback logic
+                    const displayDate = task.effectiveEndDate || task.endDate;
                     allItems.push({
                         path: `${project.name} > General`,
                         projectId: project.id,
@@ -1221,7 +1226,8 @@ const timelineApp = {
 
             project.phases.forEach(phase => {
                 phase.tasks.forEach(task => {
-                    const displayDate = (task.isFollowUp && task.followUpDate) ? task.followUpDate : (task.effectiveEndDate || task.endDate);
+                    // UPDATE: Use effectiveEndDate since calculateRollups handles the fallback logic
+                    const displayDate = task.effectiveEndDate || task.endDate;
                     allItems.push({
                         path: `${project.name} > ${phase.name}`,
                         projectId: project.id, 
@@ -1271,7 +1277,6 @@ const timelineApp = {
                 prioritySelectHtml = `<select onchange="timelineApp.updateProjectPriority(${projectId}, this.value)" onclick="event.stopPropagation()" class="priority-select ml-auto" title="Priority">${options}</select>`;
             }
 
-            // MODIFIED: Changed overflow-hidden to overflow-visible so tag menus can overflow. Added rounded-t-xl to header and rounded-b-xl to body.
             let groupHtml = `<div class="upcoming-card rounded-xl shadow-sm mb-6 border border-gray-200 dark:border-gray-700 overflow-visible">
                 <div class="px-4 py-2 rounded-t-xl border-b border-primary ${headerClass} flex items-center justify-between cursor-pointer select-none hover:brightness-95 transition-all" onclick="timelineApp.toggleActionHubGroup('${groupId}')">
                     <div class="flex items-center gap-3">
@@ -1382,7 +1387,6 @@ const timelineApp = {
         const sortedTags = Array.from(new Set(this.getAllTags())).sort();
         const tagOptions = sortedTags.map(tag => `<option value="${tag}" ${this.tagFilter === tag ? 'selected' : ''}>${tag}</option>`).join('');
 
-        // MODIFIED: Inject new Date Pick HTML element into the add standalone task toolbar area
         const toolbarHtml = `
             <div class="flex flex-col md:flex-row items-start md:items-center mb-4 gap-3 bg-white dark:bg-slate-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
                 <div class="flex flex-wrap items-center gap-4">
@@ -1804,8 +1808,9 @@ const timelineApp = {
             const followUpClass = task.isFollowUp ? 'follow-up-active' : '';
             const followUpIconColor = task.isFollowUp ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400 hover:text-purple-500';
             
-            const displayStart = hasSubtasks ? task.effectiveStartDate : task.startDate;
-            const displayEnd = hasSubtasks ? task.effectiveEndDate : task.endDate;
+            // UPDATE: Consistently use effective dates for display and calculation logic
+            const displayStart = task.effectiveStartDate || task.startDate;
+            const displayEnd = task.effectiveEndDate || task.endDate;
 
             // --- OVERDUE LOGIC (Timeline View) ---
             // Use getDaysLeft on the effective end date
@@ -2150,13 +2155,13 @@ const timelineApp = {
                                         <div class="focus-detail-panel">
                                             <label class="block text-[10px] uppercase tracking-wider font-bold mb-2" style="color: var(--text-secondary);">Schedule</label>
                                             <div class="flex items-center gap-2">
-                                                <div class="flex items-center rounded-md px-2 py-1.5 flex-1 cursor-pointer transition-colors" style="background-color: var(--bg-secondary); border: 1px solid color-mix(in srgb, var(--border-primary) 30%, transparent);" onclick="timelineApp.handlePillDateClick(this, 'start', '${task.startDate || ''}', ${project.id}, ${phaseId || 'null'}, ${task.id}, null)">
+                                                <div class="flex items-center rounded-md px-2 py-1.5 flex-1 cursor-pointer transition-colors" style="background-color: var(--bg-secondary); border: 1px solid color-mix(in srgb, var(--border-primary) 30%, transparent);" onclick="timelineApp.handlePillDateClick(this, 'start', '${task.effectiveStartDate || task.startDate || ''}', ${project.id}, ${phaseId || 'null'}, ${task.id}, null)">
                                                     <svg class="w-3.5 h-3.5 mr-2" style="color: var(--text-tertiary);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                                                    <span class="text-xs font-medium" style="color: var(--text-primary);">${task.startDate ? this.formatDate(this.parseDate(task.startDate)) : 'Set Start'}</span>
+                                                    <span class="text-xs font-medium" style="color: var(--text-primary);">${(task.effectiveStartDate || task.startDate) ? this.formatDate(this.parseDate(task.effectiveStartDate || task.startDate)) : 'Set Start'}</span>
                                                 </div>
                                                 <span style="color: var(--text-tertiary);">→</span>
-                                                <div class="flex items-center rounded-md px-2 py-1.5 flex-1 cursor-pointer transition-colors" style="background-color: var(--bg-secondary); border: 1px solid color-mix(in srgb, var(--border-primary) 30%, transparent);" onclick="timelineApp.handlePillDateClick(this, 'end', '${task.endDate || ''}', ${project.id}, ${phaseId || 'null'}, ${task.id}, null)">
-                                                    <span class="text-xs font-medium ${this.getDaysLeft(task.endDate).isOverdue ? 'font-bold' : ''}" style="${this.getDaysLeft(task.endDate).isOverdue ? 'color: var(--red);' : 'color: var(--text-primary);'}">${task.endDate ? this.formatDate(this.parseDate(task.endDate)) : 'Set End'}</span>
+                                                <div class="flex items-center rounded-md px-2 py-1.5 flex-1 cursor-pointer transition-colors" style="background-color: var(--bg-secondary); border: 1px solid color-mix(in srgb, var(--border-primary) 30%, transparent);" onclick="timelineApp.handlePillDateClick(this, 'end', '${task.effectiveEndDate || task.endDate || ''}', ${project.id}, ${phaseId || 'null'}, ${task.id}, null)">
+                                                    <span class="text-xs font-medium ${this.getDaysLeft(task.effectiveEndDate || task.endDate).isOverdue ? 'font-bold' : ''}" style="${this.getDaysLeft(task.effectiveEndDate || task.endDate).isOverdue ? 'color: var(--red);' : 'color: var(--text-primary);'}">${(task.effectiveEndDate || task.endDate) ? this.formatDate(this.parseDate(task.effectiveEndDate || task.endDate)) : 'Set End'}</span>
                                                 </div>
                                             </div>
                                         </div>
