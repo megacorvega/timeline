@@ -166,7 +166,6 @@ const timelineApp = {
     },
 
     toggleSubtaskFollowUp(projectId, phaseId, taskId, subtaskId) {
-        // Using getItem helper for consistency
         const subtask = this.getItem('subtask', projectId, phaseId, taskId, subtaskId);
         if (subtask) {
             subtask.isFollowUp = !subtask.isFollowUp;
@@ -177,6 +176,7 @@ const timelineApp = {
                     const tomorrow = new Date();
                     tomorrow.setDate(tomorrow.getDate() + 1);
                     subtask.followUpDate = tomorrow.toISOString().split('T')[0];
+                    subtask.endDate = subtask.followUpDate; // SYNC
                 }
             } else {
                 // Turning OFF: Ensure the date persists as the standard End Date
@@ -3338,7 +3338,13 @@ const timelineApp = {
         if (type.startsWith('project')) { 
             targetItem = project; 
             dateField = type.endsWith('start') ? 'startDate' : 'endDate'; 
-            itemName = `Project '${project.name}'`; 
+            itemName = `Project '${project?.name}'`; 
+        } else if (type.startsWith('phase')) {
+            const phase = project?.phases.find(ph => ph.id === phaseId);
+            if (!phase) return;
+            targetItem = phase;
+            dateField = type.endsWith('start') ? 'startDate' : 'endDate';
+            itemName = `Phase '${phase.name}'`;
         } else {
             const task = this.getItem('task', projectId, phaseId, taskId);
             if (!task) return;
@@ -3362,11 +3368,19 @@ const timelineApp = {
                 if (!project.logs) project.logs = [];
                 project.logs.push({ timestamp: new Date().toISOString(), item: itemName, from: oldDate, to: value, comment });
             }
+            
             targetItem[dateField] = value;
+
+            // --- SYNC FOLLOW UP AND END DATES ---
+            if (dateField === 'followUpDate') {
+                targetItem.endDate = value;
+            } else if (dateField === 'endDate' && targetItem.isFollowUp) {
+                targetItem.followUpDate = value;
+            }
         }
         this.saveState(); 
         this.renderProjects();
-        },
+    },
 
     toggleTaskComplete(projectId, phaseId, taskId) {
         const t = this.getItem('task', projectId, phaseId, taskId);
@@ -3397,6 +3411,7 @@ const timelineApp = {
                     const tomorrow = new Date();
                     tomorrow.setDate(tomorrow.getDate() + 1);
                     task.followUpDate = tomorrow.toISOString().split('T')[0];
+                    task.endDate = task.followUpDate; // SYNC
                 }
             } else {
                 // Turning OFF: Ensure the date persists as the standard End Date
